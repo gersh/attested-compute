@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -187,6 +188,16 @@ class ZetaPocTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
+
+    def test_v1_algorithm_definition_is_immutable_and_pinned(self) -> None:
+        self.assertEqual(
+            zeta.ALGORITHM_DEFINITION,
+            REPOSITORY_ROOT / "specifications/REAL_ZETA_POC.md",
+        )
+        self.assertEqual(
+            hashlib.sha256(zeta.ALGORITHM_DEFINITION.read_bytes()).hexdigest(),
+            "9a3bd6af5548d2c8c882f30787e4fe1170babca78143a24d40523fbf72ec6cb9",
+        )
 
     def test_integral_tail_formula_for_zeta_two(self) -> None:
         lower, upper = zeta._tail_bounds(2, 4096)

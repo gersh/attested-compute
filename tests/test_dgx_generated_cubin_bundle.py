@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import hashlib
 import json
 from pathlib import Path
@@ -85,11 +84,28 @@ class GeneratedCubinBundleTests(unittest.TestCase):
         )
 
     @staticmethod
-    def hardware(row_count: int) -> dict:
+    def hardware(
+        row_count: int,
+        *,
+        module: Path,
+        rows: Path,
+        results: Path,
+        challenge_nonce: str | None,
+    ) -> dict:
+        encoded_rows = rows.read_bytes()
+        input_payload = encoded_rows[packager.GENERATED_HEADER.size :]
         return {
             "schema_version": 1,
             "kind": "sparkinterval_generated_driver_run",
+            "byte_binding_schema_version": 1,
+            "challenge_nonce": challenge_nonce,
             "module_kind": "offline_cubin",
+            "module_sha256": sha256(module),
+            "module_size_bytes": module.stat().st_size,
+            "input_payload_sha256": hashlib.sha256(input_payload).hexdigest(),
+            "input_payload_size_bytes": len(input_payload),
+            "output_file_sha256": sha256(results),
+            "output_file_size_bytes": results.stat().st_size,
             "device_count": 1,
             "device_index": 0,
             "device_name": "NVIDIA GB10",
@@ -287,8 +303,34 @@ class GeneratedCubinBundleTests(unittest.TestCase):
             + phase4_payload
         )
 
-        hardware = self.hardware(len(batch["rows"]))
-        zero_hardware = self.hardware(9)
+        hardware = self.hardware(
+            len(batch["rows"]),
+            module=main_cubin,
+            rows=self.work / "rows.bin",
+            results=self.work / "results.bin",
+            challenge_nonce="11" * 32,
+        )
+        zero_hardware = self.hardware(
+            9,
+            module=zero_cubin_path,
+            rows=self.work / "signed-zero-rows.bin",
+            results=self.work / "signed-zero-results.bin",
+            challenge_nonce="22" * 32,
+        )
+        replay_hardware = self.hardware(
+            len(batch["rows"]),
+            module=main_cubin,
+            rows=self.work / "rows.bin",
+            results=self.work / "results.replay.bin",
+            challenge_nonce="33" * 32,
+        )
+        zero_replay_hardware = self.hardware(
+            9,
+            module=zero_cubin_path,
+            rows=self.work / "signed-zero-rows.bin",
+            results=self.work / "signed-zero-results.replay.bin",
+            challenge_nonce="44" * 32,
+        )
         write_json(self.work / "driver-run.json", hardware)
         write_json(self.work / "signed-zero-driver-run.json", zero_hardware)
 
@@ -332,13 +374,13 @@ class GeneratedCubinBundleTests(unittest.TestCase):
             "deterministic_generation": True,
             "deterministic_cubin_reassembly": True,
             "deterministic_execution_replay": True,
-            "replay_hardware_execution": copy.deepcopy(hardware),
+            "replay_hardware_execution": replay_hardware,
             "exact_reference_recomputed": exact_main,
             "signed_zero_exact_reference_recomputed": exact_zero,
             "signed_zero_deterministic_generation": True,
             "signed_zero_deterministic_cubin_reassembly": True,
             "signed_zero_deterministic_execution_replay": True,
-            "signed_zero_replay_hardware_execution": copy.deepcopy(zero_hardware),
+            "signed_zero_replay_hardware_execution": zero_replay_hardware,
             "phase4_generated_payload_equal": True,
             "sass_audit_passed": True,
             "signed_zero_sass_audit_passed": True,
@@ -440,6 +482,21 @@ class GeneratedCubinBundleTests(unittest.TestCase):
             bundle["statement"]["algorithm"]["definition_sha256"],
             sha256(self.work / "kernel.sm_121.cubin"),
         )
+        hardware = self.report()["hardware_execution"]
+        self.assertEqual(
+            hardware["input_payload_size_bytes"],
+            (self.work / "rows.bin").stat().st_size
+            - packager.GENERATED_HEADER.size,
+        )
+        self.assertEqual(
+            hardware["output_file_sha256"], sha256(self.work / "results.bin")
+        )
+        self.assertNotEqual(
+            hardware["challenge_nonce"],
+            self.report()["strong_acceptance"]["replay_hardware_execution"][
+                "challenge_nonce"
+            ],
+        )
         roles = {item["role"]: item for item in bundle["statement"]["build_artifacts"]}
         for role, original in (
             ("gpu_cubin", self.work / "kernel.sm_121.cubin"),
@@ -495,6 +552,29 @@ class GeneratedCubinBundleTests(unittest.TestCase):
         report["hardware_execution"]["allow_other_device"] = True
         self.replace_report(report)
         with self.assertRaisesRegex(bundle_format.BundleError, "development device override"):
+            self.package()
+
+    def test_rejects_driver_input_payload_binding_mismatch(self) -> None:
+        report = self.report()
+        report["hardware_execution"]["input_payload_sha256"] = "00" * 32
+        write_json(
+            self.work / "driver-run.json", report["hardware_execution"]
+        )
+        self.replace_report(report)
+        with self.assertRaisesRegex(
+            bundle_format.BundleError, "input_payload_sha256 does not bind"
+        ):
+            self.package()
+
+    def test_rejects_replay_output_binding_mismatch(self) -> None:
+        report = self.report()
+        report["strong_acceptance"]["replay_hardware_execution"][
+            "output_file_sha256"
+        ] = "00" * 32
+        self.replace_report(report)
+        with self.assertRaisesRegex(
+            bundle_format.BundleError, "output_file_sha256 does not bind"
+        ):
             self.package()
 
     def test_rejects_cubin_tampering(self) -> None:

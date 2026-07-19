@@ -38,6 +38,11 @@ MAX_CANONICAL_JSON_BYTES = 512 * 1024 * 1024
 # limit keeps an untrusted certificate from requesting billion-bit work in a
 # single expression node; application expressions need only small powers.
 MAX_POW_EXPONENT = 64
+# Saturating symbolic bounds for the exact-rational Lean full checker. They
+# prevent small nested-power expressions and large row/expression products
+# from turning canonical input into unbounded arithmetic work.
+MAX_ARITHMETIC_COST_PER_ROW = 4_096
+MAX_TOTAL_ARITHMETIC_WORK = 10_000_000
 
 
 class FormatError(ValueError):
@@ -318,6 +323,23 @@ def validate_expression(
     _fail(f"{_path}.op is unsupported: {op!r}")
 
 
+def expression_arithmetic_cost(value: dict[str, Any]) -> int:
+    """Conservative saturating cost shared with the Lean full checker."""
+
+    cap = MAX_ARITHMETIC_COST_PER_ROW + 1
+    op = value["op"]
+    if op in {"const", "var"}:
+        return 1
+    if op in {"neg", "abs"}:
+        return min(cap, expression_arithmetic_cost(value["arg"]) + 1)
+    if op == "pow_nat":
+        argument = expression_arithmetic_cost(value["arg"])
+        return min(cap, argument * max(value["exponent"], 1) + 1)
+    left = expression_arithmetic_cost(value["left"])
+    right = expression_arithmetic_cost(value["right"])
+    return min(cap, left + right + 1)
+
+
 def validate_batch(value: Any) -> dict[str, Any]:
     batch = _exact_object(
         value,
@@ -337,6 +359,17 @@ def validate_batch(value: Any) -> dict[str, Any]:
         _fail("reference batch.rows must not be empty")
     if len(rows) > MAX_BATCH_ROWS:
         _fail(f"reference batch.rows must contain at most {MAX_BATCH_ROWS} rows")
+    arithmetic_cost = expression_arithmetic_cost(batch["expression"])
+    if arithmetic_cost > MAX_ARITHMETIC_COST_PER_ROW:
+        _fail(
+            "reference batch.expression arithmetic cost exceeds "
+            f"{MAX_ARITHMETIC_COST_PER_ROW}"
+        )
+    if len(rows) * arithmetic_cost > MAX_TOTAL_ARITHMETIC_WORK:
+        _fail(
+            "reference batch row count times expression arithmetic cost exceeds "
+            f"{MAX_TOTAL_ARITHMETIC_WORK}"
+        )
     for row_index, raw_row in enumerate(rows):
         row = _array(raw_row, f"reference batch.rows[{row_index}]")
         if len(row) != variable_count:

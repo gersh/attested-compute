@@ -119,6 +119,12 @@ class ReferenceFormatTests(unittest.TestCase):
         with self.assertRaisesRegex(wire.FormatError, "at most 64"):
             wire.validate_batch(too_large_power)
 
+        explosive = {"op": "var", "index": 0}
+        for _ in range(5):
+            explosive = {"op": "pow_nat", "arg": explosive, "exponent": 64}
+        with self.assertRaisesRegex(wire.FormatError, "arithmetic cost exceeds"):
+            wire.validate_batch(batch(explosive, [[interval(ONE_NEXT)]], 1))
+
     def test_exact_evaluator_uses_outward_rounding(self) -> None:
         request = batch(
             {

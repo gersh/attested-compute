@@ -1,63 +1,133 @@
 # Trust model
 
-SparkInterval keeps mathematical soundness and execution provenance separate.
-Neither a build record nor a successful test is promoted into a mathematical
-theorem.
+SparkInterval treats these as independent questions:
 
-## Axiom-free mathematical core
+1. Does a mathematical algorithm enclose the intended exact value?
+2. Does a supplied result witness imply a stated theorem?
+3. Does modeled generated code implement the modeled algorithm?
+4. Did a particular physical system execute particular bytes and return a
+   particular result?
 
-The modules below `SparkInterval` (except the explicitly named
-`Execution/Trusted` namespace for the two execution bridges) must
-contain no `sorry`, `admit`, `axiom`, or `unsafe` declaration.  Their theorems
-are checked by Lean.  The axiom audit records the foundational axioms reported
-by Lean and fails on unapproved source declarations.
+Lean proofs answer the first three only within their stated formal models. A
+run bundle or signature addresses provenance and integrity, not mathematical
+soundness. The [correctness matrix](CORRECTNESS_CLAIMS.md) gives the supported
+combinations.
 
-A full Lean-checkable result certificate could use this core without trusting a
-GPU run.  In that mode the GPU is only a fast certificate producer.
+## Lean proof dependencies
 
-The current Python reference package is not such a certificate. It is checked
-by Python, and neither it, the CUDA wire evaluator, nor the typed generated-PTX
-polynomial slice has a proved refinement to the Lean model. They remain
-external conformance layers until Lean decoder, generator/kernel correctness,
-certificate-checker, and bridge theorems are implemented.
+The automatic source audit scans the Lean library and generator. It rejects
+`sorry`, `admit`, `unsafe`, and all source `axiom` declarations except:
 
-## DGX Spark profiles
+- [`dgx_operator_signed_run_sound`](../SparkInterval/Execution/Trusted/DGXOperatorSignature.lean#L24);
+- [`h100_attested_run_sound`](../SparkInterval/Execution/Trusted/H100Attestation.lean#L27).
 
-DGX Spark execution records have `evidence_class: "local_unattested"` and
-`hardware_attestation: null`.  Their hashes make accidental or subsequent
-modification detectable, and their environment data aids reproduction.  They
-do **not** establish that a particular program ran on a genuine device.  A
-malicious host can fabricate the record and all files it names.
+[`tools/audit_axioms.sh`](../tools/audit_axioms.sh) also elaborates a file of
+`#print axioms` commands for the public mathematical, certificate, compiler,
+and machine theorems. It passes the captured output to
+[`check_axiom_report.py`](../tools/check_axiom_report.py), which enforces both
+the expected report counts and dependency allowlists:
 
-Interpreting a DGX result as a physical execution additionally trusts:
+- exactly 84 core reports, allowing only `propext`, `Classical.choice`, and
+  `Quot.sound`;
+- exactly two execution-bridge reports, allowing those foundations and the two
+  named execution axioms.
 
-- the host OS, runner, CUDA loader and driver;
-- NVIDIA's PTX semantics, offline `ptxas` PTX-to-cubin translation, and the
-  Driver API's loading/execution of the recorded cubin (plus PTX JIT only when
-  explicitly using development mode);
-- the GB10 hardware, memory and storage;
-- artifact collection and SHA-256 implementations;
-- the operator's control of the machine.
+A missing or extra report and any dependency outside the relevant allowlist
+fail the audit. The output remains useful as an inspectable record, but this
+fixed public theorem surface is not dependent on human-only filtering.
 
-Unsigned DGX local records cannot satisfy either positive Lean execution
-policy and cannot be converted into `AlgorithmReturned`.
+Lean foundations such as `propext`, `Classical.choice`, and `Quot.sound` can
+appear in checked theorem dependencies. They are not project-specific physical
+execution assumptions. Conversely, `native_decide` uses native proof
+reflection and contributes its own axiom dependency. It is not an execution
+attestation axiom, but a verification policy may still choose to forbid it.
 
-### Operator-signed local record
+The generated full-certificate modes expose this choice:
 
-An optional detached Ed25519 signature can bind an approved operator key to
-the exact canonical local run bundle. Verification is fail-closed: it checks
-all bound artifact bytes, pins a separately supplied public key, verifies the
-domain-separated signature, and requires persistent nonce replay state. The
-inner evidence remains `local_unattested`, and verification always reports
-`hardware_evidence: false`.
+| Concrete generated theorem | Default `kernel` mode | Explicit `native` mode |
+| --- | --- | --- |
+| Direct materialized certificate, row bound, and finite-sum bound | `decide_cbv`; no `native_decide` dependency in the recorded theorem output | `native_decide` |
+| Exact serialized JSON/parser/hash binding | `native_decide` | `native_decide` |
 
-This signature establishes only that the selected key signed the record. A
-malicious or mistaken operator, compromised host, or stolen key can sign a
-fabricated record. It supplies provenance and change detection, not remote
-hardware truth.
+Generic certificate soundness theorems are independent of the concrete
+reduction mode. A default direct typed-data theorem can therefore avoid
+`native_decide`; the current generated proof of equality with the exact JSON
+bytes cannot. Generated namespaces and receipts bind the selected mode so the
+two dependency profiles cannot be confused. Witness-specific generated modules
+are not among the fixed reports counted by `audit_axioms.sh`; they print their
+own concrete theorem dependencies when compiled and those reports must be
+retained and interpreted according to the selected mode.
 
-For workflows that deliberately trust the operator's assertion, Lean exposes
-that extra physical claim as a separate, conspicuously named axiom:
+Avoid the ambiguous phrase “axiom-free repository.” The precise statement is
+that the source audit permits only the two named project execution axioms, and
+that each public theorem's printed dependencies must be interpreted on its own.
+
+## Mathematical result certificates
+
+A full result certificate lets Lean independently decode every row and
+reevaluate its expression with exact rational interval arithmetic. The generic
+soundness result does not assume that a GPU ran. An untrusted producer may
+generate the witness; if the checker proves the desired predicate, execution
+provenance is unnecessary for that predicate.
+
+This removes only the execution question. A certificate theorem proves exactly
+its formal statement—currently row-wise containment or upper bounds and a
+finite-sum upper bound. It does not automatically prove an analytic tail,
+decode an application-specific report, or establish a theorem about zeta
+zeros.
+
+The compiled checker executable relies on the ordinary build/runtime toolchain
+to report its Boolean result. A generated Lean module additionally asks Lean to
+check concrete theorem declarations, with the proof dependencies disclosed
+above.
+
+## Generated-code model
+
+The generated-code proof is a theorem about a typed polynomial AST and Lean's
+one-thread machine semantics. It covers the instructions emitted by this
+compiler, exact compiler structure and opcode order, deterministic text
+rendering, modeled memory/control flow, output representation, and exact-real
+containment under explicit hypotheses.
+
+The trusted computing base for interpreting an actual DGX run as an instance
+of that theorem still includes:
+
+- the connection between emitted PTX text and NVIDIA PTX semantics;
+- `ptxas` translation and the relationship between PTX and SASS;
+- the CUDA loader, driver, and scheduling behavior;
+- GPU arithmetic, memory, and control-flow hardware;
+- the host runner, operating system, storage, and artifact collection;
+- the relevant hashing and serialization implementations.
+
+Static PTX/SASS audits and differential tests provide useful evidence about
+this boundary, but they are not refinement proofs. An independently checked
+full result certificate can avoid relying on the boundary for its own
+mathematical conclusion.
+
+## DGX local records
+
+DGX Spark records use `local_unattested` evidence and
+`hardware_attestation: null`. Their hashes detect modification relative to the
+supplied bundle and artifacts. A malicious host can fabricate all of those
+bytes, so an unsigned record does not establish physical execution.
+
+Freshness also requires an external challenger. A nonce generated only by the
+prover is a uniqueness field; a verifier-issued nonce plus durable replay state
+supports an anti-replay claim.
+
+### Operator-signed DGX records
+
+The optional Ed25519 sidecar signs a domain-separated payload that binds the
+exact canonical bundle bytes and statement. Verification requires all artifact
+bytes, a separately pinned public key, and persistent replay state. Trusting
+only the key embedded in the sidecar proves no operator identity.
+
+A successful signature check proves that the pinned key signed the record. It
+does not prove that the record is true, that the key was isolated, or that a
+GPU ran. The inner evidence remains `local_unattested`, and verification
+reports `hardware_evidence: false`.
+
+Lean makes the additional truthfulness decision explicit:
 
 ```lean
 axiom dgx_operator_signed_run_sound
@@ -66,37 +136,34 @@ axiom dgx_operator_signed_run_sound
     AlgorithmReturned statement statement.result
 ```
 
-`checkDGXOperatorSignature` structurally binds the complete claim and accepts
-only a privately constructed, externally verified operator-signature
-capability for `dgxSparkSM121` plus `localUnattested`. It does not implement
-Ed25519 inside Lean. The axiom is the explicit assumption that the approved
-operator's signed statement truthfully describes a physical run; it is not a
-consequence of signature unforgeability.
+`checkDGXOperatorSignature` performs structural statement matching; it does
+not implement Ed25519. Its positive evidence type has a private constructor.
+The Python signature verifier exists, but a trusted importer that binds its
+canonical output, verifier identity, pinned key, claim, and result to that
+private Lean capability does not. The execution axiom therefore describes the
+intended trust boundary but is not currently consumable from a JSON sidecar by
+an end-to-end repository command.
 
-The Python verifier is implemented, but automatic construction of this private
-Lean capability from the canonical JSON sidecar is not. A future importer must
-remain inside the trusted boundary and bind the exact verifier, key ID, bundle,
-claim, and result before the axiom can be used.
+Using this mode trusts OpenSSL's Ed25519 implementation, private-key handling,
+out-of-band public-key approval, replay-state durability, the importer when one
+exists, and—through the named axiom—the operator's truthfulness about physical
+execution.
 
-## H100 confidential-computing profile
+## H100 confidential-computing records
 
-The intended production chain does not claim that GPU attestation directly
-measures a mathematical algorithm.  A measured confidential workload must:
+The repository can cross-build `compute_90` PTX and `sm_90` cubins and exercise
+mock/policy rejection paths. Those artifacts do not show that an H100 was
+queried or executed. The included hardware-acceptance provider is a
+fail-closed stub.
 
-1. generate or receive a signing key whose public key is bound to fresh CPU-TEE
-   and GPU confidential-computing evidence;
-2. verify the exact runner, cubin/PTX, algorithm, input and parameter hashes;
-3. run the kernel, fail on any CUDA or coverage error, and hash the exact output;
-4. sign a canonical run statement containing those hashes, the result, domain
-   coverage, completion status and a verifier-provided nonce;
-5. return the statement, signature and attestation/verifier evidence.
+The intended production workflow would need a measured workload that binds a
+fresh verifier nonce, exact runner and device image, algorithm identity,
+inputs, parameters, coverage, output, result, and successful completion. A
+trusted verifier would also have to validate CPU-TEE and GPU confidential-
+computing evidence, certificate chains, TCB policy, debug-disabled state,
+measurements, freshness, and report-data binding.
 
-Production policy must pin the workload measurement, debug-disabled state,
-CPU-TEE and GPU-CC TCB requirements, verifier and root identities, algorithm
-identity, artifacts and freshness challenge.  It must fail closed on an
-unknown field or unsupported version.
-
-Lean exposes the H100 bridge as its own conspicuously named axiom:
+Lean isolates the eventual physical claim in a second axiom:
 
 ```lean
 axiom h100_attested_run_sound
@@ -105,33 +172,27 @@ axiom h100_attested_run_sound
     AlgorithmReturned statement statement.result
 ```
 
-This axiom means that acceptance of the certificate implies the stated run and
-result.  It does not prove the algorithm sound; that is a separate theorem.
-`checkH100Attestation` performs structural policy/claim matching inside Lean;
-it is not a cryptographic verifier.  `H100HardwareEvidence` has a private
-constructor so ordinary code cannot create a positive token, but the trusted
-positive-evidence importer that would validate NVIDIA evidence and invoke that
-constructor is not implemented.  Local and mock evidence always reduce to
-rejection and can never discharge this premise.
+`checkH100Attestation` is structural policy matching, not a cryptographic
+verifier. `H100HardwareEvidence` has a private constructor, but the repository
+includes neither a production NVIDIA evidence verifier nor a positive Lean
+importer that can construct it. Local and mock evidence reduce to rejection.
+No accepted H100 instance exists in this repository.
 
-`AlgorithmReturned` records provenance only.  A separate theorem must identify
-the formal algorithm, parse the serialized result, prove that the algorithm's
-soundness theorem applies, and derive the mathematical application result.
+A future accepted premise would prove only `AlgorithmReturned`: the named
+algorithm returned the exact serialized result in the statement. It would not
+prove that the algorithm is sound or give the result string mathematical
+meaning. Those require separate formal identification, parsing, and soundness
+theorems.
 
-## Remaining trusted components
+## Trust summary
 
-Even the H100 profile depends on correct attestation roots/verifier behavior,
-firmware and TCB policy, cryptographic implementations, measurement coverage,
-the measured runner, NVIDIA's hardware/driver behavior and key isolation.
-These assumptions are narrower and remotely checkable compared with the DGX
-record, but they are not mathematical proofs.
+| Path | Mathematical trust | Execution/provenance trust |
+| --- | --- | --- |
+| Full Lean certificate | Lean kernel and disclosed theorem dependencies; native reflection only where reported | None needed for the checked predicate |
+| Generated typed-machine theorem | Lean kernel and formal model | Does not establish physical execution |
+| Unsigned DGX bundle | None supplied by bundle | Host, artifact collection, and all supplied bytes |
+| Operator-signed DGX bundle | None supplied by signature | Ed25519 stack, key approval/custody, replay state; operator truth only through explicit axiom |
+| Offline H100 artifacts | None supplied by build artifact | Toolchain generated the supplied files; no H100 claim |
+| Future accepted H100 record | Separate algorithm theorem still required | Attestation roots/verifier, TCB policy, measured workload, firmware/hardware, importer, and explicit axiom |
 
-The DGX operator mode instead trusts OpenSSL's Ed25519 implementation, secure
-private-key handling, out-of-band public-key pinning, replay-state durability,
-and—by explicit axiom—the operator's truthfulness about physical execution.
-
-The axiom audit's phrase “axiom-free mathematical core” means no additional
-project-specific axioms outside the named H100 and DGX-operator execution
-bridges. Lean's standard
-foundations such as `propext`, `Classical.choice`, and `Quot.sound` are still
-reported by `#print axioms` for the mathematical theorems.
+See [Verifier guide](VERIFYING.md) for commands and acceptable claim language.

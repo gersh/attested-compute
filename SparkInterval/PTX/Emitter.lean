@@ -56,7 +56,10 @@ private def hexFixedAux : Nat → Nat → List Char
 def hex64 (value : Nat) : String :=
   "0x" ++ String.ofList (hexFixedAux 16 value)
 
-private def renderInstruction : Instruction → String
+/-- Deterministic text for one typed instruction.  This function is public so
+the compiler-correctness layer can relate the exact source line handed to
+`ptxas` to its typed AST constructor. -/
+def renderInstruction : Instruction → String
   | .loadParamU64 dst parameter =>
       s!"\tld.param.u64 {renderReg dst}, [{renderParameter parameter}];"
   | .movByte dst value =>
@@ -193,9 +196,10 @@ def validate (module : Module) : Except String Unit := do
 private def declaration (kind : String) (regStem : String) (count : Nat) : String :=
   s!"\t.reg .{kind} %{regStem}<{count}>;"
 
-/-- Deterministically render a validated typed module as PTX 9.0 for sm_121. -/
-def emit (module : Module) : Except String String := do
-  validate module
+/-- Deterministically render the complete module after validation has been
+discharged.  Keeping this total rendering function separate makes the
+successful-emission theorem below definitionally transparent. -/
+def renderUnchecked (module : Module) : String :=
   let header := [
     ".version 9.0",
     ".target sm_121",
@@ -217,6 +221,36 @@ def emit (module : Module) : Except String String := do
     declaration "b64" "fd" module.registers.f64
   ]
   let lines := header ++ module.body.toList.map renderInstruction ++ ["}", ""]
-  return String.intercalate "\n" lines
+  String.intercalate "\n" lines
+
+/-- Deterministically render a validated typed module as PTX 9.0 for sm_121. -/
+def emit (module : Module) : Except String String := do
+  validate module
+  return renderUnchecked module
+
+/-- Successful emission is exactly the total rendering of the same typed
+module; there is no untyped source-injection path. -/
+theorem emit_success {module : Module} {text : String}
+    (hemits : emit module = .ok text) :
+    validate module = .ok () ∧ text = renderUnchecked module := by
+  unfold emit at hemits
+  cases hvalidate : validate module with
+  | error message =>
+      rw [hvalidate] at hemits
+      cases hemits
+  | ok value =>
+      cases value
+      rw [hvalidate] at hemits
+      cases hemits
+      constructor
+      · rfl
+      · rfl
+
+/-- Once validation succeeds, emission cannot fail or choose different text. -/
+theorem emit_of_validate {module : Module} (hvalidate : validate module = .ok ()) :
+    emit module = .ok (renderUnchecked module) := by
+  unfold emit
+  rw [hvalidate]
+  rfl
 
 end SparkInterval.PTX

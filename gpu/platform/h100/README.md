@@ -1,15 +1,17 @@
-# H100 offline device artifact
+# H100 device components
 
-`h100_rounding_probe.cu` is a representative binary64 directed-rounding
-kernel. The offline build compiles it twice:
+This directory contains the device-side sources used by SparkInterval's H100
+offline workflows:
 
-- PTX for `compute_90`, so the virtual-ISA rounding instructions can be
-  inspected.
-- A cubin for `sm_90`, so the exact device image and its SASS disassembly can
-  be hashed before access to an H100.
+- `h100_rounding_probe.cu` and `h100_probe_runner.cpp` form the directed-
+  rounding diagnostic;
+- `h100_interval_batch_kernel.cu` and `h100_interval_batch_runner.cpp` form
+  the primitive interval batch; and
+- `h100_interval_batch_ptx_audit.py` checks the restricted generated PTX.
 
-`h100_probe_runner.cpp` is a portable CUDA Driver API acceptance runner for the
-fixed kernel. The offline build checks that source against the installed CUDA
-headers with strict C++ warnings, but intentionally emits no host executable.
-A cubin or syntax check produced on the DGX Spark's `aarch64` host is not an
-H100 execution record and not an `x86_64` H100 host program.
+The offline scripts can produce `compute_90` PTX and `sm_90` cubins without an
+H100. On an `aarch64` DGX Spark host, runner sources are syntax-checked but no
+H100 host executable, result, or attestation is produced.
+
+Use the [H100 guide](../../../docs/H100.md) for supported commands and the
+[trust model](../../../docs/TRUST_MODEL.md) before interpreting any artifact.

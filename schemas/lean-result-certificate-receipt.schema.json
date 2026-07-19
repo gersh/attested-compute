@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/lean-result-certificate-receipt.schema.json",
+  "title": "SparkInterval deterministic Lean result-certificate generation receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "generator",
+    "algorithm",
+    "certificate_sha256",
+    "batch_sha256",
+    "result_sha256",
+    "application_upper_bound",
+    "decision_mode",
+    "variable_count",
+    "row_count",
+    "lean_declaration",
+    "lean_theorem",
+    "lean_sum_theorem",
+    "lean_source_sha256",
+    "lean_source_size_bytes"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "kind": {"const": "sparkinterval_lean_result_certificate_receipt"},
+    "generator": {"const": "sparkinterval.lean_result_certificate.v1"},
+    "algorithm": {"const": "sparkinterval.binary64_interval_expr.v1"},
+    "certificate_sha256": {"$ref": "#/$defs/sha256"},
+    "batch_sha256": {"$ref": "#/$defs/sha256"},
+    "result_sha256": {"$ref": "#/$defs/sha256"},
+    "application_upper_bound": {"$ref": "#/$defs/finiteBinary64"},
+    "decision_mode": {"enum": ["kernel", "native"]},
+    "variable_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65536
+    },
+    "row_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "lean_declaration": {
+      "type": "string",
+      "pattern": "^SparkInterval\\.GeneratedCertificate\\.C_[0-9a-f]{64}_B_[0-9a-f]{16}_M_(kernel|native)\\.certificate$"
+    },
+    "lean_theorem": {
+      "type": "string",
+      "pattern": "^SparkInterval\\.GeneratedCertificate\\.C_[0-9a-f]{64}_B_[0-9a-f]{16}_M_(kernel|native)\\.application_theorem$"
+    },
+    "lean_sum_theorem": {
+      "type": "string",
+      "pattern": "^SparkInterval\\.GeneratedCertificate\\.C_[0-9a-f]{64}_B_[0-9a-f]{16}_M_(kernel|native)\\.application_sum_theorem$"
+    },
+    "lean_source_sha256": {"$ref": "#/$defs/sha256"},
+    "lean_source_size_bytes": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "finiteBinary64": {
+      "type": "string",
+      "pattern": "^(?!7ff|fff)[0-9a-f]{16}$"
+    }
+  }
+}

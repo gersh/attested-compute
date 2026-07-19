@@ -181,4 +181,10 @@ def Instruction.opcode : Instruction → Option Opcode
   | .maximumF64 .. => some .maxF64
   | .ret => some .ret
 
+/-- Every executable instruction constructor maps to the closed opcode
+allowlist.  Labels have no opcode and therefore cannot satisfy the premise. -/
+theorem Instruction.opcode_mem_allowed {instruction : Instruction} {opcode : Opcode}
+    (hopcode : instruction.opcode = some opcode) : opcode ∈ allowedOpcodes := by
+  cases opcode <;> simp [allowedOpcodes]
+
 end SparkInterval.PTX

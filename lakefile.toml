@@ -2,6 +2,13 @@ name = "SparkInterval"
 version = "0.1.0"
 defaultTargets = ["SparkInterval", "sparkinterval-gen"]
 
+# Keep both batch elaboration and editor workers bounded.  These are weak
+# arguments so changing the operational limits does not invalidate proof
+# artifacts.  The repository's safe build wrappers add an aggregate cgroup
+# limit as a second line of defense.
+weakLeanArgs = ["-j1", "-M8192"]
+moreGlobalServerArgs = ["-j1", "-M4096"]
+
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4.git"
@@ -16,3 +23,7 @@ precompileModules = false
 [[lean_exe]]
 name = "sparkinterval-gen"
 root = "SparkInterval.GeneratePTX"
+
+[[lean_exe]]
+name = "sparkinterval-check-certificate"
+root = "SparkInterval.Certificate.CLI"

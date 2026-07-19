@@ -1,21 +1,23 @@
-# Attestation boundary
+# Attestation adapters
 
-There are three deliberately separate paths here.
+This directory contains fail-closed and negative-test adapters for the H100
+evidence boundary:
 
-- `tools/local_operator_signature.py` creates and verifies detached Ed25519
-  operator signatures for exact DGX `local_unattested` bundles. It requires an
-  out-of-band pinned public key and proves only that the operator key signed
-  the record. It never reports hardware evidence and is not an NVIDIA
-  confidential-computing path.
+- `mock_attestation.py` emits visibly non-production `mock_attested` data so
+  parsers and rejection paths can be tested.
+- `nvidia_cc_provider_stub.py` is a fail-closed production placeholder. It
+  emits no positive evidence and exits with status 78.
 
-- `mock_attestation.py` produces `evidence_class: "mock_attested"`, says that no
-  algorithm was executed, carries no signature, and sets
-  `production_acceptable: false`. It is only a parser/proof-plumbing fixture.
-- `nvidia_cc_provider_stub.py` is the production placeholder. It always exits
-  with code 78 (`EX_CONFIG`) and emits a checklist rather than evidence. It has
-  no override or success mode.
+DGX operator signatures are implemented by
+[`tools/local_operator_signature.py`](../tools/local_operator_signature.py),
+not by these adapters. They authenticate an operator's endorsement of a local
+record and never become hardware evidence.
 
-A future production verifier must reject mock evidence before inspecting any
-algorithm or result fields. Replacing the fail-closed stub requires an actual
-NVIDIA confidential-computing evidence collector and verifier, measurement and
-result binding, replay protection, and H100 acceptance tests.
+No included component collects or cryptographically verifies positive NVIDIA
+confidential-computing evidence. Replacing the stub requires a supported H100
+CC system, pinned trust roots, measurement/result binding, freshness and
+replay checks, and negative acceptance tests.
+
+Start with the [verifier guide](../docs/VERIFYING.md), then consult the
+[trust model](../docs/TRUST_MODEL.md), [bundle format](../docs/FORMAT.md), and
+[H100 guide](../docs/H100.md).

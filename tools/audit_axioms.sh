@@ -8,6 +8,28 @@ cd "${project_root}"
 
 python3 "${script_dir}/audit_lean_source.py"
 
-lake build
-lake env lean SparkInterval/Tests/AxiomAudit.lean
-lake env lean SparkInterval/Tests/ExecutionBridgeTest.lean
+"${script_dir}/safe_lake_build.py"
+
+core_report="$(mktemp)"
+execution_report="$(mktemp)"
+trap 'rm -f -- "${core_report}" "${execution_report}"' EXIT
+
+"${script_dir}/safe_lean.sh" SparkInterval/Tests/AxiomAudit.lean \
+  2>&1 | tee "${core_report}"
+python3 "${script_dir}/check_axiom_report.py" \
+  --expected-count 84 \
+  --allow propext \
+  --allow Classical.choice \
+  --allow Quot.sound \
+  "${core_report}"
+
+"${script_dir}/safe_lean.sh" SparkInterval/Tests/ExecutionBridgeTest.lean \
+  2>&1 | tee "${execution_report}"
+python3 "${script_dir}/check_axiom_report.py" \
+  --expected-count 2 \
+  --allow propext \
+  --allow Classical.choice \
+  --allow Quot.sound \
+  --allow h100_attested_run_sound \
+  --allow dgx_operator_signed_run_sound \
+  "${execution_report}"

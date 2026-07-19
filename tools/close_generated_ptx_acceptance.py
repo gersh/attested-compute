@@ -48,6 +48,14 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def generated_input_payload_binding(path: Path) -> tuple[str, int]:
+    raw = path.read_bytes()
+    if len(raw) < GENERATED_HEADER.size:
+        raise ValueError("generated row input is truncated")
+    payload = raw[GENERATED_HEADER.size :]
+    return hashlib.sha256(payload).hexdigest(), len(payload)
+
+
 def run(command: list[str]) -> float:
     started = time.perf_counter()
     completed = subprocess.run(
@@ -376,7 +384,19 @@ def main() -> int:
     parser.add_argument("--work-dir", type=Path, required=True)
     parser.add_argument("--generator", type=Path, required=True)
     parser.add_argument("--driver", type=Path, required=True)
-    parser.add_argument("--phase4", type=Path, required=True)
+    expression_runner = parser.add_mutually_exclusive_group(required=True)
+    expression_runner.add_argument(
+        "--expression-runner",
+        dest="phase4",
+        type=Path,
+        metavar="PATH",
+    )
+    expression_runner.add_argument(
+        "--phase4",
+        dest="phase4",
+        type=Path,
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument("--allow-other-device", action="store_true")
     args = parser.parse_args()
     work = args.work_dir.resolve()
@@ -410,9 +430,19 @@ def main() -> int:
     if report["execution_module"].get("cubin_sha256") != sha256(cubin_path):
         raise ValueError("base execution-module binding does not match retained cubin")
     hardware = report.get("hardware_execution", {})
+    rows_payload_sha256, rows_payload_size = generated_input_payload_binding(
+        rows_path
+    )
     if (
         hardware.get("module_kind") != "offline_cubin"
         or hardware.get("allow_other_device") != args.allow_other_device
+        or hardware.get("byte_binding_schema_version") != 1
+        or hardware.get("module_sha256") != sha256(cubin_path)
+        or hardware.get("module_size_bytes") != cubin_path.stat().st_size
+        or hardware.get("input_payload_sha256") != rows_payload_sha256
+        or hardware.get("input_payload_size_bytes") != rows_payload_size
+        or hardware.get("output_file_sha256") != sha256(results_path)
+        or hardware.get("output_file_size_bytes") != results_path.stat().st_size
         or (
             not args.allow_other_device
             and (
@@ -423,10 +453,26 @@ def main() -> int:
     ):
         raise ValueError("base hardware metadata does not match closure policy")
     zero_hardware = report.get("signed_zero_hardware_execution", {})
+    zero_rows_candidate = work / "signed-zero-rows.bin"
+    zero_results_candidate = work / "signed-zero-results.bin"
+    zero_cubin_candidate = work / "signed-zero-kernel.sm_121.cubin"
+    zero_payload_sha256, zero_payload_size = generated_input_payload_binding(
+        zero_rows_candidate
+    )
     if (
         zero_hardware.get("module_kind") != "offline_cubin"
         or zero_hardware.get("allow_other_device") != args.allow_other_device
         or zero_hardware.get("row_count") != 9
+        or zero_hardware.get("byte_binding_schema_version") != 1
+        or zero_hardware.get("module_sha256") != sha256(zero_cubin_candidate)
+        or zero_hardware.get("module_size_bytes")
+        != zero_cubin_candidate.stat().st_size
+        or zero_hardware.get("input_payload_sha256") != zero_payload_sha256
+        or zero_hardware.get("input_payload_size_bytes") != zero_payload_size
+        or zero_hardware.get("output_file_sha256")
+        != sha256(zero_results_candidate)
+        or zero_hardware.get("output_file_size_bytes")
+        != zero_results_candidate.stat().st_size
         or (
             not args.allow_other_device
             and (
@@ -613,6 +659,10 @@ def main() -> int:
         str(rows_path),
         "--output",
         str(replay_results),
+        "--expected-module-sha256",
+        sha256(cubin_path),
+        "--expected-input-sha256",
+        generated_input_payload_binding(rows_path)[0],
     ]
     if args.allow_other_device:
         replay_command.append("--allow-other-device")
@@ -631,6 +681,10 @@ def main() -> int:
         str(zero_rows_path),
         "--output",
         str(zero_replay_results),
+        "--expected-module-sha256",
+        sha256(zero_cubin),
+        "--expected-input-sha256",
+        generated_input_payload_binding(zero_rows_path)[0],
     ]
     if args.allow_other_device:
         zero_replay_command.append("--allow-other-device")

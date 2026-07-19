@@ -1,103 +1,147 @@
-# GPU model and platform profiles
+# GPU model and backend boundary
 
-The execution model assigns one independent interval-expression row to one
-CUDA thread.  Version 1 excludes shared memory, warp communication, atomics,
-reductions, dynamic parallelism, cooperative groups, and Tensor Cores.  Rows
-are therefore logically independent and the planned formal machine model can
-remain thread-local.
+SparkInterval assigns one independent interval-expression row to one CUDA
+thread. The supported design excludes shared memory, warp communication,
+atomics, inter-thread reductions, dynamic parallelism, cooperative groups, and
+Tensor Cores. Lean's generated-code machine models one thread at a time; CUDA
+batch scheduling is external.
 
-## Current DGX Spark paths
+## Platform profiles
 
-- Host architecture: `aarch64`
-- Device: NVIDIA GB10
-- CUDA compute capability: 12.1
-- Compilation target: `sm_121`
-- Execution evidence: local and unattested
+| Profile | Device code | Repository execution status | Evidence status |
+| --- | --- | --- | --- |
+| DGX Spark / GB10 | `sm_121` on `aarch64` | Native CUDA and restricted generated-cubin runners | `local_unattested`; optional operator signature is not hardware evidence |
+| H100 | `sm_90`, normally on an `x86_64` host | Diagnostic and primitive device artifacts built offline; no H100 execution | Offline/mock only; production acceptance is fail-closed |
 
-The primitive batch consumes raw binary64 words and executes one of add,
-subtract, multiply, or divide with explicit downward/upward CUDA intrinsics.
-The expression prototype consumes strict little-endian postfix bytecode with
-at most 256 instructions, 64 variables, 32 stack entries, and a natural-power
-exponent of at most 64.  It supports constants, variables, negation,
-add/subtract/multiply/divide, absolute value, minimum, maximum, and natural
-powers.
+Target and trust profiles are independent. Selecting `sm_90` does not create
+H100 confidential-computing evidence, and selecting `sm_121` never upgrades a
+DGX bundle beyond local evidence.
 
-Both runners validate the complete input before CUDA initialization, enforce
-the expected device unless an explicit development override is supplied,
-check every CUDA call, initialize output sentinels, and validate the complete
-output.  Division by a zero-containing interval and arithmetic that must widen
-because it consumes a nonfinite intermediate have distinct per-row statuses;
-applications must require status zero for every row they use.
+## Modeled and external layers
 
-The CUDA paths are compared bit-for-bit with exact Python rational arithmetic.
-They are not formally refined to Lean.  Python/CUDA preserve signed-zero bits;
-the current value-level Lean endpoint model identifies the two zero encodings.
+| Layer | What is available | Status of the connection to the next layer |
+| --- | --- | --- |
+| Exact real and binary64 interval mathematics | Lean containment and directed-rounding theorems | Proved within Lean |
+| Polynomial expression evaluator | Status-aware `PolynomialExpr.evalKernel` | Proved to contain corresponding exact-real values |
+| Generated typed PTX AST | Exact compiler structure, opcode order, register/dataflow facts, and instruction execution | Proved for the compiler's generated polynomial subset |
+| Lean one-thread machine | Control flow, typed registers, word-size-aware addressing, global memory, thread specials, stores, and return | Whole generated module proved under explicit hypotheses |
+| Emitted PTX text | Deterministic rendering of the same validated AST | No operational text parser/refinement back to the machine |
+| `ptxas` cubin and SASS | Offline assembly plus conservative instruction audits | No proof that translation preserves the typed-machine semantics |
+| CUDA driver and physical GPU | Native DGX tests and replay tooling | External implementation and hardware assumptions |
 
-Compiler-emitted PTX is checked with an expression-specific directed-operation
-audit and SASS is conservatively inspected for fused, approximate, tensor,
-atomic, and synchronization instructions.  These are lexical audits, not a
-proof of PTX-to-SASS equivalence.
+The PTX and SASS audits reject disallowed or suspicious instruction patterns
+and the conformance runners compare output bits and statuses with exact
+rational Python evaluation. These checks are valuable backend evidence, but
+they do not turn any external row of the table into a Lean refinement theorem.
 
-## Restricted generated PTX
+## Generated polynomial theorem
 
-Phase 5 introduces a typed Lean PTX AST with no arbitrary-instruction escape
-hatch, a deterministic `sm_121` emitter, a structural validator, and an
-independent post-emission allowlist audit.  The first vertical slice compiles a
-polynomial subset of the canonical expression language; unsupported operations
-fail closed. Its native 100,000-row suite matched exact Python and the Phase 4
-CUDA payload, including explicit widening status; deterministic PTX/output
-replay, a separate signed-zero corner suite, and generated-cubin SASS audit all
-passed. The accepted path audits PTX, uses offline `ptxas`, audits the resulting
-cubin's SASS, and executes that exact cubin rather than a separately JIT-compiled
-PTX module. The specialized audit accepts six source-independent `HFMA2`
-constant-forming idioms emitted by `ptxas`; the generic diagnostic flags those
-mnemonics because it cannot establish that narrower pattern. This is still a
-tested generated prototype, not a verified kernel: the language slice is
-incomplete, and Phase 6 currently supplies operational semantics and enclosure
-theorems only for the canonical pure add/sub/mul fragments—not control flow,
-memory, indexing, threads, emitted text, or the whole kernel.
+The generated compiler accepts:
 
-The public AST validator proves only syntactic typing, register bounds, labels,
-and allowlist membership. It is not a general CFG, dataflow, initialization, or
-memory-safety checker for arbitrary hand-constructed `PTX.Module` values. The
-accepted path is the private expression compiler plus its concrete audits and
-differential tests.
+- interval constants and row variables;
+- negation;
+- addition and subtraction;
+- multiplication;
+- natural powers.
 
-## Real-zeta POC backend
+It does not accept division, absolute value, minimum, maximum, or the complete
+CUDA expression language.
 
-The tutorial real-integer zeta calculation uses the native Phase 4 postfix
-expression runner, because its fixed term expression `1 / n^s` requires
-division and the Phase 5 generated-PTX subset does not yet implement division.
-One GPU thread evaluates each positive point input `n`; the host verifier
-exactly recomputes every output row, performs the outward interval reduction,
-and supplies the integral-test tail. It also re-runs the expression PTX and
-SASS audits over the staged artifacts. This is tested CUDA/backend execution,
-not an extension of the partial Phase 6 generated-PTX proof.
+Lean proves the production `buildModule` equals an independently constructed
+structural module down to metadata, register counts, typed operands,
+immediates, offsets, labels, and branch targets. It also proves the exact
+source-derived opcode trace and that successful emission is deterministic
+rendering of the validated AST:
 
-## H100
+- [`StructuralCompilerCorrect.buildModule_eq_expectedModule`](../SparkInterval/PTX/StructuralCompilerCorrect.lean#L887);
+- [`buildModule_opcodeTrace`](../SparkInterval/PTX/Generator.lean#L541);
+- [`emit_success`](../SparkInterval/PTX/Emitter.lean#L233).
 
-- Typical host architecture: `x86_64`
-- Device target: Hopper H100
-- CUDA compute capability: 9.0
-- Compilation target: `sm_90`
-- Execution evidence: offline/mock only in this repository
+The operational proof composes the generated prologue, recursive expression
+code, normal and conservative-whole output paths, public output layout, and
+common return tail.
 
-The diagnostic and primitive interval-batch device programs have real
-`compute_90` PTX and `sm_90` cubin/SASS offline builds.  Producing those files
-on DGX Spark proves only that the toolchain accepted them; no H100 was queried,
-no kernel was executed, and no result or attestation was obtained.  The H100
-expression/generator path remains pending.
+### In-range conclusion
 
-## Formal boundary
+[`runBuildModule_inRange`](../SparkInterval/PTX/GeneratedKernelRunRefinement.lean#L32)
+requires:
 
-The planned formal model covers only the typed generated PTX subset—not
-arbitrary CUDA C++, arbitrary PTX, SASS, scheduling, or the CUDA toolchain.
-Phase 6 now has instruction/state semantics and enclosure theorems for the
-generator's pure add/subtract/multiply fragments. It still needs arbitrary
-register renaming, guards, control flow, memory/indexing, threads, text
-refinement, and batch semantics plus `generatedKernel_sound`. Physical
-execution remains outside the
-mathematical proof boundary unless a complete result certificate is
-independently checked in Lean or provenance is imported through the explicit
-H100 hardware-attestation axiom or the separate explicit DGX operator-trust
-axiom.
+- `Thread.Safe` and `SafeKernelLayout`;
+- a natural in-range global row index;
+- global memory satisfying `MemoryEncodesRows`;
+- the selected encoded row equaling the stated interval environment; and
+- `batch.expression.evalKernel environment = some result`.
+
+Under those hypotheses, running the exact typed `buildModule` with its complete
+body size as fuel returns a state whose public output row
+`OutputRepresents` that result. The body size is exactly the expression's
+compiled instruction count plus 47.
+
+[`runBuildModule_inRange_containsReal`](../SparkInterval/PTX/GeneratedKernelRunRefinement.lean#L314)
+adds pointwise correspondence between real and interval environments and a
+`PolynomialExpr.Realizes` premise. Its observed interval then contains the
+realized exact value.
+
+This is a one-thread modeled theorem. It does not prove grid coverage,
+cross-thread noninterference, CUDA scheduling, or physical execution.
+
+### No-write return conclusion
+
+[`runBuildModule_outOfRange`](../SparkInterval/PTX/GeneratedKernelOutOfRangeRefinement.lean#L115)
+has the exact premise
+
+```lean
+parameters.read .rowCount ≤ thread.globalIndex
+```
+
+where both sides are the modeled wrapped machine-word values. Under that
+premise, the modeled module returns with global memory unchanged. The theorem
+must not be restated as an unconditional natural-number comparison or as proof
+that an arbitrary physical GPU launch cannot write out of range.
+
+## DGX CUDA backends
+
+The primitive runner supports interval add, subtract, multiply, and divide
+using explicit downward/upward CUDA operations. The postfix expression runner
+supports constants, variables, negation, those four binary operations,
+absolute value, minimum, maximum, and bounded natural powers.
+
+The host validates the complete input before CUDA initialization, checks CUDA
+operations and output coverage, and records explicit statuses. Division by an
+interval containing zero and widening caused by a nonfinite intermediate are
+not successful finite rows. Applications must validate the status of every row
+they consume.
+
+These CUDA frontends are different from the proved polynomial compiler. Their
+bit-for-bit comparison against the exact Python oracle is testing evidence, not
+a Lean theorem relating the CUDA program to `FPInterval` or `CertExpr`.
+Python and CUDA retain signed-zero bits; the value-level Lean interpretation
+identifies the two encodings as the same real value.
+
+## Real-integer zeta backend
+
+The [real-zeta tutorial](algorithms/REAL_ZETA_POC.md) uses the postfix CUDA
+runner because its term expression `1 / n^s` requires division. One GPU thread
+evaluates each positive point input. The host verifier reparses and exactly
+recomputes every output, repeats an outward reduction, reruns artifact audits,
+and adds an integral-test tail.
+
+This is not an instance of the generated polynomial theorem. It encloses
+positive real zeta values for supported integer arguments; it does not evaluate
+the critical strip, isolate zeros, or prove height coverage.
+
+## H100 offline boundary
+
+The H100 scripts generate real `compute_90` PTX and `sm_90` cubin/SASS for a
+diagnostic probe and primitive interval batch. A device artifact is portable
+across host architectures, but a syntax check of the runner source on DGX
+Spark does not create or validate an `x86_64` H100 host executable.
+
+The offline workflows do not query H100 presence or attempt execution; their
+manifests state that no result was returned and no production attestation
+exists.
+The repository has no H100 expression/generated-polynomial execution path and
+no accepted H100 confidential-computing evidence.
+
+See [H100 setup and status](H100.md), [Trust model](TRUST_MODEL.md), and the
+[Verifier guide](VERIFYING.md) before interpreting an artifact or run bundle.

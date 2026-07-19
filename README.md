@@ -1,165 +1,119 @@
 # SparkInterval
 
-SparkInterval has a Lean-verified interval-arithmetic core and tested GPU
-backends under two execution profiles:
+SparkInterval verifies interval-arithmetic mathematics in Lean, runs and
+records CUDA work on NVIDIA DGX Spark, and prepares offline H100 artifacts.
+Its certificate and evidence workflows keep those assurance levels distinct.
 
-- **DGX Spark (`aarch64`, `sm_121`)** is the first native target. It has no
-  confidential-computing execution attestation. Its manifests provide artifact
-  identity and reproducibility metadata. An optional Ed25519 operator signature
-  proves which approved key endorsed the exact record, but still does not prove
-  that a particular physical GPU performed a run.
-- **H100 (`x86_64`, `sm_90`)** is a subsequent target. Its code, cubin, result
-  statement, and attestation interface can be developed offline; a real
-  confidential H100 is required for final attestation acceptance.
+The project keeps three questions separate:
 
-The project deliberately separates four facts:
+1. Does the interval algorithm enclose the exact real result?
+2. Did a particular program produce the recorded bytes?
+3. What evidence identifies the machine or operator behind that run?
 
-1. Lean proves soundness of the mathematical interval algorithm.
-2. The current Python, CUDA, and generated-PTX slice are tested against exact
-   arithmetic; formal decoder/backend/generator-refinement theorems are still
-   pending.
-3. A physical GPU run depends on the disclosed compiler, driver, operating
-   system, and hardware assumptions.
-4. An independently checked Lean certificate can remove the GPU run from the
-   final theorem, while a provenance-based theorem instead exposes the named
-   execution axiom appropriate to H100 hardware or DGX operator trust.
+## Current support
 
-Phases 0--4 are now implemented.  The repository contains the exact
-real-interval evaluator, a formal binary64 decoding and directed-rounding
-model, proved binary64 interval add/subtract/multiply/divide containment, an
-exact rational Python oracle and canonical formats, and native GB10 primitive
-and postfix-expression CUDA batch runners.  Phase 4 passed 5,000,000 randomized
-primitive cases and 1,000,000 randomized expression/input cases with zero bit
-mismatches. The retained expression report also binds the executable and
-audited `sm_121` PTX/SASS hashes and includes a byte-identical replay.
+| Route | Current result | Important boundary |
+| --- | --- | --- |
+| CPU + Lean full certificate | Lean independently checks every supplied row and proves row or finite-sum bounds | Proves mathematics, not that a GPU ran |
+| Generated polynomial model | Lean proves whole-module execution and exact-real containment for the typed generated AST | Does not refine emitted PTX, `ptxas`, SASS, the driver, or hardware |
+| DGX Spark (`aarch64`, `sm_121`) | Native CUDA runs, exact CPU replay, artifact audits, and canonical local bundles | GB10 has no supported hardware attestation; evidence is `local_unattested` |
+| DGX operator signature | A pinned Ed25519 key endorses the exact local bundle | Proves the pinned key signed; operator attribution is out of band, and neither truth nor GPU execution follows |
+| H100 (`x86_64`, `sm_90`) offline | Builds and audits real `compute_90` PTX and `sm_90` cubin/SASS | No H100 execution or accepted confidential-computing evidence yet |
 
-These are conformance results, not a Lean proof about the wire evaluator or
-CUDA program.  The files named `reference_certificate` are Python-recomputed
-packages, not Phase 8 Lean certificates. Phase 5 now has an accepted typed,
-deterministic restricted-PTX vertical slice for one fixed polynomial: 100,000
-native rows matched both exact Python and the Phase 4 CUDA payload. Acceptance
-audited PTX, assembled a cubin offline, audited that cubin's SASS, and loaded
-those exact cubin bytes. Deterministic PTX/cubin/output replay and a separate
-signed-zero suite also passed. The full expression language, formal PTX
-kernel semantics, and generated-kernel theorem remain open. A first Phase 6
-slice now defines Lean semantics for the exact pure add/subtract/multiply
-instruction arrays emitted by the generator and proves their enclosure; it
-does not yet cover guards, control flow, memory, threads, or emitted PTX text.
-Phase 7 now also supports detached Ed25519 signatures over complete DGX local
-bundles, with separately pinned public keys and replay protection. The inner
-evidence remains `local_unattested` and verification still reports
-`hardware_evidence: false`.
+## Choose a workflow
+
+- For a mathematical result independent of GPU provenance, use the
+  [CPU and Lean certificate workflow](docs/USING.md#full-lean-result-certificate).
+- To run locally on DGX Spark and optionally sign the record, use the
+  [DGX workflow](docs/USING.md#dgx-spark-local-bundle-and-operator-signature).
+- To compute a rigorous tutorial enclosure of real `zeta(s)`, use the
+  [zeta workflow](docs/USING.md#real-integer-zeta-poc).
+- To prepare H100 device artifacts without an H100, use the
+  [H100 offline workflow](docs/USING.md#h100-offline-work).
+
+## CPU and Lean quick start
+
+Run these commands from the repository root.
+
+Small core proofs:
+
+```bash
+./tools/safe_lake_build.py SparkInterval.IntervalOpsSound
+./tools/safe_lean.sh examples/lean/IntervalArithmetic.lean
+./tools/safe_lean.sh examples/lean/ZetaIdentity.lean
+```
+
+Generate and check the complete two-row certificate in a fresh destination:
+
+```bash
+mkdir -p build/examples
+CERT_DIR="$(mktemp -d build/examples/lean-result-certificate.XXXXXX)"
+./tools/safe_lake_build.py SparkInterval.Certificate \
+  --target sparkinterval-check-certificate
+python3 tools/generate_lean_result_certificate.py \
+  --certificate examples/lean-result-certificate/certificate.json \
+  --upper-bound 4010000000000001 \
+  --decision-mode kernel \
+  --output "$CERT_DIR/GeneratedFullCertificate.lean" \
+  > "$CERT_DIR/receipt.json"
+./tools/safe_lean.sh "$CERT_DIR/GeneratedFullCertificate.lean"
+./tools/with_memory_limit.sh \
+  .lake/build/bin/sparkinterval-check-certificate \
+  examples/lean-result-certificate/certificate.json \
+  --upper-bound 4010000000000001
+```
+
+In `kernel` mode, the direct typed-data theorem uses kernel reduction without
+the `native_decide` proof-reflection axiom. The theorem that binds the exact
+serialized JSON still uses `native_decide` for its concrete parser equality.
+See the [certificate example](examples/lean-result-certificate/README.md) for
+the theorem names and trust details.
 
 ## DGX Spark quick start
 
+Check the [DGX Spark prerequisites](docs/DGX_SPARK_SETUP.md), then run:
+
 ```bash
 ./tools/build_dgx_spark.sh
+python3 tools/verify_run_bundle.py \
+  build/dgx-probe-bundle/run-bundle.json \
+  --artifact-root build/dgx-probe-bundle
 ```
 
-The command checks the host architecture and GPU target, builds the Lean
-development and CUDA paths, runs development-sized tests, captures the environment, and
-extracts inspectable GPU artifacts under `build/`. It emits
-`build/dgx-probe-bundle/run-bundle.json`; verification reports
-`hardware_evidence: false` by design.  That bundle records the diagnostic
-probe, not the large arithmetic acceptance runs.
+This builds the library and DGX backend, runs bounded checks, captures
+the environment, extracts GPU artifacts, and creates a diagnostic probe
+bundle. Verification intentionally reports `hardware_evidence: false`.
 
-Run the full arithmetic acceptance paths explicitly:
+For arithmetic execution, operator signing, replay protection, and fresh
+challenger nonces, continue with the
+[DGX user workflow](docs/USING.md#dgx-spark-local-bundle-and-operator-signature).
+Lean builds are serialized and memory-capped; read
+[Memory-safe builds](docs/MEMORY_SAFE_BUILDS.md) before changing those limits.
 
-```bash
-python3 tools/run_primitive_conformance.py --count 1250000 \
-  --work-dir build/primitive-conformance/rows-1250000 \
-  > build/primitive-conformance-1250000.json
-python3 tools/run_expression_conformance.py --count 1000000 \
-  --program-count 256 \
-  --work-dir build/expression-conformance/rows-1000000-programs-256
-```
+## Explicit nonclaims
 
-The primitive count is per operation; the expression count is shared across
-the requested randomized programs.  Exact CPU recomputation dominates the
-wall time.
+- The real-integer zeta POC encloses positive real values for supported integer
+  arguments. It does not locate or count critical-strip zeros and does not
+  verify the Riemann hypothesis to any height.
+- The division-capable CUDA runner used by that POC is not covered by the
+  generated polynomial-machine theorem.
+- PTX and SASS audits are conservative artifact checks, not formal proofs that
+  `ptxas`, the CUDA driver, or physical hardware implements Lean's machine.
+- An operator signature is not hardware attestation.
+- H100 production acceptance remains fail-closed until a genuine measured
+  workload and trusted NVIDIA confidential-computing evidence verifier exist.
 
-The accepted generated-PTX polynomial slice is a two-step run. The closure
-does not trust the base report's comparison claim: it independently recomputes
-the exact result, regenerates and reassembles the cubin, replays the exact
-cubin, and cross-checks the Phase 4 backend. See `docs/REPRODUCIBILITY.md` for
-the commands and scope.
+## Documentation
 
-After closure, `tools/create_dgx_generated_cubin_bundle.py` packages the full
-arithmetic run into the same canonical bundle format used elsewhere. The
-retained 100,000-row bundle passes byte-integrity verification and reports
-`local_unattested` / `hardware_evidence: false`, as required for GB10.
-
-To supply a challenger nonce instead of a locally generated uniqueness value:
-
-```bash
-SPARKINTERVAL_NONCE_HEX=<64-lowercase-hex-characters> \
-  ./tools/build_dgx_spark.sh
-```
-
-## Examples
-
-The worked examples are indexed in [`examples/README.md`](examples/README.md).
-They cover exact reference certificates, axiom-free Lean interval proofs,
-unsigned DGX records, operator key generation/signing, the generated-cubin
-acceptance path, H100 offline artifacts, and the execution-axiom boundary.
-
-The application tutorial computes a rigorous real enclosure of `zeta(2)` from
-4,096 GPU interval terms plus an integral-test tail, then independently
-recomputes every row and audit:
-
-```bash
-python3 tools/run_zeta_poc.py run \
-  --work-dir build/examples/zeta2-4096 \
-  --s 2 --terms 4096
-python3 tools/run_zeta_poc.py verify build/examples/zeta2-4096
-```
-
-The retained GB10 calculation produced raw binary64 real endpoints
-`[3ffa51a65a53d51c, 3ffa51a66a52e51f]`. See
-[`docs/algorithms/REAL_ZETA_POC.md`](docs/algorithms/REAL_ZETA_POC.md) for the
-algorithm, tail proof, additional integer examples, and exact scope.
-
-## H100 work that can be done offline
-
-```bash
-./tools/build_h100_offline.sh
-./tests/test_h100_offline.sh
-./tools/build_h100_interval_batch_offline.sh
-./tests/test_h100_interval_batch_offline.sh
-```
-
-These commands generate and audit real `compute_90` PTX and `sm_90` cubin/SASS
-without claiming they ran. `tools/run_h100_mock.sh` is test-only.
-`tools/run_h100_cc_acceptance.sh` always fails closed (exit 78) until its stub
-is replaced and tested on a supported confidential H100 platform.
-
-## Trust boundary
-
-DGX Spark's GB10 does not provide the confidential-computing facility required
-for a hardware-backed run certificate. `hardware_attestation` therefore remains
-`null` for this profile. See `docs/TRUST_MODEL.md` and
-`docs/CORRECTNESS_CLAIMS.md` before interpreting a result.
-
-The mathematical core remains independent of execution provenance. The source
-audit permits exactly two project execution postulates:
-`h100_attested_run_sound` for accepted H100 hardware evidence and
-`dgx_operator_signed_run_sound` for the explicit decision to trust the truth of
-an approved operator's signed DGX claim. The latter is deliberately stronger
-than what Ed25519 proves. Unsigned local and mock evidence reduce to rejection
-before either boundary.
-
-Two formal details also remain visible rather than being hidden by the test
-results: the value-level Lean model identifies the two signed-zero encodings,
-whereas Python/CUDA preserve their bits, and the optional nearest-even
-candidate still lacks its unconditional midpoint-parity theorem.  Directed
-rounding and the interval soundness theorems do not depend on that nearest-even
-obligation.
-
-The real-integer POC rigorously encloses `zeta(s)` for recorded integers
-`2 <= s <= 64` whose fixed binary64 program remains finite. This is not a
-high-bound Riemann-zeta zero verifier. Complex intervals, certified
-transcendental functions, critical-strip evaluation and zero isolation, and a
-completeness argument such as a proved Turing-method layer remain future work.
-No current theorem turns an `AlgorithmReturned` provenance fact or the POC
-wire report into a zeta-zero theorem. The exact phase boundary is recorded in
-`docs/IMPLEMENTATION_STATUS.md`.
+- [User workflows](docs/USING.md)
+- [Documentation index](docs/README.md)
+- [Verification guide](docs/VERIFYING.md)
+- [Examples](examples/README.md)
+- [DGX Spark setup](docs/DGX_SPARK_SETUP.md)
+- [H100 offline and production boundary](docs/H100.md)
+- [Run-bundle and certificate formats](docs/FORMAT.md)
+- [Memory-safe builds](docs/MEMORY_SAFE_BUILDS.md)
+- [Trust model](docs/TRUST_MODEL.md)
+- [Correctness claims](docs/CORRECTNESS_CLAIMS.md)
+- [Reproducibility details](docs/REPRODUCIBILITY.md)
+- [Real-zeta POC algorithm](docs/algorithms/REAL_ZETA_POC.md)

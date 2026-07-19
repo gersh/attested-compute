@@ -82,9 +82,35 @@ target_link_libraries(sparkinterval-expression-batch PRIVATE
 add_executable(sparkinterval-generated-driver
   gpu/src/generated_ptx_driver.cpp
 )
+target_include_directories(sparkinterval-generated-driver PRIVATE gpu/include)
 target_link_libraries(sparkinterval-generated-driver PRIVATE CUDA::cuda_driver)
 
+add_executable(sparkinterval-generated-driver-report-test
+  tests/generated_driver_report_test.cpp
+)
+target_include_directories(sparkinterval-generated-driver-report-test PRIVATE
+  gpu/src
+)
+
+add_executable(sparkinterval-sha256-test
+  tests/sha256_test.cpp
+)
+target_include_directories(sparkinterval-sha256-test PRIVATE gpu/include)
+
 enable_testing()
+add_test(
+  NAME generated_driver_report_json
+  COMMAND sparkinterval-generated-driver-report-test
+)
+add_test(
+  NAME generated_driver_host_validation
+  COMMAND ${Python3_EXECUTABLE}
+          ${CMAKE_SOURCE_DIR}/tests/test_generated_driver_host.py
+          --report-fixture
+          $<TARGET_FILE:sparkinterval-generated-driver-report-test>
+          --driver $<TARGET_FILE:sparkinterval-generated-driver>
+)
+add_test(NAME sha256_known_answers COMMAND sparkinterval-sha256-test)
 add_test(NAME dgx_spark_probe COMMAND sparkinterval-probe)
 add_test(
   NAME dgx_spark_primitive_conformance

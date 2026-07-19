@@ -1,5 +1,8 @@
 #include <cuda.h>
 
+#include "generated_ptx_driver_report.hpp"
+#include "sparkinterval/sha256.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cerrno>
@@ -43,6 +46,9 @@ struct Options {
   std::filesystem::path output_path;
   int device = 0;
   bool allow_other_device = false;
+  std::string expected_module_sha256;
+  std::string expected_input_sha256;
+  std::string challenge_nonce;
 };
 
 struct Interval {
@@ -87,6 +93,14 @@ void check_cuda(const char* operation, CUresult status) {
   if (status != CUDA_SUCCESS) fail_cuda(operation, status);
 }
 
+bool lowercase_hex_digest(std::string_view value) {
+  return value.size() == 64 &&
+         std::all_of(value.begin(), value.end(), [](char byte) {
+           return (byte >= '0' && byte <= '9') ||
+                  (byte >= 'a' && byte <= 'f');
+         });
+}
+
 Options parse_options(int argc, char** argv) {
   Options options;
   auto set_module = [&](Options::ModuleKind kind,
@@ -125,11 +139,48 @@ Options parse_options(int argc, char** argv) {
       options.device = static_cast<int>(parsed);
     } else if (argument == "--allow-other-device") {
       options.allow_other_device = true;
+    } else if (argument == "--expected-module-sha256" ||
+               argument == "--expected-cubin-sha256") {
+      if (!options.expected_module_sha256.empty()) {
+        fail("expected module SHA-256 may be supplied only once");
+      }
+      options.expected_module_sha256 =
+          std::string(require_value(argument == "--expected-module-sha256"
+                                        ? "--expected-module-sha256"
+                                        : "--expected-cubin-sha256"));
+      if (!lowercase_hex_digest(options.expected_module_sha256)) {
+        fail("expected module SHA-256 must be 64 lowercase hex characters");
+      }
+    } else if (argument == "--expected-input-sha256") {
+      if (!options.expected_input_sha256.empty()) {
+        fail("expected input SHA-256 may be supplied only once");
+      }
+      options.expected_input_sha256 =
+          std::string(require_value("--expected-input-sha256"));
+      if (!lowercase_hex_digest(options.expected_input_sha256)) {
+        fail("expected input SHA-256 must be 64 lowercase hex characters");
+      }
+    } else if (argument == "--challenge-nonce") {
+      if (!options.challenge_nonce.empty()) {
+        fail("challenge nonce may be supplied only once");
+      }
+      options.challenge_nonce =
+          std::string(require_value("--challenge-nonce"));
+      if (!lowercase_hex_digest(options.challenge_nonce)) {
+        fail("challenge nonce must be 32 bytes encoded as 64 lowercase hex "
+             "characters");
+      }
     } else if (argument == "--help") {
       std::cout << "usage: sparkinterval-generated-driver "
                    "(--cubin KERNEL.cubin | --ptx DEVELOPMENT.ptx) "
                    "--input ROWS.bin --output RESULTS.bin "
-                   "[--device N] [--allow-other-device]\n";
+                   "--expected-module-sha256 HEX "
+                   "--expected-input-sha256 HEX "
+                   "[--challenge-nonce HEX] "
+                   "[--device N] [--allow-other-device]\n"
+                   "The two expected hashes are mandatory for --cubin and "
+                   "optional for development --ptx runs.  The input hash "
+                   "covers only the interval payload copied to the GPU.\n";
       std::exit(0);
     } else {
       fail("unknown argument: " + std::string(argument));
@@ -140,6 +191,12 @@ Options parse_options(int argc, char** argv) {
       options.output_path.empty()) {
     fail("exactly one of --cubin or --ptx, plus --input and --output, is "
          "required (use --help)");
+  }
+  if (options.module_kind == Options::ModuleKind::cubin &&
+      (options.expected_module_sha256.empty() ||
+       options.expected_input_sha256.empty())) {
+    fail("--cubin acceptance requires --expected-module-sha256 and "
+         "--expected-input-sha256");
   }
   return options;
 }
@@ -202,27 +259,6 @@ void write_binary(const std::filesystem::path& path,
                static_cast<std::streamsize>(bytes.size()));
   output.close();
   if (!output) fail("cannot write complete output file: " + path.string());
-}
-
-void print_json_string(std::string_view value) {
-  std::cout << '"';
-  constexpr char hex[] = "0123456789abcdef";
-  for (unsigned char byte : value) {
-    if (byte == '"' || byte == '\\') {
-      std::cout << '\\' << static_cast<char>(byte);
-    } else if (byte == '\n') {
-      std::cout << "\\n";
-    } else if (byte == '\r') {
-      std::cout << "\\r";
-    } else if (byte == '\t') {
-      std::cout << "\\t";
-    } else if (byte < 0x20) {
-      std::cout << "\\u00" << hex[byte >> 4] << hex[byte & 0xf];
-    } else {
-      std::cout << static_cast<char>(byte);
-    }
-  }
-  std::cout << '"';
 }
 
 bool finite_bits(std::uint64_t bits) {
@@ -337,8 +373,9 @@ std::vector<unsigned char> encode_output(const ParsedInput& input,
 
 int main(int argc, char** argv) {
   const Options options = parse_options(argc, argv);
-  const ParsedInput input = parse_input(
-      read_binary(options.input_path, kMaxInputBytes, "row input"));
+  const std::vector<unsigned char> input_file_bytes =
+      read_binary(options.input_path, kMaxInputBytes, "row input");
+  const ParsedInput input = parse_input(input_file_bytes);
   std::vector<unsigned char> module_bytes = read_binary(
       options.module_path, kMaxPtxBytes,
       options.module_kind == Options::ModuleKind::cubin ? "generated cubin"
@@ -356,6 +393,26 @@ int main(int argc, char** argv) {
     fail("generated cubin must be a CUDA ELF image");
   }
 
+  // These values bind the exact in-memory byte ranges used below.  For PTX,
+  // module_bytes includes the terminating NUL passed to cuModuleLoadDataEx.
+  // The input digest covers the parsed Interval array passed to cuMemcpyHtoD,
+  // not the framing header in ROWS.bin.
+  const std::size_t input_bytes = input.rows.size() * sizeof(Interval);
+  const std::string module_sha256 =
+      sparkinterval::sha256_hex(module_bytes.data(), module_bytes.size());
+  const std::string input_sha256 =
+      sparkinterval::sha256_hex(input.rows.data(), input_bytes);
+  if (!options.expected_module_sha256.empty() &&
+      module_sha256 != options.expected_module_sha256) {
+    fail("in-memory CUDA module SHA-256 does not match expected value");
+  }
+  if (!options.expected_input_sha256.empty() &&
+      input_sha256 != options.expected_input_sha256) {
+    fail("in-memory GPU input payload SHA-256 does not match expected value");
+  }
+
+  // Acceptance hash mismatches fail above, before any CUDA API call or GPU
+  // state change.
   check_cuda("cuInit", cuInit(0));
   int cuda_driver_version = 0;
   check_cuda("cuDriverGetVersion", cuDriverGetVersion(&cuda_driver_version));
@@ -425,7 +482,6 @@ int main(int argc, char** argv) {
 
   CUdeviceptr device_rows = 0;
   CUdeviceptr device_outputs = 0;
-  const std::size_t input_bytes = input.rows.size() * sizeof(Interval);
   const std::size_t output_bytes = input.row_count * sizeof(Output);
   if (input_bytes != 0) {
     check_cuda("cuMemAlloc(rows)", cuMemAlloc(&device_rows, input_bytes));
@@ -494,7 +550,14 @@ int main(int argc, char** argv) {
   if (device_rows != 0) check_cuda("cuMemFree(rows)", cuMemFree(device_rows));
   check_cuda("cuModuleUnload", cuModuleUnload(module));
   check_cuda("cuCtxDestroy", cuCtxDestroy(context));
-  write_binary(options.output_path, encode_output(input, outputs));
+  const std::vector<unsigned char> output_file_bytes =
+      encode_output(input, outputs);
+  const std::string output_sha256 = sparkinterval::sha256_hex(
+      output_file_bytes.data(), output_file_bytes.size());
+  // write_binary writes this same vector and fails unless the complete stream
+  // is successfully closed, so the reported digest is of the exact bytes
+  // written to RESULTS.bin.
+  write_binary(options.output_path, output_file_bytes);
   constexpr char hex[] = "0123456789abcdef";
   std::string device_uuid_hex;
   device_uuid_hex.reserve(32);
@@ -503,22 +566,28 @@ int main(int argc, char** argv) {
     device_uuid_hex.push_back(hex[byte >> 4]);
     device_uuid_hex.push_back(hex[byte & 0xf]);
   }
-  std::cout << "{\"allow_other_device\":"
-            << (options.allow_other_device ? "true" : "false")
-            << ",\"compute_capability\":\"" << major << '.' << minor
-            << "\",\"cuda_driver_version\":" << cuda_driver_version
-            << ",\"device_count\":" << device_count
-            << ",\"device_index\":" << options.device
-            << ",\"device_name\":";
-  print_json_string(device_name);
-  std::cout << ",\"device_uuid\":";
-  print_json_string(device_uuid_hex);
-  std::cout << ",\"kind\":\"sparkinterval_generated_driver_run\""
-            << ",\"module_kind\":\""
-            << (options.module_kind == Options::ModuleKind::cubin
-                    ? "offline_cubin"
-                    : "ptx_jit_development")
-            << "\",\"row_count\":" << input.row_count
-            << ",\"schema_version\":1}\n";
+  sparkinterval::write_generated_driver_report(
+      std::cout,
+      {
+          .allow_other_device = options.allow_other_device,
+          .compute_capability_major = major,
+          .compute_capability_minor = minor,
+          .cuda_driver_version = cuda_driver_version,
+          .device_count = device_count,
+          .device_index = options.device,
+          .device_name = device_name,
+          .device_uuid = device_uuid_hex,
+          .challenge_nonce = options.challenge_nonce,
+          .input_payload_sha256 = input_sha256,
+          .input_payload_size_bytes = input_bytes,
+          .module_sha256 = module_sha256,
+          .module_size_bytes = module_bytes.size(),
+          .module_kind = options.module_kind == Options::ModuleKind::cubin
+                             ? "offline_cubin"
+                             : "ptx_jit_development",
+          .output_file_sha256 = output_sha256,
+          .output_file_size_bytes = output_file_bytes.size(),
+          .row_count = input.row_count,
+      });
   return 0;
 }

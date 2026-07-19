@@ -1,247 +1,295 @@
-# Run-bundle format
+# Certificates and run-bundle formats
 
-`tools/create_run_bundle.py` emits one canonical, UTF-8 JSON object. The file
-has no byte-order mark, insignificant whitespace, or trailing newline. Object
-keys are sorted and separators are `,` and `:`. JSON floating-point values,
-`NaN`, infinities, duplicate object keys, and non-string object keys are
-rejected. Integers are exact JSON integers.
+SparkInterval has two independent evidence families:
 
-Every SHA-256 value is exactly 64 lowercase hexadecimal characters. Relative
-artifact paths use canonical POSIX syntax and cannot leave the artifact root.
-The normative structural description is `schemas/run-bundle.schema.json`; the
-Python verifier also enforces security relationships that JSON Schema cannot
-express.
+- A **full result certificate** lets Lean recompute the mathematics from a
+  self-contained witness. It does not establish who produced the witness or
+  whether a GPU ran.
+- A **run bundle** binds an algorithm, inputs, result, artifacts, environment,
+  completion record, and evidence class. Its assurance depends on the selected
+  verification policy.
 
-## Exact-reference formats
+See [Correctness claims](CORRECTNESS_CLAIMS.md) for what each path proves and
+the [Trust model](TRUST_MODEL.md) for the assumptions behind execution
+provenance.
 
-Phase 3 also defines three canonical formats under `schemas/`:
+Run relative commands in this reference from the repository root.
 
-- `reference-batch.schema.json` binds the expression, variable count, and
-  finite interval input rows;
-- `reference-result.schema.json` binds the input hash and exact evaluated
-  output rows;
-- `reference-certificate.schema.json` is self-contained and packages the
-  batch and result for Python recomputation.
+## Canonical JSON
 
-These files use canonical compact UTF-8 JSON with sorted keys, exact integers,
-and lowercase 16-hex-digit binary64 words. Input and constant endpoints must
-be finite; result endpoints may be exact infinities after overflow; NaNs are
-never accepted. The parser caps a batch at 1,000,000 rows and the current
-non-streaming JSON input at 512 MiB.
+The certificate, receipt, bundle, and signature wire formats use a strict
+UTF-8 JSON subset. Profile values use the same restricted value types and are
+hashed through the same canonical encoder.
 
-Use the reference CLI to evaluate, package, and independently recompute these
-objects:
+- object keys are strings, sorted in encoded output, and may not be duplicated;
+- separators are `,` and `:` with no insignificant whitespace;
+- floating-point JSON numbers, `NaN`, and infinities are forbidden;
+- integers are exact JSON integers;
+- SHA-256 values are 64 lowercase hexadecimal characters; and
+- canonical wire files have no byte-order mark or trailing newline.
+
+The schemas describe structure. The Python and Lean parsers additionally
+enforce canonical bytes and relationships that JSON Schema cannot express,
+such as row arity, nested hashes, profile compatibility, and artifact-root
+containment.
+
+## Exact-reference and full Lean certificates
+
+The certificate family uses these schemas:
+
+| Object | Schema | Purpose |
+| --- | --- | --- |
+| Batch | [reference-batch.schema.json](../schemas/reference-batch.schema.json) | Expression, variable count, and finite interval input rows |
+| Result | [reference-result.schema.json](../schemas/reference-result.schema.json) | Batch hash and claimed output intervals |
+| Self-contained certificate | [reference-certificate.schema.json](../schemas/reference-certificate.schema.json) | Complete batch and result with their hashes |
+| Lean-generation receipt | [lean-result-certificate-receipt.schema.json](../schemas/lean-result-certificate-receipt.schema.json) | Certificate identity, bound, decision mode, generated declarations, and source hash |
+
+Binary64 values are lowercase 16-hex-digit words. Inputs and constants must be
+finite. Results may contain exact positive or negative infinity after
+overflow; NaNs are never accepted.
+
+### Python exact-reference workflow
 
 ```bash
 python3 -m reference.cli evaluate batch.json result.json
-python3 -m reference.cli certify --result result.json \
-  batch.json certificate.json
+python3 -m reference.cli certify \
+  --result result.json batch.json certificate.json
 python3 -m reference.cli check certificate.json
 ```
 
-The Python parser is authoritative for relationships JSON Schema cannot fully
-express, including row arity, variable indices, row-count equality, hashes,
-and exact recomputation. Here “certificate” means a Python-recomputed
-reference package. There is no Lean parser/checker or theorem relating this
-wire expression to Lean `Expr`/`FPInterval`; it is not execution evidence,
-attestation, or a signature.
+The checker uses exact rational binary64 arithmetic rather than native Python
+floating-point arithmetic. Used alone, this workflow supplies independently
+recomputed reference data. It is neither a Lean proof nor execution evidence.
 
-## Bound run statement
+### Lean full-certificate workflow
 
-The `statement` serializes and hash-binds all facts that a later proof is
-intended to consume:
+The serialized checker validates the canonical certificate and a finite
+binary64 application upper bound:
 
-- target-profile and trust-profile identifiers plus the canonical hash of each
-  profile;
-- algorithm identifier and formal-definition hash;
-- input path, size, and content hash;
-- the exact parameter object and its canonical hash;
-- the exact domain-coverage object and its canonical hash;
-- output path, size, and content hash;
+```bash
+./tools/safe_lake_build.py SparkInterval.Certificate \
+  --target sparkinterval-check-certificate
+./tools/with_memory_limit.sh \
+  .lake/build/bin/sparkinterval-check-certificate \
+  certificate.json --upper-bound 4010000000000001
+```
+
+To emit an importable Lean module and its canonical receipt:
+
+```bash
+mkdir -p build/certificate-check
+CERT_DIR="$(mktemp -d build/certificate-check/run.XXXXXX)"
+python3 tools/generate_lean_result_certificate.py \
+  --certificate certificate.json \
+  --upper-bound 4010000000000001 \
+  --output "$CERT_DIR/GeneratedFullCertificate.lean" \
+  > "$CERT_DIR/receipt.json"
+./tools/safe_lean.sh "$CERT_DIR/GeneratedFullCertificate.lean"
+```
+
+The generator refuses to overwrite its Lean output. The fresh directory also
+prevents shell redirection from replacing a receipt from an earlier attempt.
+
+Lean parses the canonical bytes, checks the nested SHA-256 bindings, decodes
+every binary64 endpoint into an exact rational, and reevaluates every row.
+The mathematical checker accepts a claimed result when it contains that exact
+reevaluation. The Python-backed generator is deliberately stricter: it emits a
+module only when the supplied result exactly matches Python's independent
+reference result.
+
+Generated modules provide row-wise and finite-sum upper-bound theorems. Their
+namespace and receipt bind the certificate digest, application bound, and
+decision mode, allowing distinct certificates and reduction modes to coexist.
+
+### Lean decision modes
+
+The `--decision-mode` option controls concrete proof reduction, not GPU
+execution:
+
+| Mode | Direct typed-data checks | Serialized JSON/parser binding |
+| --- | --- | --- |
+| `kernel` (default) | `decide_cbv`; no `native_decide` dependency | Uses `native_decide` for the concrete parser equality |
+| `native` | Uses `native_decide` | Uses `native_decide` |
+
+The generic certificate soundness theorems are independent of this choice.
+The generated source prints its theorem dependencies, and the receipt records
+the selected mode. Native proof reflection is not evidence that a GPU ran.
+
+### Certificate resource limits
+
+Both implementations reject oversized or arithmetically explosive witnesses
+before exact evaluation. Current limits include:
+
+- 512 MiB of canonical certificate JSON;
+- 1,000,000 rows and 65,536 variables;
+- expression depth 256, expression nodes 100,000, and JSON nesting 300;
+- natural-power exponents at most 64;
+- symbolic arithmetic cost at most 4,096 per row; and
+- row-count times arithmetic cost at most 10,000,000.
+
+Use the [memory-safe entry points](MEMORY_SAFE_BUILDS.md) for every Lean build
+or generated-module check.
+
+## Run bundles
+
+The normative structure is
+[run-bundle.schema.json](../schemas/run-bundle.schema.json). A bundle contains
+a `statement`, the canonical `statement_sha256`, an evidence object, and a
+`bundle_sha256` over the remaining bundle fields.
+
+The statement binds:
+
+- target and trust profile identifiers plus hashes of the complete profiles;
+- algorithm identifier and definition hash;
+- input and output artifact paths, sizes, and hashes;
+- parameters and domain coverage as canonical integer-only JSON;
 - a 256-bit nonce;
-- the exact host executable and at least one GPU execution image (`gpu_cubin`,
-  `gpu_fatbin`, `gpu_ptx`, or `gpu_executable`), plus every other named build
-  artifact, including each role, path, size, and content hash;
-- the execution-environment object and its canonical hash; and
-- successful completion, zero exit status, complete output count, an empty
-  CUDA-error list, and start/end timestamps.
+- the host executable, at least one GPU execution image, and all other named
+  build artifacts;
+- the execution environment; and
+- successful completion, output coverage, timestamps, and an empty CUDA-error
+  list.
 
-`statement_sha256` is the SHA-256 of the canonical `statement` value. An H100
-attestation verifier must check that the hardware evidence's report-data field
-binds this exact digest. `bundle_sha256` covers the complete bundle except for
-the `bundle_sha256` field itself. The bundle hash detects accidental or
-unrecomputed modification; by itself it is not a signature or evidence of who
-ran anything.
+Artifact paths are canonical relative POSIX paths beneath one supplied root.
+The verifier rejects absolute paths, traversal, non-regular files, and byte or
+size mismatches.
 
-Hash binding prevents substitution only relative to a trusted expected digest
-or accepted execution-evidence chain. It does not establish that the fields
-are true or that an opaque algorithm hash denotes a particular Lean
-definition.
+`bundle_sha256` detects modification only when an expected digest arrives
+through a trusted channel. A bundle and every digest inside it can otherwise
+be fabricated together. For H100 production evidence, the external verifier
+must check that report data binds the exact `statement_sha256`.
+
+Specialized repository workflows create bundles for the DGX probe,
+generated-cubin acceptance, and real-zeta tutorial. See the
+[reproducibility runbook](REPRODUCIBILITY.md). The generic creator is
+`tools/create_run_bundle.py`; run it with `--help` for the complete required
+field list.
 
 ## Target and trust profiles
 
-Targets and trust are deliberately independent:
+Targets and evidence classes are separate:
 
-| Target profile | Permitted trust/evidence classes |
-| --- | --- |
-| `dgx_spark_sm121` | `local_unattested` only |
-| `h100_sm90` | `local_unattested`, `mock_attested`, or `hardware_attested` |
+| Target profile | Permitted evidence classes | Current meaning |
+| --- | --- | --- |
+| [`dgx_spark_sm121`](../profiles/targets/dgx_spark_sm121.json) | `local_unattested` | DGX Spark/GB10 has no supported confidential-computing run attestation in this project |
+| [`h100_sm90`](../profiles/targets/h100_sm90.json) | `local_unattested`, `mock_attested`, `hardware_attested` | Hardware evidence is meaningful only after external NVIDIA CC verification |
 
-The `local_unattested` profile always has `hardware_attestation: null`. This is
-the only valid DGX Spark form. It is an integrity and reproducibility record,
-not confidential-computing evidence.
+The trust profiles are:
 
-### Detached DGX operator signature
+- [`local_unattested`](../profiles/trust/local_unattested.json): artifact and
+  reproducibility metadata, forgeable by the host;
+- [`mock_attested`](../profiles/trust/mock_attested.json): parser/integration
+  fixture that production policy rejects; and
+- [`h100_hardware_attested`](../profiles/trust/h100_hardware_attested.json):
+  structural profile requiring a trusted external evidence verifier.
 
-`schemas/local-operator-signature.schema.json` defines an optional canonical
-Ed25519 sidecar. It does not change the inner run bundle: its trust profile and
-evidence class remain `local_unattested`, and `hardware_attestation` remains
-`null`.
+Selecting a profile or inserting an evidence object does not itself establish
+hardware evidence.
 
-The sidecar signs a domain-separated canonical payload binding three values:
-the SHA-256 of the exact complete `run-bundle.json` bytes, the bundle's own
-`bundle_sha256`, and its `statement_sha256`. The `key_id` is SHA-256 of the
-RFC 8410 Ed25519 SubjectPublicKeyInfo DER. Although the sidecar embeds that
-public key for portability, verification requires a separately supplied pinned
-public PEM with the same DER and key ID. Trusting only the embedded key would
-prove no operator identity.
+## Detached DGX operator signatures
 
-A valid signature proves that possession of the selected private key signed
-the exact record. It does not prove that the record is true, identify physical
-hardware, establish a trustworthy time, isolate the key, or prove a CUDA
-kernel ran. The fixed sidecar warning is
-`LOCAL OPERATOR SIGNATURE ONLY - NOT HARDWARE ATTESTATION`.
+The optional sidecar format is
+[local-operator-signature.schema.json](../schemas/local-operator-signature.schema.json).
+It signs a domain-separated payload containing:
 
-The `mock_attested` profile has a conspicuous test marker in
-`mock_attestation` and keeps `hardware_attestation: null`. It exists only to
-exercise the offline H100 path. The production policy rejects it before an
-attestation verifier is called.
+- SHA-256 of the exact `run-bundle.json` file bytes;
+- the bundle's `bundle_sha256`; and
+- the bundle's `statement_sha256`.
 
-The `h100_hardware_attested` profile requires a hashed evidence artifact. Its
-presence is still only structural. Production acceptance additionally requires
-a trusted external NVIDIA confidential-computing verifier to validate the
-evidence chain, platform policy, freshness, and the report-data binding to
-`statement_sha256`.
+The Ed25519 key ID is SHA-256 of its RFC 8410 SubjectPublicKeyInfo DER. The
+sidecar embeds the public key for portability, but verification requires a
+separately supplied pinned public key. Trusting only the embedded key proves
+no operator identity.
 
-## Creation
-
-All bound artifacts must be beneath one root. Parameter, coverage, environment,
-and completion arguments are JSON files in the integer-only subset.
+After creating `build/dgx-probe-bundle`, create and use a passphrase-protected
+operator key outside the artifact root as follows. The fresh directory keeps a
+new passphrase from ever being paired with an older encrypted key, and the
+restrictive `umask` protects the generated secret files:
 
 ```bash
-python3 tools/create_run_bundle.py \
-  --root build/run \
-  --target-profile profiles/targets/dgx_spark_sm121.json \
-  --trust-profile profiles/trust/local_unattested.json \
-  --algorithm-id ExampleIntervalBatch.v1 \
-  --algorithm-definition-sha256 "$ALGORITHM_SHA256" \
-  --input build/run/input.bin \
-  --parameters build/run/parameters.json \
-  --domain-coverage build/run/coverage.json \
-  --output build/run/output.bin \
-  --nonce "$CHALLENGER_NONCE_HEX" \
-  --build-artifact host_executable=build/run/sparkinterval-run \
-  --build-artifact gpu_executable=build/run/kernel.cubin \
-  --execution-environment build/run/environment.json \
-  --completion build/run/completion.json \
-  --out build/run/run-bundle.json
-```
-
-For an anti-replay claim, the nonce must be unpredictable and supplied by the
-party that will verify the run. A random value chosen only by the prover shows
-uniqueness, not freshness.
-
-For a retained Phase 5 generated-cubin acceptance directory, use the stricter
-wrapper rather than manually enumerating artifacts:
-
-```bash
-python3 tools/create_dgx_generated_cubin_bundle.py \
-  --work-dir build/generated-ptx-conformance/rows-100000 \
-  --generator .lake/build/bin/sparkinterval-gen \
-  --driver build/dgx-spark/sparkinterval-generated-driver \
-  --phase4 build/dgx-spark/sparkinterval-expression-batch \
-  --output-root build/generated-cubin-run-bundle/rows-100000 \
-  --start-time-utc "$RUN_START_UTC" \
-  --end-time-utc "$RUN_END_UTC" \
-  --nonce "$CHALLENGER_NONCE_HEX"
-```
-
-This wrapper first checks strong acceptance, exact-reference summaries, the
-literal signed-zero suite, exact-cubin hardware metadata, all replay/hash
-bindings, and Phase 4 payload equality. It preserves the exact compiler and
-disassembler binaries. The resulting DGX record remains local and unattested.
-
-Create a new operator key and sign an already integrity-checked DGX bundle:
-
-```bash
+mkdir -p build
+umask 077
+OPERATOR_KEY_DIR="$(mktemp -d build/operator-keys.XXXXXX)"
+BUNDLE_ROOT=build/dgx-probe-bundle
+SIGNATURE="$OPERATOR_KEY_DIR/run-bundle.signature.json"
+openssl rand -base64 32 > "$OPERATOR_KEY_DIR/operator-passphrase.txt"
 python3 tools/local_operator_signature.py keygen \
-  --private-key operator-private.pem \
-  --public-key operator-public.pem \
-  --passphrase-file operator-passphrase.txt
-python3 tools/local_operator_signature.py sign build/run/run-bundle.json \
-  --artifact-root build/run \
-  --private-key operator-private.pem \
-  --passphrase-file operator-passphrase.txt \
-  --out build/run/run-bundle.signature.json
+  --private-key "$OPERATOR_KEY_DIR/operator-private.pem" \
+  --public-key "$OPERATOR_KEY_DIR/operator-public.pem" \
+  --passphrase-file "$OPERATOR_KEY_DIR/operator-passphrase.txt"
+python3 tools/local_operator_signature.py sign \
+  "$BUNDLE_ROOT/run-bundle.json" \
+  --artifact-root "$BUNDLE_ROOT" \
+  --private-key "$OPERATOR_KEY_DIR/operator-private.pem" \
+  --passphrase-file "$OPERATOR_KEY_DIR/operator-passphrase.txt" \
+  --out "$SIGNATURE"
 ```
 
-The passphrase file and private key must be mode `0600`. For a disposable POC,
-`keygen --allow-unencrypted-private-key` explicitly opts into an unencrypted
-mode-`0600` key. The tool refuses to overwrite either key and never places the
-private key in a bundle.
+The private key and passphrase file must have mode `0600`. The tool also
+supports an explicit `--allow-unencrypted-private-key` option for disposable
+local tests. Never place a private key in an artifact bundle or repository.
+
+A valid signature identifies the signing key and protects the exact record
+from undetected modification. It does not prove that the record is true, that
+a GPU ran, or that timestamps and hardware identities are trustworthy. The
+inner bundle remains `local_unattested` and verification reports
+`hardware_evidence: false`.
 
 ## Verification policies
 
-Integrity verification can check the canonical bundle and all referenced file
-bytes:
+### Integrity only
 
 ```bash
-python3 tools/verify_run_bundle.py build/run/run-bundle.json \
-  --artifact-root build/run \
-  --replay-db verifier-state/nonces.sqlite3
+python3 tools/verify_run_bundle.py \
+  build/dgx-probe-bundle/run-bundle.json \
+  --artifact-root build/dgx-probe-bundle
 ```
 
-The result explicitly reports `hardware_evidence: false` for local and mock
-records. The replay database records a nonce only after all requested checks
-succeed and rejects its reuse.
+This checks canonical structure, compatible profiles, hashes, and every bound
+artifact. It supplies no execution provenance.
 
-Operator-signed DGX verification additionally requires all artifact bytes, a
-separately pinned public key, and persistent replay state:
+### DGX operator-signed policy
 
 ```bash
-python3 tools/verify_run_bundle.py build/run/run-bundle.json \
-  --artifact-root build/run \
+BUNDLE_ROOT=build/dgx-probe-bundle
+OPERATOR_KEY_DIR=/path/to/retained-operator-key-directory
+SIGNATURE="$OPERATOR_KEY_DIR/run-bundle.signature.json"
+TRUSTED_OPERATOR_KEY="$OPERATOR_KEY_DIR/operator-public.pem"
+mkdir -p verifier-state
+python3 tools/verify_run_bundle.py \
+  "$BUNDLE_ROOT/run-bundle.json" \
+  --artifact-root "$BUNDLE_ROOT" \
   --policy dgx_operator_signed \
-  --operator-signature build/run/run-bundle.signature.json \
-  --trusted-operator-key operator-public.pem \
+  --operator-signature "$SIGNATURE" \
+  --trusted-operator-key "$TRUSTED_OPERATOR_KEY" \
   --replay-db verifier-state/operator-nonces.sqlite3
 ```
 
-A successful result has `operator_signature_valid: true` and assurance
-`operator_signed_local_record_not_hardware_evidence`, while retaining
-`hardware_evidence: false`. The nonce must originate with the verifier for a
-freshness claim; a prover-chosen nonce is only a uniqueness field.
+The replay database is required and records a nonce only after all checks
+succeed. A nonce proves freshness only when the verifier supplied it
+unpredictably before the run.
 
-Production H100 verification is fail-closed:
+### H100 production policy
+
+No accepted positive H100 bundle currently exists in the repository. The
+following is a deployment template, not an offline success path; replace both
+absolute paths with independently provisioned production inputs:
 
 ```bash
-python3 tools/verify_run_bundle.py build/run/run-bundle.json \
-  --artifact-root build/run \
+H100_RUN=/path/to/accepted-h100-run
+ATTESTATION_VERIFIER=/trusted/bin/verify-nvidia-cc-evidence
+mkdir -p verifier-state
+python3 tools/verify_run_bundle.py \
+  "$H100_RUN/run-bundle.json" \
+  --artifact-root "$H100_RUN" \
   --policy h100_production \
-  --replay-db verifier-state/nonces.sqlite3 \
-  --attestation-verifier /trusted/bin/verify-nvidia-cc-evidence
+  --replay-db verifier-state/h100-nonces.sqlite3 \
+  --attestation-verifier "$ATTESTATION_VERIFIER"
 ```
 
-The external verifier is invoked without a shell as:
-
-```text
-verify-nvidia-cc-evidence \
-  --evidence PATH \
-  --format nvidia_cc_evidence \
-  --expected-report-data-sha256 HEX_DIGEST
-```
-
-It must return zero only after cryptographic and policy validation. Without
-that executable, artifact bytes, and persistent replay state, the production
-policy rejects the bundle. Selecting a profile, inserting a mock object, or
-asserting a verdict in JSON can never satisfy the production policy.
+The external executable is invoked without a shell with the evidence path,
+format, and expected report-data SHA-256. It must validate the cryptographic
+chain, pinned platform policy, freshness, and statement binding before
+returning success. Without that executable, complete artifact bytes, and
+persistent replay state, production verification fails closed. See
+[H100 support](H100.md).

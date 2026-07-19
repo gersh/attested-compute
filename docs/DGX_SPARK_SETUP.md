@@ -1,78 +1,73 @@
 # DGX Spark setup
 
-The tested baseline is NVIDIA DGX OS on `aarch64`, one GB10 GPU with compute
-capability 12.1, and CUDA 13.0 or another toolkit that explicitly supports
-`sm_121`.
+The supported native baseline is NVIDIA DGX OS on `aarch64`, one GB10 GPU with
+compute capability 12.1, and a CUDA toolkit that supports `sm_121`.
 
-Required commands on `PATH` are `lean`, `lake`, `cmake`, `nvidia-smi`,
-`openssl` 3.x for optional Ed25519 operator signatures, and the CUDA tools
-under `/usr/local/cuda/bin`. Use the NVIDIA-provided driver/toolkit pair rather
-than replacing the driver as part of this build.
+## Prerequisites
+
+The build and validation workflow uses:
+
+- `lean`, `lake`, Python 3, Git, CMake, and a C++ compiler;
+- `nvidia-smi` and `/usr/local/cuda/bin/{nvcc,ptxas,cuobjdump,nvdisasm}`;
+- `systemd-run`, a working systemd user manager, `flock`, and `sha256sum` for
+  serialized memory-capped builds and artifact records; and
+- OpenSSL 3.x when operator key generation or signature verification is used.
+
+Use the NVIDIA-provided driver/toolkit pair. Do not replace the driver as part
+of this build. The DGX scripts currently require CUDA tools under
+`/usr/local/cuda/bin`, and the conformance tools must be discoverable on
+`PATH`; the recorded acceptance profile is `sm_121`. Before running the build:
+
+```bash
+export PATH="/usr/local/cuda/bin:$PATH"
+```
+
+The memory wrapper fails closed if a systemd user manager is unavailable. See
+[Memory-safe builds](MEMORY_SAFE_BUILDS.md) for the supported container or
+scheduler override and for resource-limit settings.
+
+## Build and validate
+
+From a clean repository root:
 
 ```bash
 git status --short
 ./tools/build_dgx_spark.sh
 ```
 
-Expected outputs include:
+The script checks `aarch64`, exactly one compute-capability-12.1 GPU, the pinned
+Lean/mathlib toolchain, and required tools. It then runs serialized Lean checks,
+Python tests, a one-job CUDA/CMake build, regression-sized CTests, the native
+probe, and PTX/cubin/SASS extraction.
 
-- `build/run/environment.txt` and its SHA-256 record;
-- `build/run/probe.json`, with `evidence_class` equal to
-  `local_unattested`, `passed` equal to `true`, and
-  `hardware_attestation` equal to `null`;
-- the executable, PTX, ELF and SASS dumps plus hashes in
-  `build/artifacts/`;
-- a successful `lake build`, axiom audit and CTest run.
+Important outputs include:
 
-The CTests use small development samples (`1024` primitive rows per operation,
-`1024` randomized expression/row cases, and `1024` generated-PTX polynomial
-rows). They catch regressions quickly but do not satisfy the Phase 4/5
-acceptance runs. Run the large paths separately:
+- `build/run/environment.txt` and `build/run/probe.json`;
+- inspectable artifacts and hashes under `build/artifacts/`; and
+- `build/dgx-probe-bundle/run-bundle.json`.
+
+Verify the resulting local bundle with:
 
 ```bash
-python3 tools/run_primitive_conformance.py --count 1250000 \
-  --work-dir build/primitive-conformance/rows-1250000
-python3 tools/run_expression_conformance.py --count 1000000 \
-  --program-count 256 \
-  --work-dir build/expression-conformance/rows-1000000-programs-256
-python3 tools/run_generated_ptx_conformance.py \
-  --generator .lake/build/bin/sparkinterval-gen \
-  --driver build/dgx-spark/sparkinterval-generated-driver \
-  --count 100000 \
-  --work-dir build/generated-ptx-conformance/rows-100000
-python3 tools/close_generated_ptx_acceptance.py \
-  --work-dir build/generated-ptx-conformance/rows-100000 \
-  --generator .lake/build/bin/sparkinterval-gen \
-  --driver build/dgx-spark/sparkinterval-generated-driver \
-  --phase4 build/dgx-spark/sparkinterval-expression-batch
+python3 tools/verify_run_bundle.py \
+  build/dgx-probe-bundle/run-bundle.json \
+  --artifact-root build/dgx-probe-bundle
 ```
 
-The primitive count is per operation; the expression count is total across
-the randomized programs. The generated-PTX closure deliberately repeats its
-exact comparison. Exact rational CPU recomputation, not GPU execution,
-dominates the validation wall time. The current `build_dgx_spark.sh` bundle is
-the diagnostic probe bundle. After the generated-cubin closure succeeds, use
-`tools/create_dgx_generated_cubin_bundle.py` as documented in
-`REPRODUCIBILITY.md` to create the complete local arithmetic-result bundle.
+The bundle is deliberately `local_unattested`, has
+`hardware_attestation: null`, and reports `hardware_evidence: false`. It records
+the diagnostic probe, not a large arithmetic acceptance run.
 
-For a small end-to-end mathematical application after the build, run:
+## Next steps
 
-```bash
-python3 tools/run_zeta_poc.py run \
-  --work-dir build/examples/zeta2-4096 --s 2 --terms 4096
-python3 tools/run_zeta_poc.py verify build/examples/zeta2-4096
-```
+- For local operator signing with a pinned Ed25519 key and replay database, use
+  [DGX local bundle and signature](USING.md#dgx-spark-local-bundle-and-operator-signature).
+- For the real-integer zeta tutorial, use
+  [Real-integer zeta POC](USING.md#real-integer-zeta-poc).
+- For the larger arithmetic and generated-cubin acceptance procedures, use
+  [Reproducibility](REPRODUCIBILITY.md).
 
-This produces a rigorous real `zeta(2)` enclosure by combining exactly checked
-GPU term intervals with an integral-test tail. It remains a local-unattested
-record. The operator-signature commands in `examples/README.md` can endorse
-the exact bundle with a user-owned Ed25519 key; they cannot turn GB10 into
-hardware-attested execution.
-
-The strict probe expects exactly one GPU.  Its development override is for
-portability experiments and must never be used in a recorded DGX acceptance
-run.
-
-If the probe fails, retain its standard error and environment record.  Do not
-edit expected bit patterns or substitute an unbounded interval to turn a
-failure into success.
+The strict recorded profile expects exactly one GPU. Portability overrides are
+for local experiments and must not be used in a claimed DGX acceptance
+run. If a probe or audit fails, retain its error and environment record; do not
+weaken expected bit patterns or replace a failed result with an unbounded one.

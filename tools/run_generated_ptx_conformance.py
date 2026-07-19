@@ -225,6 +225,14 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def input_payload_binding(path: Path) -> tuple[str, int]:
+    raw = path.read_bytes()
+    if len(raw) < INPUT_HEADER.size:
+        raise RuntimeError("driver input is truncated before its payload")
+    payload = raw[INPUT_HEADER.size :]
+    return hashlib.sha256(payload).hexdigest(), len(payload)
+
+
 def tool_identity(path: Path) -> dict[str, str]:
     resolved = path.resolve()
     completed = subprocess.run(
@@ -259,18 +267,28 @@ def run_checked(command: list[str], cwd: Path = ROOT) -> float:
 
 def run_driver(
     command: list[str], report_path: Path, *, row_count: int,
-    allow_other_device: bool
+    allow_other_device: bool, module_path: Path, input_path: Path,
+    output_path: Path,
 ) -> tuple[float, dict[str, Any]]:
+    module_digest = sha256(module_path)
+    input_digest, input_size = input_payload_binding(input_path)
+    bound_command = [
+        *command,
+        "--expected-module-sha256",
+        module_digest,
+        "--expected-input-sha256",
+        input_digest,
+    ]
     started = time.perf_counter()
     completed = subprocess.run(
-        command, cwd=ROOT, capture_output=True, text=True, check=False
+        bound_command, cwd=ROOT, capture_output=True, text=True, check=False
     )
     elapsed = time.perf_counter() - started
     if completed.returncode != 0:
         if completed.stderr:
             print(completed.stderr, file=sys.stderr, end="")
         raise RuntimeError(
-            f"driver failed with exit {completed.returncode}: {' '.join(command)}"
+            f"driver failed with exit {completed.returncode}: {' '.join(bound_command)}"
         )
     try:
         metadata = json.loads(completed.stdout)
@@ -282,6 +300,11 @@ def run_driver(
         "module_kind": "offline_cubin",
         "allow_other_device": allow_other_device,
         "row_count": row_count,
+        "byte_binding_schema_version": 1,
+        "module_sha256": module_digest,
+        "module_size_bytes": module_path.stat().st_size,
+        "input_payload_sha256": input_digest,
+        "input_payload_size_bytes": input_size,
     }
     for key, value in expected.items():
         if metadata.get(key) != value:
@@ -291,6 +314,10 @@ def run_driver(
         or metadata.get("compute_capability") != "12.1"
     ):
         raise RuntimeError("driver metadata does not identify the required DGX Spark GPU")
+    if metadata.get("output_file_sha256") != sha256(output_path):
+        raise RuntimeError("driver metadata is not bound to the exact output file bytes")
+    if metadata.get("output_file_size_bytes") != output_path.stat().st_size:
+        raise RuntimeError("driver metadata reports the wrong output byte count")
     report_path.write_text(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
@@ -405,6 +432,9 @@ def main() -> int:
         driver_report_path,
         row_count=len(values),
         allow_other_device=args.allow_other_device,
+        module_path=cubin_path,
+        input_path=input_path,
+        output_path=output_path,
     )
 
     actual = read_driver_output(output_path, len(values), VARIABLE_COUNT)
@@ -526,6 +556,9 @@ def main() -> int:
         zero_driver_report_path,
         row_count=len(zero_values),
         allow_other_device=args.allow_other_device,
+        module_path=zero_cubin_path,
+        input_path=zero_input_path,
+        output_path=zero_output_path,
     )
     zero_actual = read_driver_output(zero_output_path, len(zero_values), 2)
     zero_reference = evaluator.evaluate_batch(zero_batch)

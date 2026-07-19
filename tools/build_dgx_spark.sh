@@ -8,6 +8,12 @@ run_dir="${project_root}/build/run"
 artifact_dir="${project_root}/build/artifacts"
 bundle_dir="${project_root}/build/dgx-probe-bundle"
 mathlib_dir="${project_root}/.lake/packages/mathlib"
+build_jobs="${SPARKINTERVAL_BUILD_JOBS:-1}"
+
+if [[ ! "${build_jobs}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "SPARKINTERVAL_BUILD_JOBS must be a positive integer" >&2
+  exit 2
+fi
 
 if [[ "$(uname -m)" != "aarch64" ]]; then
   echo "DGX Spark build requires aarch64" >&2
@@ -32,7 +38,7 @@ mkdir -p "${build_dir}" "${run_dir}" "${artifact_dir}"
 cat "${run_dir}/environment.txt"
 
 cd "${project_root}"
-lake build
+"${script_dir}/safe_lake_build.py"
 if [[ ! -d "${mathlib_dir}/.git" ]]; then
   echo "pinned Lake mathlib checkout not found after build: ${mathlib_dir}" >&2
   exit 1
@@ -46,11 +52,14 @@ fi
 "${script_dir}/audit_axioms.sh"
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 
-cmake -S "${project_root}" -B "${build_dir}" \
+"${script_dir}/with_memory_limit.sh" cmake \
+  -S "${project_root}" -B "${build_dir}" \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_CUDA_ARCHITECTURES=121
-cmake --build "${build_dir}" --parallel
-ctest --test-dir "${build_dir}" --output-on-failure
+"${script_dir}/with_memory_limit.sh" cmake \
+  --build "${build_dir}" --parallel "${build_jobs}"
+"${script_dir}/with_memory_limit.sh" ctest \
+  --test-dir "${build_dir}" --parallel 1 --output-on-failure
 probe_start_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 "${build_dir}/sparkinterval-probe" > "${run_dir}/probe.json"
 probe_end_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -76,4 +85,4 @@ python3 "${script_dir}/create_dgx_probe_bundle.py" \
   --end-time-utc "${probe_end_time}" \
   "${bundle_nonce_args[@]}"
 
-echo "DGX Spark development build and Phase 0-5 smoke checks completed: ${build_dir}"
+echo "DGX Spark build and validation completed: ${build_dir}"

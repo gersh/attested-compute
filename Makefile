@@ -1,13 +1,15 @@
 .PHONY: all lean probe primitive-conformance expression-conformance python-test h100-offline h100-test test audit clean
 
+CMAKE_BUILD_JOBS ?= 1
+
 all: lean probe
 
 lean:
-	lake build
+	./tools/safe_lake_build.py
 
 probe:
-	cmake -S . -B build/dgx-spark -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=121
-	cmake --build build/dgx-spark --parallel
+	./tools/with_memory_limit.sh cmake -S . -B build/dgx-spark -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=121
+	./tools/with_memory_limit.sh cmake --build build/dgx-spark --parallel "$(CMAKE_BUILD_JOBS)"
 
 primitive-conformance: probe
 	python3 tools/run_primitive_conformance.py --count 10000
@@ -25,7 +27,7 @@ h100-test:
 	./tests/test_h100_offline.sh
 
 test: all
-	ctest --test-dir build/dgx-spark --output-on-failure
+	./tools/with_memory_limit.sh ctest --test-dir build/dgx-spark --parallel 1 --output-on-failure
 	python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 audit: lean

@@ -360,12 +360,28 @@ def _phase4_result_payload(
     return payload
 
 
-def _validate_hardware(value: Any, *, row_count: int, what: str) -> dict[str, Any]:
+def _validate_hardware(
+    value: Any,
+    *,
+    row_count: int,
+    module: Path,
+    rows: Path,
+    results: Path,
+    what: str,
+) -> dict[str, Any]:
     hardware = _dict(value, what)
     expected_keys = {
         "schema_version",
         "kind",
+        "byte_binding_schema_version",
+        "challenge_nonce",
         "module_kind",
+        "module_sha256",
+        "module_size_bytes",
+        "input_payload_sha256",
+        "input_payload_size_bytes",
+        "output_file_sha256",
+        "output_file_size_bytes",
         "device_count",
         "device_index",
         "device_name",
@@ -394,14 +410,64 @@ def _validate_hardware(value: Any, *, row_count: int, what: str) -> dict[str, An
     if not isinstance(hardware["device_uuid"], str) or UUID_RE.fullmatch(hardware["device_uuid"]) is None:
         raise _error(f"{what}.device_uuid is not 16 bytes of lowercase hex")
     _integer(hardware["cuda_driver_version"], f"{what}.cuda_driver_version", minimum=1)
+    if hardware["byte_binding_schema_version"] != 1:
+        raise _error(f"{what} has an unsupported byte-binding schema")
+    nonce = hardware["challenge_nonce"]
+    if nonce is not None and (
+        not isinstance(nonce, str) or SHA256_RE.fullmatch(nonce) is None
+    ):
+        raise _error(f"{what}.challenge_nonce must be null or 32 bytes of lowercase hex")
+
+    module_digest = _digest(hardware["module_sha256"], f"{what}.module_sha256")
+    if module_digest != _sha256(module):
+        raise _error(f"{what}.module_sha256 does not bind {module.name}")
+    if (
+        _integer(hardware["module_size_bytes"], f"{what}.module_size_bytes")
+        != module.stat().st_size
+    ):
+        raise _error(f"{what}.module_size_bytes does not bind {module.name}")
+
+    encoded_rows = rows.read_bytes()
+    input_payload = encoded_rows[GENERATED_HEADER.size :]
+    input_digest = _digest(
+        hardware["input_payload_sha256"], f"{what}.input_payload_sha256"
+    )
+    if input_digest != hashlib.sha256(input_payload).hexdigest():
+        raise _error(f"{what}.input_payload_sha256 does not bind {rows.name}")
+    if (
+        _integer(
+            hardware["input_payload_size_bytes"],
+            f"{what}.input_payload_size_bytes",
+        )
+        != len(input_payload)
+    ):
+        raise _error(f"{what}.input_payload_size_bytes does not bind {rows.name}")
+
+    output_digest = _digest(
+        hardware["output_file_sha256"], f"{what}.output_file_sha256"
+    )
+    if output_digest != _sha256(results):
+        raise _error(f"{what}.output_file_sha256 does not bind {results.name}")
+    if (
+        _integer(
+            hardware["output_file_size_bytes"], f"{what}.output_file_size_bytes"
+        )
+        != results.stat().st_size
+    ):
+        raise _error(f"{what}.output_file_size_bytes does not bind {results.name}")
     return hardware
 
 
 def _same_device(left: dict[str, Any], right: dict[str, Any]) -> bool:
-    ignored = {"row_count"}
-    return {k: v for k, v in left.items() if k not in ignored} == {
-        k: v for k, v in right.items() if k not in ignored
-    }
+    identity_fields = (
+        "device_count",
+        "device_index",
+        "device_name",
+        "device_uuid",
+        "compute_capability",
+        "cuda_driver_version",
+    )
+    return all(left.get(key) == right.get(key) for key in identity_fields)
 
 
 def _validate_ptx_audit(audit: Any, *, ptx: Path, what: str) -> None:
@@ -619,10 +685,19 @@ def validate_retained_run(
     ):
         raise _error("execution_module does not bind the audited offline cubin")
     hardware = _validate_hardware(
-        report.get("hardware_execution"), row_count=row_count, what="hardware_execution"
+        report.get("hardware_execution"),
+        row_count=row_count,
+        module=files["cubin"],
+        rows=files["rows"],
+        results=files["results"],
+        what="hardware_execution",
     )
     zero_hardware = _validate_hardware(
-        report.get("signed_zero_hardware_execution"), row_count=9,
+        report.get("signed_zero_hardware_execution"),
+        row_count=9,
+        module=files["signed_zero_cubin"],
+        rows=files["signed_zero_rows"],
+        results=files["signed_zero_results"],
         what="signed_zero_hardware_execution",
     )
     if not _same_device(hardware, zero_hardware):
@@ -631,10 +706,26 @@ def validate_retained_run(
         raise _error("driver-run.json differs from hardware_execution")
     if _load_json(files["signed_zero_driver_report"], limit=AUDIT_LIMIT, what="signed-zero driver report") != zero_hardware:
         raise _error("signed-zero-driver-run.json differs from report metadata")
-    if strong.get("replay_hardware_execution") != hardware:
-        raise _error("strong replay hardware differs from the original execution")
-    if strong.get("signed_zero_replay_hardware_execution") != zero_hardware:
-        raise _error("strong signed-zero replay hardware differs from the original execution")
+    replay_hardware = _validate_hardware(
+        strong.get("replay_hardware_execution"),
+        row_count=row_count,
+        module=files["cubin"],
+        rows=files["rows"],
+        results=files["strong_replayed_results"],
+        what="strong_acceptance.replay_hardware_execution",
+    )
+    if not _same_device(hardware, replay_hardware):
+        raise _error("strong replay ran on different hardware")
+    zero_replay_hardware = _validate_hardware(
+        strong.get("signed_zero_replay_hardware_execution"),
+        row_count=9,
+        module=files["signed_zero_cubin"],
+        rows=files["signed_zero_rows"],
+        results=files["strong_signed_zero_replayed_results"],
+        what="strong_acceptance.signed_zero_replay_hardware_execution",
+    )
+    if not _same_device(zero_hardware, zero_replay_hardware):
+        raise _error("strong signed-zero replay ran on different hardware")
 
     required_true = (
         "deterministic_generation",
@@ -954,7 +1045,19 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--work-dir", required=True, type=Path)
     parser.add_argument("--generator", required=True, type=Path)
     parser.add_argument("--driver", required=True, type=Path)
-    parser.add_argument("--phase4", required=True, type=Path)
+    expression_runner = parser.add_mutually_exclusive_group(required=True)
+    expression_runner.add_argument(
+        "--expression-runner",
+        dest="phase4",
+        type=Path,
+        metavar="PATH",
+    )
+    expression_runner.add_argument(
+        "--phase4",
+        dest="phase4",
+        type=Path,
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument("--output-root", required=True, type=Path)
     parser.add_argument("--start-time-utc", required=True)
     parser.add_argument("--end-time-utc", required=True)

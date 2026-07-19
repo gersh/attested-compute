@@ -1,84 +1,115 @@
 # Correctness claims
 
-Mathematical evidence and execution provenance are independent axes.
+SparkInterval separates mathematical soundness, modeled program execution,
+testing evidence, and physical-run provenance. Evidence in one column does not
+silently supply evidence in another.
 
-| Mathematical evidence | Current status | Meaning |
-| --- | --- | --- |
-| Lean real/binary64 interval proofs | Implemented | Lean proves the abstract directed-rounding enclosure/extremality results, add/subtract/multiply/divide containment, and enclosure for the exact pure add/subtract/multiply typed-PTX instruction fragments emitted by the Phase 5 generator. |
-| Exact-reference comparison | Implemented | Every tested CUDA and generated-PTX output bit/status matched exact rational Python recomputation. This is testing evidence, not a refinement theorem. |
-| Full or compressed Lean result certificate | Not implemented | Lean would check the serialized witness that implies an application theorem. |
+## Support matrix
 
-| Execution evidence | Current status | Meaning |
-| --- | --- | --- |
-| `local_unattested` | Implemented on DGX Spark | Reproducibility/integrity record only; forgeable by the host. |
-| Detached operator signature over `local_unattested` | Implemented on DGX Spark | A pinned Ed25519 operator key signed the exact artifact-verified record. This is operator provenance, not hardware evidence or proof the record is true. |
-| `mock_attested` | Test-only | Exercises protocol rejection; never production evidence. |
-| `hardware_attested` | No accepted instance | Intended H100 provenance, accepted only through pinned production policy and the explicit execution axiom. |
+| Surface | Established claim | Evidence | Boundary |
+| --- | --- | --- | --- |
+| Abstract interval expressions | Every realized exact value is contained in the interval evaluator's result | Lean theorem [`evalInterval_sound`](../SparkInterval/EvalSound.lean#L84) | Exact-real model; no floating-point program |
+| Directed binary64 interval arithmetic | Downward/upward rounding encloses the exact value, and interval add, subtract, and multiply contain their exact-real operations; division does too when the divisor interval excludes zero | Lean theorems in [`DirectedRounding.lean`](../SparkInterval/DirectedRounding.lean#L182) and [`FPIntervalSound.lean`](../SparkInterval/FPIntervalSound.lean#L71) | Value-level model; signed-zero encodings are not distinguished in the real interpretation |
+| Full result certificate | Every checked claimed row contains every real value represented by its input row and expression; optional theorems give row-wise and finite-sum upper bounds | Lean checker and soundness theorems in [`Certificate/Full.lean`](../SparkInterval/Certificate/Full.lean#L122) | Checks the supplied complete witness; no claim about its producer |
+| Generated polynomial module | One modeled in-range thread returns an observed row representing `evalKernel`; with corresponding real inputs, the row contains the realized exact value | [`runBuildModule_inRange`](../SparkInterval/PTX/GeneratedKernelRunRefinement.lean#L32) and [`runBuildModule_inRange_containsReal`](../SparkInterval/PTX/GeneratedKernelRunRefinement.lean#L314) | Typed AST and Lean machine only; polynomial operations only |
+| Generated no-write path | Under the theorem's wrapped machine-word out-of-range premise, the modeled module returns with global memory unchanged | [`runBuildModule_outOfRange`](../SparkInterval/PTX/GeneratedKernelOutOfRangeRefinement.lean#L115) | Do not restate as an unconditional natural-index or physical-GPU theorem |
+| CUDA and generated-cubin execution | Tested outputs and statuses are compared bit-for-bit with an exact rational Python oracle, with artifact audits and replay checks | Test and conformance tooling | Differential testing, not a Lean refinement theorem |
+| Local run bundle | Canonical metadata and supplied artifact bytes are mutually hash-consistent | Run-bundle verifier | Host-forgeable; no execution authority |
+| DGX operator signature | A separately pinned Ed25519 key signed the exact artifact-verified local record, with replay checking | Signature and run-bundle verifier | Operator provenance only; always `hardware_evidence: false` |
+| H100 offline artifacts | `compute_90` PTX and `sm_90` cubins can be built and statically inspected without an H100 | Offline build and audit scripts | No H100 query, execution, result, or attestation |
+| H100 hardware provenance | No accepted instance or positive evidence importer exists | Fail-closed policy and explicit future trust axiom | Not operational in this repository |
+| Real-integer zeta tutorial | Exact host recomputation plus an integral-test tail encloses `zeta(s)` for a recorded supported integer `s > 1` | CUDA tutorial verifier and hash-bound [algorithm](algorithms/REAL_ZETA_POC.md) | Positive real values only; not a Lean theorem about `riemannZeta` or zeros |
 
-The current Lean results cover exact real intervals and formal binary64
-directed interval operations. They also cover execution of the generator's
-pure arithmetic instruction arrays on a canonical fresh-register layout. They
-do not yet cover PTX control flow, memory, threads, text emission, or a whole
-kernel. The DGX Spark primitive acceptance run compared
-5,000,000 randomized operations with zero mismatches.  The expression run
-compared 1,000,000 randomized expression/input cases across 256 programs plus
-3,504 curated cases, with zero mismatches and a byte-identical replay.  Expected
-division-by-zero and nonfinite-intermediate rows carried explicit nonzero
-statuses; a passing conformance report does not mean every row is usable by an
-application.
+Merkle and application-specific compressed Lean result certificates are not
+implemented. The finite-sum theorem still checks the complete full certificate;
+it is an aggregate conclusion, not a compressed witness.
 
-The Phase 5 polynomial vertical slice additionally ran 100,000 rows from one
-fixed nontrivial polynomial plus nine signed-zero multiplication cases. It
-matched exact Python and the Phase 4 CUDA payload, and passed deterministic
-PTX/cubin/output replay and specialized PTX/cubin-SASS audits. The executed
-module was the exact offline cubin bound to those audits, and the closure
-independently recomputed the exact comparison. This is not coverage of the
-full expression language.
+## Full result certificates
 
-The Python package called a `reference_certificate` is recomputed by Python,
-not Lean.  There is not yet a Lean theorem relating the canonical wire
-expression, Python evaluator, CUDA interpreter, or output status format to
-Lean's `Expr`/`FPInterval` semantics. Likewise, there is no proof that the Lean
-PTX parser/generator or generated kernel refines those semantics. PTX and SASS
-audits are lexical and do not prove compiler or hardware behavior. Those
-boundaries must remain in any statement of the result.
+[`FullCertificate.check_sound`](../SparkInterval/Certificate/Full.lean#L122)
+proves containment for arbitrary real selections from every input and constant
+interval, not merely for rational samples. The same checker supports the
+row-bound theorem
+[`checkUpperBound_sound`](../SparkInterval/Certificate/Full.lean#L191) and the
+finite aggregate theorem
+[`checkSumUpperBound_sound`](../SparkInterval/Certificate/Full.lean#L286).
 
-An operator-signed DGX record can establish `AlgorithmReturned` only by
-deliberately importing the separate `dgx_operator_signed_run_sound` axiom. The
-signature verifier itself continues to report `hardware_evidence: false`; the
-axiom represents trust in the operator's assertion that the signed record is
-truthful.
+The serialized parser enforces canonical JSON, exact fields and limits,
+binary64 spelling, row relationships, and nested SHA-256 bindings. Generic
+serialized implications are
+[`impliesTheorem`](../SparkInterval/Certificate/Format.lean#L367) and
+[`impliesSumTheorem`](../SparkInterval/Certificate/Format.lean#L377).
 
-An accepted H100 certificate would establish only the provenance proposition
-`AlgorithmReturned` through the named axiom.  Algorithm soundness is separate,
-and an additional proved bridge must identify and decode the result before an
-application theorem follows.  No genuine H100 result currently satisfies the
-axiom's premise.
+Concrete generated proofs have two dependency profiles:
 
-## Riemann zeta scope
+- default `kernel` mode uses `decide_cbv` for the materialized typed-data
+  checks, while the exact serialized parser/hash equality uses `native_decide`;
+- explicit `native` mode also uses `native_decide` for the typed-data checks.
 
-The repository now contains a rigorous tutorial-scale real-value calculation.
-For a recorded integer `s > 1`, the GPU computes interval enclosures for the
-first `N` terms of `sum 1/n^s`; the independent Python checker recomputes every
-raw row and outward reduction, and a documented integral-test remainder
-encloses the infinite tail. The retained `s = 2`, `N = 4096` run yielded real
-binary64 endpoints `3ffa51a65a53d51c` and `3ffa51a66a52e51f` with zero row
-mismatches and byte-identical replay.
+Thus the default direct typed-data theorem can be used without
+`native_decide`, but the current generated theorem that binds the witness to
+the exact JSON bytes cannot. This is a proof-reduction distinction, not GPU
+execution evidence. See [Verifier guide](VERIFYING.md#native_decide-distinction)
+and [Trust model](TRUST_MODEL.md#lean-proof-dependencies).
 
-That result is not yet checked by a Lean wire decoder/refinement theorem, and
-this repository is not a verifier for the Riemann hypothesis or for zeros of
-the Riemann zeta function up to a stated height. A usable zero application
-must additionally supply and prove:
+The Python reference checker uses the same canonical wire format but, by
+itself, produces external recomputation evidence rather than a Lean theorem.
+The Python generator prechecks a certificate before producing Lean source;
+the mathematical conclusion comes from the Lean checker, not that precheck.
 
-- complex interval arithmetic and rigorous argument reduction;
-- certified logarithmic, trigonometric, and other required analytic bounds;
-- a proved high-height zeta evaluation and zero-isolation algorithm, including
-  adaptive precision and exceptional-case rules;
-- a complete zero count/coverage argument, for example a rigorously
-  instantiated Turing-method layer;
-- an application certificate binding exact height coverage, parameters,
-  results, failure statuses, and the final theorem.
+## Generated typed-machine theorem
 
-A run certificate without those theorems establishes provenance only.  Only
-after all components exist may a result claim that the required zeros or
-points up to a particular bound were verified.
+The generated compiler accepts polynomial expressions built from constants,
+variables, negation, addition, subtraction, multiplication, and natural powers.
+Lean proves:
+
+- status-aware `PolynomialExpr.evalKernel` containment;
+- exact structural lowering and exact source-derived opcode order;
+- recursive execution of the actual `compileExpr` output;
+- exact generated prologue, expression, normal-output,
+  conservative-whole-output, and return segments;
+- input/output layout properties and the public output-row representation;
+- a complete one-thread `Machine.run` result for the modeled module.
+
+`runBuildModule_inRange` requires its stated safe-thread, safe-layout,
+encoded-memory, selected-row, environment, and successful-evaluation
+hypotheses. Its uniform fuel is the compiled expression instruction count plus
+47. `runBuildModule_inRange_containsReal` additionally requires corresponding
+real and interval environments and a source-expression realization.
+
+The conclusion stops at the typed AST and Lean machine. Deterministic emission
+shows that successful emission is the rendering of the same AST, but there is
+no operational parser/refinement theorem from emitted PTX text back to that
+machine. There is also no proof that `ptxas`, SASS, the CUDA driver, scheduling,
+or physical hardware implements the model. The division-capable CUDA
+expression frontend is outside this theorem.
+
+## Execution provenance
+
+An unsigned DGX bundle establishes only reproducibility and integrity relative
+to supplied bytes. A detached operator signature authenticates an endorsement,
+not the truth of the endorsed record. Treating it as a physical-run fact
+requires the explicit
+[`dgx_operator_signed_run_sound`](../SparkInterval/Execution/Trusted/DGXOperatorSignature.lean#L24)
+axiom, and the JSON-to-private-Lean-capability importer is not implemented.
+
+The intended H100 bridge is the separate
+[`h100_attested_run_sound`](../SparkInterval/Execution/Trusted/H100Attestation.lean#L27)
+axiom. No genuine H100 evidence currently reaches its premise. Even if it did,
+the conclusion `AlgorithmReturned` would record provenance only. An
+application must separately identify the algorithm, parse the result, and use
+an algorithm-soundness theorem.
+
+## Riemann-zeta scope
+
+The included tutorial encloses positive real values from the Dirichlet series
+for supported integer `s > 1`. It uses a division-capable CUDA runner and an
+exact Python verifier, so it is neither an instance of the polynomial
+typed-machine theorem nor a Lean connection to Mathlib's `riemannZeta`.
+
+No current theorem verifies critical-strip values or zeros to a stated height.
+That application still requires complex interval arithmetic, certified
+transcendental functions and argument reduction, adaptive precision,
+zero-isolation logic, a complete coverage/counting theorem such as an
+appropriate Turing-method layer, and a final Lean theorem connecting the
+checked certificate to those analytic results.

@@ -16,6 +16,8 @@ from reference import format as wire
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / ".lake/build/bin/sparkinterval-gen"
 AUDIT = ROOT / "tools/inspect_generated_ptx.py"
+MEMORY_RUNNER = ROOT / "tools/with_memory_limit.sh"
+SAFE_LAKE_BUILD = ROOT / "tools/safe_lake_build.py"
 GOLDEN_SHA256 = "2a1b3d8ebf6161521b82d352b2f2773b07e9a1b8597bc045ad038f876199f14d"
 
 
@@ -53,7 +55,7 @@ class PtxGeneratorTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         subprocess.run(
-            ["lake", "build", "sparkinterval-gen"],
+            [str(SAFE_LAKE_BUILD), "--target", "sparkinterval-gen"],
             cwd=ROOT,
             check=True,
             capture_output=True,
@@ -69,6 +71,7 @@ class PtxGeneratorTest(unittest.TestCase):
         input_path.write_bytes(encoded if canonical else encoded + b"\n")
         completed = subprocess.run(
             [
+                str(MEMORY_RUNNER),
                 str(GENERATOR),
                 "--input",
                 str(input_path),
@@ -225,6 +228,7 @@ class PtxGeneratorTest(unittest.TestCase):
                 output.truncate(wire.MAX_CANONICAL_JSON_BYTES + 1)
             completed = subprocess.run(
                 [
+                    str(MEMORY_RUNNER),
                     str(GENERATOR),
                     "--input",
                     str(input_path),
