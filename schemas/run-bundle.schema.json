@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/run-bundle.schema.json",
+  "title": "SparkInterval run bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "bundle_kind", "statement", "statement_sha256", "evidence", "bundle_sha256"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "bundle_kind": {"const": "sparkinterval_run_bundle"},
+    "statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_profile",
+        "trust_profile",
+        "algorithm",
+        "input_artifact",
+        "parameters",
+        "domain_coverage",
+        "output_artifact",
+        "nonce",
+        "build_artifacts",
+        "execution_environment",
+        "completion"
+      ],
+      "properties": {
+        "target_profile": {"$ref": "#/$defs/profileReference"},
+        "trust_profile": {"$ref": "#/$defs/profileReference"},
+        "algorithm": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["algorithm_id", "definition_sha256"],
+          "properties": {
+            "algorithm_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+            "definition_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "input_artifact": {"$ref": "#/$defs/artifact"},
+        "parameters": {"$ref": "#/$defs/boundJson"},
+        "domain_coverage": {"$ref": "#/$defs/boundJson"},
+        "output_artifact": {"$ref": "#/$defs/artifact"},
+        "nonce": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "build_artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/buildArtifact"},
+          "allOf": [
+            {
+              "contains": {
+                "type": "object",
+                "required": ["role"],
+                "properties": {"role": {"const": "host_executable"}}
+              },
+              "minContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "required": ["role"],
+                "properties": {
+                  "role": {"enum": ["gpu_executable", "gpu_cubin", "gpu_fatbin", "gpu_ptx"]}
+                }
+              },
+              "minContains": 1
+            }
+          ]
+        },
+        "execution_environment": {"$ref": "#/$defs/boundJson"},
+        "completion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "exit_code",
+            "expected_output_count",
+            "written_output_count",
+            "cuda_errors",
+            "start_time_utc",
+            "end_time_utc"
+          ],
+          "properties": {
+            "status": {"const": "success"},
+            "exit_code": {"const": 0},
+            "expected_output_count": {"type": "integer", "minimum": 1},
+            "written_output_count": {"type": "integer", "minimum": 1},
+            "cuda_errors": {"type": "array", "maxItems": 0},
+            "start_time_utc": {"type": "string", "format": "date-time"},
+            "end_time_utc": {"type": "string", "format": "date-time"}
+          }
+        }
+      }
+    },
+    "statement_sha256": {"$ref": "#/$defs/sha256"},
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_class", "hardware_attestation", "mock_attestation"],
+      "properties": {
+        "evidence_class": {"enum": ["local_unattested", "mock_attested", "hardware_attested"]},
+        "hardware_attestation": {"type": ["object", "null"]},
+        "mock_attestation": {"type": ["object", "null"]}
+      }
+    },
+    "bundle_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "profileReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_id", "sha256"],
+      "properties": {
+        "profile_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0}
+      }
+    },
+    "buildArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes", "role"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0},
+        "role": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"}
+      }
+    },
+    "boundJson": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "canonical_sha256"],
+      "properties": {
+        "value": {},
+        "canonical_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

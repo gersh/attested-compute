@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/reference-batch.schema.json",
+  "title": "SparkInterval exact-reference batch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "algorithm", "variable_count", "expression", "rows"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "kind": {"const": "sparkinterval_reference_batch"},
+    "algorithm": {"const": "sparkinterval.binary64_interval_expr.v1"},
+    "variable_count": {"type": "integer", "minimum": 0, "maximum": 65536},
+    "expression": {"$ref": "#/$defs/expression"},
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000000,
+      "description": "The authoritative parser additionally requires each row length to equal variable_count.",
+      "items": {
+        "type": "array",
+        "items": {"$ref": "#/$defs/interval"}
+      }
+    }
+  },
+  "$defs": {
+    "binary64": {
+      "type": "string",
+      "description": "A finite binary64 word; all-ones exponent encodings are excluded.",
+      "pattern": "^(?!7ff|fff)[0-9a-f]{16}$"
+    },
+    "interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lo", "hi"],
+      "properties": {
+        "lo": {"$ref": "#/$defs/binary64"},
+        "hi": {"$ref": "#/$defs/binary64"}
+      }
+    },
+    "expression": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "value"],
+          "properties": {
+            "op": {"const": "const"},
+            "value": {"$ref": "#/$defs/interval"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "index"],
+          "properties": {
+            "op": {"const": "var"},
+            "index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535,
+              "description": "The authoritative parser also requires index < variable_count."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "arg"],
+          "properties": {
+            "op": {"enum": ["neg", "abs"]},
+            "arg": {"$ref": "#/$defs/expression"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "arg", "exponent"],
+          "properties": {
+            "op": {"const": "pow_nat"},
+            "arg": {"$ref": "#/$defs/expression"},
+            "exponent": {"type": "integer", "minimum": 0, "maximum": 64}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "left", "right"],
+          "properties": {
+            "op": {"enum": ["add", "sub", "mul", "div", "min", "max"]},
+            "left": {"$ref": "#/$defs/expression"},
+            "right": {"$ref": "#/$defs/expression"}
+          }
+        }
+      ]
+    }
+  }
+}

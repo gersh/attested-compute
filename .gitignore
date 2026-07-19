@@ -1,0 +1,13 @@
+/.lake/
+/build/
+*.olean
+*.ilean
+*.cubin
+*.fatbin
+*.ptx
+*.sass.txt
+__pycache__/
+*.pyc
+*-private.pem
+operator-passphrase.txt
+*.sqlite3

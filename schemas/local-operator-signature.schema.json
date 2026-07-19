@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/local-operator-signature.schema.json",
+  "title": "SparkInterval detached DGX local operator signature",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "signature_kind",
+    "algorithm",
+    "key_id",
+    "public_key_spki_der_base64",
+    "signed_payload",
+    "signature_base64",
+    "warning"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "signature_kind": {"const": "sparkinterval_dgx_local_operator_signature"},
+    "algorithm": {"const": "ed25519"},
+    "key_id": {"$ref": "#/$defs/sha256"},
+    "public_key_spki_der_base64": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]{59}=$"
+    },
+    "signed_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context",
+        "bundle_file_sha256",
+        "bundle_sha256",
+        "statement_sha256"
+      ],
+      "properties": {
+        "context": {"const": "SparkInterval DGX local operator signature v1"},
+        "bundle_file_sha256": {"$ref": "#/$defs/sha256"},
+        "bundle_sha256": {"$ref": "#/$defs/sha256"},
+        "statement_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "signature_base64": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]{86}==$"
+    },
+    "warning": {"const": "LOCAL OPERATOR SIGNATURE ONLY - NOT HARDWARE ATTESTATION"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

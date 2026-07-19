@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/profile.schema.json",
+  "title": "SparkInterval target or trust profile",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_version",
+        "profile_kind",
+        "profile_id",
+        "host_architecture",
+        "gpu_architecture",
+        "device_family",
+        "confidential_compute",
+        "allowed_evidence_classes",
+        "description"
+      ],
+      "properties": {
+        "profile_version": {"const": 1},
+        "profile_kind": {"const": "target"},
+        "profile_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"},
+        "host_architecture": {"type": "string", "minLength": 1},
+        "gpu_architecture": {"type": "string", "pattern": "^sm_[0-9]+$"},
+        "device_family": {"type": "string", "minLength": 1},
+        "confidential_compute": {"type": "string", "minLength": 1},
+        "allowed_evidence_classes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["local_unattested", "mock_attested", "hardware_attested"]}
+        },
+        "description": {"type": "string", "minLength": 1}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_version",
+        "profile_kind",
+        "profile_id",
+        "evidence_class",
+        "production_hardware_evidence",
+        "requires_hardware_attestation",
+        "requires_mock_attestation",
+        "allowed_target_profiles",
+        "accepted_attestation_formats",
+        "description"
+      ],
+      "properties": {
+        "profile_version": {"const": 1},
+        "profile_kind": {"const": "trust"},
+        "profile_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"},
+        "evidence_class": {"enum": ["local_unattested", "mock_attested", "hardware_attested"]},
+        "production_hardware_evidence": {"type": "boolean"},
+        "requires_hardware_attestation": {"type": "boolean"},
+        "requires_mock_attestation": {"type": "boolean"},
+        "allowed_target_profiles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"}
+        },
+        "accepted_attestation_formats": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"}
+        },
+        "description": {"type": "string", "minLength": 1}
+      }
+    }
+  ]
+}

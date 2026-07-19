@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/reference-result.schema.json",
+  "title": "SparkInterval exact-reference result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "algorithm", "batch_sha256", "rows"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "kind": {"const": "sparkinterval_reference_result"},
+    "algorithm": {"const": "sparkinterval.binary64_interval_expr.v1"},
+    "batch_sha256": {"$ref": "#/$defs/sha256"},
+    "rows": {
+      "type": "array",
+      "maxItems": 1000000,
+      "items": {"$ref": "#/$defs/interval"}
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "binary64": {
+      "description": "A finite binary64 word or one of the two infinities; NaNs are excluded.",
+      "oneOf": [
+        {"type": "string", "pattern": "^(?!7ff|fff)[0-9a-f]{16}$"},
+        {"enum": ["7ff0000000000000", "fff0000000000000"]}
+      ]
+    },
+    "interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lo", "hi"],
+      "properties": {
+        "lo": {"$ref": "#/$defs/binary64"},
+        "hi": {"$ref": "#/$defs/binary64"}
+      }
+    }
+  }
+}
