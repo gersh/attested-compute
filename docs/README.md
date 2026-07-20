@@ -65,6 +65,8 @@ certificate axiom alone supplies the per-run physical-to-formal connection.
 - [Certificates, run bundles, profiles, and signatures](FORMAT.md)
 - [Real-integer zeta tutorial](algorithms/REAL_ZETA_POC.md)
 - [High-bound zeta-zero verifier: signed payload composition, multiplicity bridge, gaps, and host benchmark scope](algorithms/ZETA_ZERO_VERIFIER.md)
+- [GRH finite-verification POC (Platt arXiv:1305.3087): GPU interval evaluator, certificates, and Lean instantiation](algorithms/GRH_POC.md)
+- [GRH POC benchmarks and full-run extrapolation](algorithms/GRH_POC_BENCHMARKS.md)
 - [Immutable algorithm specifications](../specifications/README.md)
 - [Canonical JSON schemas](../schemas/)
 - [Target and trust profiles](../profiles/)

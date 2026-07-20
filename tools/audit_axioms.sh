@@ -17,7 +17,7 @@ trap 'rm -f -- "${core_report}" "${execution_report}"' EXIT
 "${script_dir}/safe_lean.sh" SparkInterval/Tests/AxiomAudit.lean \
   2>&1 | tee "${core_report}"
 python3 "${script_dir}/check_axiom_report.py" \
-  --expected-count 145 \
+  --expected-count 158 \
   --allow propext \
   --allow Classical.choice \
   --allow Quot.sound \

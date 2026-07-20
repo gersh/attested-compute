@@ -29,6 +29,11 @@ import SparkInterval.Zeta.MultiplicityCount
 import SparkInterval.Zeta.StreamingEndpointCertificate
 import SparkInterval.Zeta.StreamingChunkVerifier
 import SparkInterval.Zeta.SymmetricCount
+import SparkInterval.Dirichlet.SmallModuli
+import SparkInterval.Certified.LambdaEval
+import SparkInterval.Certified.Sqrt
+import SparkInterval.Certified.TailEval
+import SparkInterval.Certified.Atan
 
 /-!
 The output of these commands is part of the mathematical-core and Phase 8
@@ -182,3 +187,16 @@ modules print their separate `native_decide` dependency in the generated file.
 #print axioms SparkInterval.Certificate.FullCertificate.checkSumUpperBound_sound
 #print axioms SparkInterval.Certificate.impliesTheorem
 #print axioms SparkInterval.Certificate.impliesSumTheorem
+#print axioms SparkInterval.Dirichlet.inter_LZeros_finite
+#print axioms SparkInterval.Dirichlet.all_zeros_in_strip_on_criticalLine
+#print axioms SparkInterval.Dirichlet.GRHVerifierEvidence.all_zeros_on_criticalLine
+#print axioms SparkInterval.Dirichlet.DirichletHardyModel.verifyEndpointFamily
+#print axioms SparkInterval.Dirichlet.grhVerifiedForModulus_four
+#print axioms SparkInterval.Certified.sqrtInterval_containsReal
+#print axioms SparkInterval.Certified.logInterval_containsReal
+#print axioms SparkInterval.Certified.expInterval_containsReal
+#print axioms SparkInterval.Certified.sinCosQ_containsReal
+#print axioms SparkInterval.Certified.rpowNegEval_containsComplex
+#print axioms SparkInterval.Certified.mainSumEval_containsComplex
+#print axioms SparkInterval.Certified.atanQ_containsReal
+#print axioms SparkInterval.Certified.tailEval_containsComplex

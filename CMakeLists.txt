@@ -85,6 +85,19 @@ target_link_libraries(sparkinterval-expression-batch PRIVATE
   CUDA::cudart
 )
 
+add_executable(sparkinterval-grh-lambda
+  gpu/src/grh_lambda_poc.cu
+)
+target_include_directories(sparkinterval-grh-lambda PRIVATE gpu/include)
+set_target_properties(sparkinterval-grh-lambda PROPERTIES
+  CUDA_STANDARD 17
+  CUDA_STANDARD_REQUIRED ON
+)
+target_compile_options(sparkinterval-grh-lambda PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:--fmad=false;--ftz=false;--prec-div=true;--prec-sqrt=true;-lineinfo>
+)
+target_link_libraries(sparkinterval-grh-lambda PRIVATE CUDA::cudart)
+
 if(SPARKINTERVAL_BUILD_H100_NATIVE)
   if(CMAKE_CUDA_COMPILER_VERSION VERSION_LESS 11.8)
     message(FATAL_ERROR
