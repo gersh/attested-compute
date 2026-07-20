@@ -9,6 +9,19 @@ SparkInterval's H100 workflows:
   the primitive interval batch;
 - `h100_expression_batch_kernel.cu` and `h100_expression_batch_runner.cpp`
   form the postfix interval evaluator;
+- `h100_tg_r2star_factor_support_kernel.cu` and its runner compile the bounded
+  Ramaré-campaign factor-support primitive for `sm_90`; the runner still checks
+  every GPU row by independent host factorization and does not prove the
+  analytic R2Star inequality;
+- `h100_tg_r2star_chunk_kernel.cu` and its runner extend that primitive with
+  exact-or-reject Q64 log rounding, coefficient bounds, a deterministic
+  blocked prefix/envelope transition, and a retained serial cross-check for
+  bounded hash-linked chunks;
+- `h100_tg_mobius_segment_kernel.cu` and its runner compile the exact bounded
+  Möbius/squarefree transition producer for `sm_90`; hash-linked prefix states
+  can be structurally composed by the Python checker, which does not replay
+  rows or authenticate execution; no complete `10^16` chain or Hurst-style
+  compressed algorithm exists;
 - `h100_runtime_policy.h` requires exactly one visible H100 with compute
   capability 9.0 and rejects the generic cross-device override; and
 - `h100_interval_batch_ptx_audit.py` checks the restricted generated PTX.

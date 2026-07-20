@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Gershon Bialer. All rights reserved.
+# SPDX-License-Identifier: MIT
+
 cmake_minimum_required(VERSION 3.28)
 
 project(SparkInterval LANGUAGES CXX CUDA)
@@ -10,6 +13,15 @@ option(
   "Build native-host H100 runners and sm_90 device artifacts"
   OFF
 )
+option(
+  SPARKINTERVAL_BUILD_TG_CDEM
+  "Build the CDEM Abel full producer and independent chunk replayer"
+  OFF
+)
+
+if(SPARKINTERVAL_BUILD_TG_CDEM)
+  find_package(OpenMP REQUIRED COMPONENTS CXX)
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -208,12 +220,79 @@ if(SPARKINTERVAL_BUILD_H100_NATIVE)
     $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wall;-Wextra;-Wpedantic;-Werror>
   )
 
+  add_library(sparkinterval_h100_tg_r2star_factor_support_kernel STATIC
+    gpu/platform/h100/h100_tg_r2star_factor_support_kernel.cu
+  )
+  sparkinterval_configure_h100_kernel(
+    sparkinterval_h100_tg_r2star_factor_support_kernel
+  )
+
+  add_executable(sparkinterval-h100-tg-r2star-factor-support
+    gpu/platform/h100/h100_tg_r2star_factor_support_runner.cpp
+  )
+  target_include_directories(
+    sparkinterval-h100-tg-r2star-factor-support PRIVATE gpu/include
+  )
+  target_link_libraries(sparkinterval-h100-tg-r2star-factor-support PRIVATE
+    sparkinterval_h100_tg_r2star_factor_support_kernel
+    CUDA::cudart
+  )
+  target_compile_options(sparkinterval-h100-tg-r2star-factor-support PRIVATE
+    $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wall;-Wextra;-Wpedantic;-Werror>
+  )
+
+  add_library(sparkinterval_h100_tg_r2star_chunk_kernel STATIC
+    gpu/platform/h100/h100_tg_r2star_chunk_kernel.cu
+  )
+  sparkinterval_configure_h100_kernel(
+    sparkinterval_h100_tg_r2star_chunk_kernel
+  )
+
+  add_executable(sparkinterval-h100-tg-r2star-chunk
+    gpu/platform/h100/h100_tg_r2star_chunk_runner.cpp
+  )
+  target_include_directories(sparkinterval-h100-tg-r2star-chunk PRIVATE
+    gpu/include
+  )
+  target_link_libraries(sparkinterval-h100-tg-r2star-chunk PRIVATE
+    sparkinterval_h100_tg_r2star_factor_support_kernel
+    sparkinterval_h100_tg_r2star_chunk_kernel
+    CUDA::cudart
+  )
+  target_compile_options(sparkinterval-h100-tg-r2star-chunk PRIVATE
+    $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wall;-Wextra;-Wpedantic;-Werror>
+  )
+
+  add_library(sparkinterval_h100_tg_mobius_segment_kernel STATIC
+    gpu/platform/h100/h100_tg_mobius_segment_kernel.cu
+  )
+  sparkinterval_configure_h100_kernel(
+    sparkinterval_h100_tg_mobius_segment_kernel
+  )
+
+  add_executable(sparkinterval-h100-tg-mobius-segment
+    gpu/platform/h100/h100_tg_mobius_segment_runner.cpp
+  )
+  target_include_directories(
+    sparkinterval-h100-tg-mobius-segment PRIVATE gpu/include
+  )
+  target_link_libraries(sparkinterval-h100-tg-mobius-segment PRIVATE
+    sparkinterval_h100_tg_mobius_segment_kernel
+    CUDA::cudart
+  )
+  target_compile_options(sparkinterval-h100-tg-mobius-segment PRIVATE
+    $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wall;-Wextra;-Werror>
+  )
+
   add_custom_target(sparkinterval-h100-native)
   add_dependencies(sparkinterval-h100-native
     sparkinterval-h100-probe-cubin
     sparkinterval-h100-probe-runner
     sparkinterval-h100-interval-batch
     sparkinterval-h100-expression-batch
+    sparkinterval-h100-tg-r2star-factor-support
+    sparkinterval-h100-tg-r2star-chunk
+    sparkinterval-h100-tg-mobius-segment
   )
 endif()
 
@@ -222,6 +301,144 @@ add_executable(sparkinterval-generated-driver
 )
 target_include_directories(sparkinterval-generated-driver PRIVATE gpu/include)
 target_link_libraries(sparkinterval-generated-driver PRIVATE CUDA::cuda_driver)
+
+add_library(sparkinterval_tg_workload_benchmark_kernel STATIC
+  gpu/src/tg_workload_benchmark_kernel.cu
+)
+target_include_directories(sparkinterval_tg_workload_benchmark_kernel PUBLIC gpu/include)
+set_target_properties(sparkinterval_tg_workload_benchmark_kernel PROPERTIES
+  CUDA_STANDARD 17
+  CUDA_STANDARD_REQUIRED ON
+  POSITION_INDEPENDENT_CODE ON
+)
+target_compile_options(sparkinterval_tg_workload_benchmark_kernel PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:--fmad=false;--ftz=false;--prec-div=true;--prec-sqrt=true;-lineinfo>
+)
+
+add_executable(sparkinterval-tg-workload-benchmark
+  gpu/src/tg_workload_benchmark_runner.cpp
+)
+
+if(SPARKINTERVAL_BUILD_TG_CDEM)
+  add_executable(sparkinterval-tg-cdem-abel
+    reference/tg_cdem_abel.cpp
+  )
+  target_include_directories(sparkinterval-tg-cdem-abel PRIVATE gpu/include)
+  target_link_libraries(sparkinterval-tg-cdem-abel PRIVATE OpenMP::OpenMP_CXX)
+  target_compile_options(sparkinterval-tg-cdem-abel PRIVATE
+    $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-O3;-Wall;-Wextra;-Werror>
+  )
+  add_executable(sparkinterval-tg-cdem-abel-chunk-replay
+    reference/tg_cdem_abel_chunk_replay.cpp
+  )
+  target_compile_options(sparkinterval-tg-cdem-abel-chunk-replay PRIVATE
+    $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-O2;-Wall;-Wextra;-Werror>
+  )
+endif()
+target_include_directories(sparkinterval-tg-workload-benchmark PRIVATE gpu/include)
+target_link_libraries(sparkinterval-tg-workload-benchmark PRIVATE
+  sparkinterval_tg_workload_benchmark_kernel
+  CUDA::cudart
+)
+
+add_library(sparkinterval_tg_r2star_factor_support_kernel STATIC
+  gpu/src/tg_r2star_factor_support_kernel.cu
+)
+target_include_directories(
+  sparkinterval_tg_r2star_factor_support_kernel PUBLIC gpu/include
+)
+set_target_properties(sparkinterval_tg_r2star_factor_support_kernel PROPERTIES
+  CUDA_STANDARD 17
+  CUDA_STANDARD_REQUIRED ON
+  POSITION_INDEPENDENT_CODE ON
+)
+target_compile_options(sparkinterval_tg_r2star_factor_support_kernel PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:--fmad=false;--ftz=false;--prec-div=true;--prec-sqrt=true;-lineinfo>
+)
+
+add_executable(sparkinterval-tg-r2star-factor-support
+  gpu/src/tg_r2star_factor_support_runner.cpp
+)
+target_include_directories(sparkinterval-tg-r2star-factor-support PRIVATE
+  gpu/include
+)
+target_link_libraries(sparkinterval-tg-r2star-factor-support PRIVATE
+  sparkinterval_tg_r2star_factor_support_kernel
+  CUDA::cudart
+)
+target_compile_options(sparkinterval-tg-r2star-factor-support PRIVATE
+  $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wall;-Wextra;-Wpedantic;-Werror>
+)
+
+add_library(sparkinterval_tg_r2star_chunk_kernel STATIC
+  gpu/src/tg_r2star_chunk_kernel.cu
+)
+target_include_directories(sparkinterval_tg_r2star_chunk_kernel PUBLIC
+  gpu/include
+)
+set_target_properties(sparkinterval_tg_r2star_chunk_kernel PROPERTIES
+  CUDA_STANDARD 17
+  CUDA_STANDARD_REQUIRED ON
+  POSITION_INDEPENDENT_CODE ON
+)
+target_compile_options(sparkinterval_tg_r2star_chunk_kernel PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:--fmad=false;--ftz=false;--prec-div=true;--prec-sqrt=true;-lineinfo>
+)
+
+add_executable(sparkinterval-tg-r2star-chunk
+  gpu/src/tg_r2star_chunk_runner.cpp
+)
+target_include_directories(sparkinterval-tg-r2star-chunk PRIVATE gpu/include)
+target_link_libraries(sparkinterval-tg-r2star-chunk PRIVATE
+  sparkinterval_tg_r2star_factor_support_kernel
+  sparkinterval_tg_r2star_chunk_kernel
+  CUDA::cudart
+)
+target_compile_options(sparkinterval-tg-r2star-chunk PRIVATE
+  $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wall;-Wextra;-Wpedantic;-Werror>
+)
+
+add_executable(sparkinterval-tg-r2star-transition-known-answers
+  tests/tg_r2star_transition_known_answers.cpp
+)
+target_include_directories(
+  sparkinterval-tg-r2star-transition-known-answers PRIVATE gpu/include
+)
+target_link_libraries(sparkinterval-tg-r2star-transition-known-answers PRIVATE
+  sparkinterval_tg_r2star_chunk_kernel
+  CUDA::cudart
+)
+target_compile_options(
+  sparkinterval-tg-r2star-transition-known-answers PRIVATE
+  $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wall;-Wextra;-Wpedantic;-Werror>
+)
+
+add_library(sparkinterval_tg_mobius_segment_kernel STATIC
+  gpu/src/tg_mobius_segment_kernel.cu
+)
+target_include_directories(
+  sparkinterval_tg_mobius_segment_kernel PUBLIC gpu/include
+)
+set_target_properties(sparkinterval_tg_mobius_segment_kernel PROPERTIES
+  CUDA_STANDARD 17
+  CUDA_STANDARD_REQUIRED ON
+  POSITION_INDEPENDENT_CODE ON
+)
+target_compile_options(sparkinterval_tg_mobius_segment_kernel PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:--fmad=false;--ftz=false;--prec-div=true;--prec-sqrt=true;-lineinfo>
+)
+
+add_executable(sparkinterval-tg-mobius-segment
+  gpu/src/tg_mobius_segment_runner.cpp
+)
+target_include_directories(sparkinterval-tg-mobius-segment PRIVATE gpu/include)
+target_link_libraries(sparkinterval-tg-mobius-segment PRIVATE
+  sparkinterval_tg_mobius_segment_kernel
+  CUDA::cudart
+)
+target_compile_options(sparkinterval-tg-mobius-segment PRIVATE
+  $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wall;-Wextra;-Werror>
+)
 
 add_executable(sparkinterval-generated-driver-report-test
   tests/generated_driver_report_test.cpp
@@ -244,6 +461,12 @@ if(SPARKINTERVAL_BUILD_H100_NATIVE)
             --probe $<TARGET_FILE:sparkinterval-h100-probe-runner>
             --primitive $<TARGET_FILE:sparkinterval-h100-interval-batch>
             --expression $<TARGET_FILE:sparkinterval-h100-expression-batch>
+            --factor-support
+            $<TARGET_FILE:sparkinterval-h100-tg-r2star-factor-support>
+            --r2star-chunk
+            $<TARGET_FILE:sparkinterval-h100-tg-r2star-chunk>
+            --mobius-segment
+            $<TARGET_FILE:sparkinterval-h100-tg-mobius-segment>
             --probe-cubin ${SPARKINTERVAL_H100_PROBE_CUBIN}
             --cuobjdump ${SPARKINTERVAL_CUOBJDUMP}
   )
@@ -264,6 +487,51 @@ add_test(
           --driver $<TARGET_FILE:sparkinterval-generated-driver>
 )
 add_test(NAME sha256_known_answers COMMAND sparkinterval-sha256-test)
+add_test(
+  NAME tg_integer_work_item_microbenchmark_smoke
+  COMMAND sparkinterval-tg-workload-benchmark --count 4096 --repetitions 2
+)
+add_test(
+  NAME tg_r2star_factor_support_known_answers
+  COMMAND ${Python3_EXECUTABLE}
+          ${CMAKE_SOURCE_DIR}/tests/tg_r2star_cuda_known_answers.py
+          --runner $<TARGET_FILE:sparkinterval-tg-r2star-factor-support>
+)
+set_tests_properties(tg_r2star_factor_support_known_answers PROPERTIES
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+add_test(
+  NAME tg_r2star_cuda_chunk_python_contract
+  COMMAND ${Python3_EXECUTABLE}
+          ${CMAKE_SOURCE_DIR}/tests/tg_r2star_cuda_chunk_contract.py
+          --runner $<TARGET_FILE:sparkinterval-tg-r2star-chunk>
+)
+set_tests_properties(tg_r2star_cuda_chunk_python_contract PROPERTIES
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+add_test(
+  NAME tg_r2star_transition_known_answers
+  COMMAND sparkinterval-tg-r2star-transition-known-answers
+)
+add_test(
+  NAME tg_mobius_segment_known_answers
+  COMMAND ${Python3_EXECUTABLE}
+          ${CMAKE_SOURCE_DIR}/tests/tg_mobius_cuda_known_answers.py
+          --runner $<TARGET_FILE:sparkinterval-tg-mobius-segment>
+)
+set_tests_properties(tg_mobius_segment_known_answers PROPERTIES
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+if(SPARKINTERVAL_BUILD_TG_CDEM)
+  add_test(
+    NAME tg_cdem_abel_small_smoke
+    COMMAND sparkinterval-tg-cdem-abel 10 40 7
+  )
+  add_test(
+    NAME tg_cdem_abel_chunk_replay_known_answer
+    COMMAND sparkinterval-tg-cdem-abel-chunk-replay 10 1 7 0
+  )
+endif()
 add_test(NAME dgx_spark_probe COMMAND sparkinterval-probe)
 add_test(
   NAME dgx_spark_primitive_conformance

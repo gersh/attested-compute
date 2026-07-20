@@ -1,4 +1,7 @@
-.PHONY: all lean probe primitive-conformance expression-conformance python-test h100-offline h100-test test audit clean
+# Copyright (c) 2026 Gershon Bialer. All rights reserved.
+# SPDX-License-Identifier: MIT
+
+.PHONY: all lean probe primitive-conformance expression-conformance python-test tg-test tg-benchmark tg-cdem-abel tg-cdem-chunks h100-offline h100-test test audit clean
 
 CMAKE_BUILD_JOBS ?= 1
 
@@ -19,6 +22,20 @@ expression-conformance: probe
 
 python-test:
 	python3 -m unittest discover -s tests -p 'test_*.py' -v
+
+tg-test: probe
+	python3 -m unittest discover -s tests -p 'test_tg_*.py' -v
+	./tools/with_memory_limit.sh ctest --test-dir build/dgx-spark \
+		-R '^tg_' --parallel 1 --output-on-failure
+
+tg-benchmark: probe
+	python3 tools/benchmark_tg_verifiers.py --psi-limit 100000 --pretty
+
+tg-cdem-abel:
+	python3 tools/tg_verify.py --pretty run-cdem-abel reference/tg_cdem_abel.cpp --threads 8 --transcript-output build/tg/cdem-abel-full.txt
+
+tg-cdem-chunks:
+	python3 tools/tg_verify.py --pretty replay-cdem-abel-chunks build/tg/cdem-abel-full.txt
 
 h100-offline:
 	./tools/build_h100_offline.sh

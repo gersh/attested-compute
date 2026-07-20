@@ -144,6 +144,7 @@ The table below is the precise status, including the boundary of every claim.
 | Closed registry example | `cubicSumDivThree20000V1` fixes an executable integer cube accumulator followed by one division by three; Lean proves its exact operational result `13334666700000000`, agreement with the rational sum, and u64 safety of every cube and accumulator step, all without `native_decide` | These are axiom-free model and bounded-arithmetic proofs, not a GPU-opcode or physical-execution proof; no signed bundle can enter Lean because the private-evidence importer is absent |
 | H100 (`x86_64`, `sm_90`) native | Strict probe, primitive, and postfix-expression runners; exact CPU conformance; PTX/SASS audits; a real-integer zeta POC; and target-selected generated-polynomial conformance | Current runs are local evidence only; the zeta bundle is `local_unattested`, and no NVIDIA confidential-computing evidence is collected or accepted |
 | High-bound zeta-zero foundation | Lean canonically checks a signed full endpoint payload, bridges analytic multiplicity to distinct counts, and conditionally composes a Hardy-Z model plus multiplicity bound into the finite-height theorem | Endpoint realization and the analytic Turing/argument-principle bound remain uninstantiated; no height has been certified |
+| Ternary Goldbach external-computation work | Catalogs all thirteen live source atoms; fully replays the CH25 A.7 FLINT leaves and the CDEM Abel producer, then independently replays all 1,000 CDEM chunks with a separate bounded-memory implementation; supplies exact bounded references for psi, Proposition 12.2.4, R2Star, Möbius, and squarefree campaigns; includes exact CUDA R2Star and Möbius/squarefree producers with independent host checks and hash-linked states | The Proposition 12.2.4 reference has checked one complete directed `q` window, not its full campaign. R2Star still needs ambiguous-row fallback, scalable factor digests, and a complete chain. The Möbius producer has bounded runs, not a complete or compressed `10^16` campaign. A.7 still trusts FLINT/Arb; CDEM still trusts its reviewed, hash-pinned C++ source/header set plus the selected compiler/runtime; both lack Lean realization theorems. No source atom is discharged yet |
 
 ## Choose a workflow
 
@@ -155,6 +156,15 @@ The table below is the precise status, including the boundary of every claim.
   H100, use the [zeta workflow](docs/USING.md#real-integer-zeta-poc).
 - To review or extend the high-bound zero verifier, start with its
   [formal architecture and status](docs/algorithms/ZETA_ZERO_VERIFIER.md).
+- To audit the thirteen external atoms used by the ternary Goldbach theorem,
+  including exact commands, evidence levels, and feasibility estimates, read
+  the [ternary Goldbach external-atoms guide](docs/algorithms/TERNARY_GOLDBACH_EXTERNAL_ATOMS.md).
+- The A.7 command recomputes every retained FLINT/Arb leaf. The CDEM producer
+  hashes and compiles reviewed source, runs a small independent preflight, and
+  executes all five billion recurrence steps. A second command recompiles a
+  separately reviewed implementation and independently replays all 1,000
+  bounded-memory chunks. Their receipts retain the external-toolchain and
+  missing-Lean-realization boundaries explicitly.
 - To smoke-test the host-side schedule and synthetic streaming-bracket
   scaffolding, run `python3 tools/benchmark_zeta_foundations.py --pretty`; this
   is not a zeta, Lean, GPU, or production-certificate benchmark.
@@ -351,3 +361,4 @@ offline CLI checks and the separate generated-`sm_90` polynomial path.
 - [Reproducibility details](docs/REPRODUCIBILITY.md)
 - [Real-zeta POC algorithm](docs/algorithms/REAL_ZETA_POC.md)
 - [High-bound zeta-zero verifier status](docs/algorithms/ZETA_ZERO_VERIFIER.md)
+- [Ternary Goldbach external atoms](docs/algorithms/TERNARY_GOLDBACH_EXTERNAL_ATOMS.md)

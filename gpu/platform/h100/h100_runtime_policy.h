@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Gershon Bialer. All rights reserved.
+// SPDX-License-Identifier: MIT
+
 #pragma once
 
 #include <cstdlib>
@@ -22,7 +25,12 @@ inline bool preflight_help_requested(int argc, char** argv) {
     const std::string_view argument(argv[index]);
     if (argument == "--op" || argument == "--input" ||
         argument == "--output" || argument == "--device" ||
-        argument == "--cubin") {
+        argument == "--cubin" || argument == "--lower" ||
+        argument == "--count" || argument == "--incoming-mertens" ||
+        argument == "--incoming-squarefree" ||
+        argument == "--previous-receipt-sha256" ||
+        argument == "--incoming-lower" ||
+        argument == "--incoming-upper" || argument == "--previous-hash") {
       if (index + 1 < argc) {
         ++index;
       }

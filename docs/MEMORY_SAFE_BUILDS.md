@@ -6,11 +6,14 @@ built concurrently. SparkInterval therefore uses three independent limits:
 
 1. `lakefile.toml` passes `-j1 -M8192` to batch Lean processes and
    `-j1 -M4096` to the Lean language server. The `-M` values are MiB.
-2. `tools/safe_lake_build.py` orders all local modules by their import graph
-   and builds them one at a time. A full-plan lock prevents separate planners
-   from interleaving their dependency closures and remains held through every
-   module and executable target. A second planner prints that it is waiting
-   instead of appearing to have stalled.
+2. `tools/safe_lake_build.py` orders all local modules by their import graph,
+   fixes Lake's own task pool at `LEAN_NUM_THREADS=1`, and requests one local
+   module at a time. Lake may still overlap a few already-launched compiler
+   processes while satisfying a stale transitive dependency closure. A
+   full-plan lock prevents separate planners from interleaving their
+   dependency closures and remains held through every module and executable
+   target. A second planner prints that it is waiting instead of appearing to
+   have stalled.
 3. `tools/with_memory_limit.sh` places each build step in a systemd user
    cgroup with `MemoryHigh=10G`, `MemoryMax=12G`, and `MemorySwapMax=2G`.
    A repository lock also prevents two safe build commands from running at
@@ -35,11 +38,13 @@ module ordering, and aggregate memory cap. See the
 [proof-blueprint guide](PROOF_BLUEPRINT.md); do not replace these modes with a
 direct `lake build :blueprintJson` command.
 
-LeanArchitect's metadata loader needs more runtime support threads than an
-ordinary elaboration even though Lean remains at `-j1`. The safe planner gives
-only the Blueprint module and facets `TasksMax=64`; all other steps retain the
-default `TasksMax=32`, and every step retains the same 12 GiB aggregate memory
-ceiling. An explicit `SPARKINTERVAL_TASKS_MAX` still takes precedence.
+The safe planner gives Lake steps `TasksMax=64`. This is process headroom for
+Lake, its runtime support threads, and the small number of external compiler
+processes that can overlap even with `LEAN_NUM_THREADS=1`; each Lean compiler
+still receives `-j1`. Every step retains the same 12 GiB aggregate memory
+ceiling. An explicit `SPARKINTERVAL_TASKS_MAX` still takes precedence. Other
+commands run directly through `with_memory_limit.sh` retain its default
+`TasksMax=32`.
 
 For an individual generated, scratch, or example Lean file, first build its
 local imports with the safe planner, then use `safe_lean.sh`; do not invoke
@@ -49,8 +54,12 @@ planner with a direct
 capped Lake command: `build`, `query`, `exe`, `test`, `lint`, `run`, `script`,
 and `shake` can initiate builds in which Lake schedules several stale
 dependency modules concurrently even when Lean itself receives `-j1`. The
-wrapper rejects those commands unless they are authorized planner steps; pass
-a module argument or `--target` to `safe_lake_build.py` instead.
+wrapper rejects those commands unless they are authorized planner steps. The
+planner also forces `LEAN_NUM_THREADS=1` for Lake itself; an inherited caller
+value cannot silently enlarge Lake's task pool. This does not promise that
+Lake will keep only one external compiler process alive at every instant, so
+the separate cgroup task and aggregate-memory bounds remain necessary. Pass a
+module argument or `--target` to `safe_lake_build.py` instead.
 
 The planner does not trust a dependency graph computed before it obtained the
 full-plan lock. After acquiring the lock (including after waiting for another

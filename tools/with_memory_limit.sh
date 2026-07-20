@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Gershon Bialer. All rights reserved.
+# SPDX-License-Identifier: MIT
+
 set -euo pipefail
 
 if [[ "$#" -eq 0 ]]; then
@@ -136,6 +139,7 @@ if [[ -n "${systemd_run_path}" && -n "${systemctl_path}" ]] &&
       PKG_CONFIG_PATH CMAKE_PREFIX_PATH CMAKE_GENERATOR CMAKE_TOOLCHAIN_FILE \
       CUDA_HOME CUDA_PATH CUDA_ROOT CC CXX CUDACXX CUDAHOSTCXX NVCC \
       NVDISASM CUOBJDUMP ELAN_HOME LAKE_HOME LEAN_PATH LEAN_SRC_PATH \
+      LEAN_NUM_THREADS \
       LEAN_SYSROOT PYTHONPATH VIRTUAL_ENV CUDA_VISIBLE_DEVICES \
       CUDA_DEVICE_ORDER TMPDIR TMP TEMP XDG_CACHE_HOME; do
     if [[ -v "${variable}" ]]; then

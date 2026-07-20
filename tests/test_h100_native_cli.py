@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Gershon Bialer. All rights reserved.
+# SPDX-License-Identifier: MIT
+
 """Offline checks for H100-native build artifacts and fail-closed CLIs.
 
 The test intentionally invokes only argument paths that return before CUDA
@@ -65,6 +68,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--probe", type=Path, required=True)
     parser.add_argument("--primitive", type=Path, required=True)
     parser.add_argument("--expression", type=Path, required=True)
+    parser.add_argument("--factor-support", type=Path, required=True)
+    parser.add_argument("--r2star-chunk", type=Path, required=True)
+    parser.add_argument("--mobius-segment", type=Path, required=True)
     parser.add_argument("--probe-cubin", type=Path, required=True)
     parser.add_argument("--cuobjdump", type=Path, required=True)
     return parser.parse_args()
@@ -72,7 +78,14 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    for executable in (args.probe, args.primitive, args.expression):
+    for executable in (
+        args.probe,
+        args.primitive,
+        args.expression,
+        args.factor_support,
+        args.r2star_chunk,
+        args.mobius_segment,
+    ):
         if not executable.is_file():
             raise AssertionError(f"missing H100 executable: {executable}")
 
@@ -85,8 +98,38 @@ def main() -> int:
         [str(args.expression), "--help"],
         ("sparkinterval-h100-expression-batch", "H100", "overrides are disabled"),
     )
+    require_success(
+        [str(args.factor_support), "--help"],
+        (
+            "sparkinterval-h100-tg-r2star-factor-support",
+            "H100",
+            "distinct-prime-factor support segment",
+        ),
+    )
+    require_success(
+        [str(args.r2star_chunk), "--help"],
+        (
+            "sparkinterval-h100-tg-r2star-chunk",
+            "H100",
+            "rejects ambiguous log rows",
+        ),
+    )
+    require_success(
+        [str(args.mobius_segment), "--help"],
+        (
+            "sparkinterval-h100-tg-mobius-segment",
+            "H100",
+            "Moebius/squarefree state transition",
+        ),
+    )
 
-    for executable in (args.primitive, args.expression):
+    for executable in (
+        args.primitive,
+        args.expression,
+        args.factor_support,
+        args.r2star_chunk,
+        args.mobius_segment,
+    ):
         require_failure(
             [str(executable), "--allow-other-device"],
             4,
@@ -112,6 +155,9 @@ def main() -> int:
     require_sm90(args.cuobjdump, args.probe_cubin)
     require_sm90(args.cuobjdump, args.primitive)
     require_sm90(args.cuobjdump, args.expression)
+    require_sm90(args.cuobjdump, args.factor_support)
+    require_sm90(args.cuobjdump, args.mobius_segment)
+    require_sm90(args.cuobjdump, args.r2star_chunk)
     print("H100 native build and fail-closed CLI checks passed without GPU execution.")
     return 0
 

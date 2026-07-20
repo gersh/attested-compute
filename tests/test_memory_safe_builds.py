@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright (c) 2026 Gershon Bialer. All rights reserved.
+# SPDX-License-Identifier: MIT
+
 from __future__ import annotations
 
 import fcntl
@@ -275,6 +278,18 @@ class MemorySafeBuildTest(unittest.TestCase):
         )
         self.assertEqual(environment["SPARKINTERVAL_TASKS_MAX"], "64")
         self.assertEqual(environment["SPARKINTERVAL_SERIAL_LAKE_STEP"], "1")
+        self.assertEqual(environment["LEAN_NUM_THREADS"], "1")
+
+    def test_ordinary_lake_step_has_bounded_process_headroom(self) -> None:
+        environment = safe_build.serial_lake_environment(123)
+        self.assertEqual(environment["SPARKINTERVAL_TASKS_MAX"], "64")
+
+    def test_lake_runtime_task_pool_is_forced_to_one(self) -> None:
+        with mock.patch.dict(
+            os.environ, {"LEAN_NUM_THREADS": "96"}, clear=False
+        ):
+            environment = safe_build.serial_lake_environment(123)
+        self.assertEqual(environment["LEAN_NUM_THREADS"], "1")
 
     def test_explicit_task_limit_overrides_blueprint_default(self) -> None:
         with mock.patch.dict(

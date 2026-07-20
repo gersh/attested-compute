@@ -273,8 +273,14 @@ ctest --test-dir build/h100-native \
 
 The fixed generated probe cubin is
 `build/h100-native/h100/h100_rounding_probe.sm_90.cubin`; the same build
-produces the strict probe, primitive, and expression host runners under
-`build/h100-native/`.
+produces the strict probe, primitive, expression, and three
+ternary-Goldbach host runners under `build/h100-native/`:
+
+```text
+sparkinterval-h100-tg-r2star-factor-support
+sparkinterval-h100-tg-r2star-chunk
+sparkinterval-h100-tg-mobius-segment
+```
 
 On a host with exactly one visible H100 at compute capability 9.0, run the
 complete local suite instead:
@@ -290,10 +296,11 @@ H100_BUILD_JOBS=1 ./tools/run_h100_native_validation.sh \
 ```
 
 It builds, runs the offline CTest, audits PTX/SASS, executes the rounding
-probe, and performs exact primitive and expression conformance. The retained
-results are `local_unattested`; success is not confidential-computing
-attestation. Use fresh directories for evidence that will be archived. See
-the [H100 guide](H100.md) and
+probe, and performs exact primitive and expression conformance. It builds and
+offline-checks the ternary-Goldbach executables but does not execute those
+kernels. The retained results are `local_unattested`; success is not
+confidential-computing attestation. Use fresh directories for evidence that
+will be archived. See the [H100 guide](H100.md) and
 [reproducibility runbook](REPRODUCIBILITY.md#h100-native-local-validation).
 
 ## H100 generated `sm_90` polynomial conformance

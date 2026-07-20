@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Gershon Bialer. All rights reserved.
+// SPDX-License-Identifier: MIT
+
 #pragma once
 
 #include <array>

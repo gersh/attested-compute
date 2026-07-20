@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Gershon Bialer. All rights reserved.
+# SPDX-License-Identifier: MIT
+
 """Build local Lean modules serially, with an aggregate memory cap per step."""
 
 from __future__ import annotations
@@ -24,7 +27,8 @@ EXECUTABLE_ROOTS = {
     "sparkinterval-check-certificate": "SparkInterval.Certificate.CLI",
 }
 BLUEPRINT_MODULE = "SparkInterval.Blueprint"
-BLUEPRINT_TASKS_MAX = "64"
+SAFE_LAKE_TASKS_MAX = "64"
+BLUEPRINT_TASKS_MAX = SAFE_LAKE_TASKS_MAX
 BLUEPRINT_FACETS = {
     "blueprint-json": "blueprintJson",
     "blueprint-tex": "blueprint",
@@ -180,7 +184,7 @@ def capped_command(*arguments: str) -> list[str]:
 
 
 def serial_lake_environment(
-    plan_lock_fd: int, *, tasks_max: str | None = None
+    plan_lock_fd: int, *, tasks_max: str | None = SAFE_LAKE_TASKS_MAX
 ) -> dict[str, str]:
     """Authorize one dependency-ordered Lake step inside the wrapper.
 
@@ -190,10 +194,15 @@ def serial_lake_environment(
     environment = os.environ.copy()
     environment["SPARKINTERVAL_SERIAL_LAKE_STEP"] = "1"
     environment["SPARKINTERVAL_PLAN_LOCK_FD"] = str(plan_lock_fd)
+    # `-j1` in lakefile.toml constrains each Lean elaborator, but Lake is
+    # itself a Lean program with a separate task pool.  This setting bounds
+    # that pool.  Lake can still have several already-launched compiler
+    # processes alive at once, so the safe Lake cgroup also receives bounded
+    # process headroom below.
+    environment["LEAN_NUM_THREADS"] = "1"
     if tasks_max is not None:
-        # LeanArchitect's metadata loader creates more runtime support threads
-        # than ordinary `-j1` elaboration.  This changes only the cgroup task
-        # ceiling; Lean parallelism and aggregate memory limits stay fixed.
+        # This changes only the cgroup task ceiling; Lean parallelism and the
+        # aggregate memory limits stay fixed.  An explicit caller limit wins.
         environment.setdefault("SPARKINTERVAL_TASKS_MAX", tasks_max)
     return environment
 
@@ -295,14 +304,7 @@ def main() -> int:
             subprocess.run(
                 capped_command("lake", "build", f"+{name}"),
                 cwd=PROJECT_ROOT,
-                env=serial_lake_environment(
-                    plan_lock.fileno(),
-                    tasks_max=(
-                        BLUEPRINT_TASKS_MAX
-                        if name == BLUEPRINT_MODULE
-                        else None
-                    ),
-                ),
+                env=serial_lake_environment(plan_lock.fileno()),
                 pass_fds=(plan_lock.fileno(),),
                 check=True,
             )
