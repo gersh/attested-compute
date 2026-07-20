@@ -1,17 +1,62 @@
 # SparkInterval
 
-SparkInterval verifies interval-arithmetic mathematics in Lean, runs and
-records CUDA work on NVIDIA DGX Spark and H100, and prepares H100 device
-artifacts without requiring the target GPU. Its certificate and evidence
-workflows keep those assurance levels distinct.
+> **Work in progress:** SparkInterval is an early research prototype seeking
+> collaborators. Its current proofs and tools are real, but the complete
+> enclave-to-certificate-library workflow described here is not yet built or
+> independently validated end to end. Do not treat it as a production proof or
+> attestation service.
 
-The project keeps three questions separate:
+SparkInterval is an open project for making finite numerical computation a
+usable input to formal proof. The goal is to run explicitly bounded arithmetic
+on CPUs and GPUs, produce durable certificates for those computations, and
+reference accepted certificates through a small, visible axiom boundary in
+Lean.
+
+For high-throughput computations, the intended production path uses measured
+code inside a secure execution environment (a CPU TEE together with GPU
+confidential-computing support where available). An external verifier checks
+the resulting hardware evidence and binds the exact program, inputs, bounds,
+output, and completion status into a computation certificate. Certificates can
+then be stored by digest in a shared library and reused by later Lean proofs
+without rerunning the original computation.
+
+In this project, **bounded arithmetic** means a finite computation whose input
+domain, numeric representation, resource/coverage bounds, and claimed result
+are explicit. It does not mean that arbitrary numerical output becomes true by
+being signed. Lean still checks the certificate mathematics or a registered
+algorithm-soundness theorem; the axiom is reserved for the irreducibly external
+fact that a particular accepted execution occurred.
+
+## The idea
+
+The intended flow is:
+
+1. Define a finite computation and its bounds precisely.
+2. Prove its arithmetic model and result checker in Lean.
+3. Execute it on a CPU or GPU and bind the run to measured artifacts and fresh
+   attestation evidence.
+4. Verify that evidence, issue a content-addressed certificate, and preserve it
+   in a reusable library.
+5. In Lean, identify the exact registered computation and certificate digest;
+   cross the explicit execution axiom once, then derive application theorems
+   with ordinary proofs.
+
+This separates three questions that are easy to conflate:
 
 1. Does the interval algorithm enclose the exact real result?
 2. Did a particular program produce the recorded bytes?
-3. What evidence identifies the machine or operator behind that run?
+3. What evidence identifies the measured machine and software behind that run?
+
+See [Project vision](docs/VISION.md) for the proposed architecture and
+[Contributing](docs/CONTRIBUTING.md) for concrete ways to help.
 
 ## Current support
+
+SparkInterval is a research prototype. CPU/Lean certificate checking, formal
+interval arithmetic, modeled generated GPU code, and local DGX Spark/H100
+validation are implemented. Production enclave-backed acceptance and the
+shared certificate library are not. The table below is the precise status,
+including the boundary of every claim.
 
 | Route | Current result | Important boundary |
 | --- | --- | --- |
@@ -41,6 +86,36 @@ The project keeps three questions separate:
   [H100 native workflow](docs/USING.md#h100-native-local-validation).
 - To prepare H100 device artifacts without an H100, use the
   [H100 offline workflow](docs/USING.md#h100-offline-artifacts).
+
+## Collaborate
+
+This project needs collaborators before it needs more claims. The immediate
+priorities are to verify what is already here, make the repository useful and
+approachable to outsiders, explain the idea clearly to potential users, and
+build relationships with projects working on formal proof, rigorous numerics,
+verifiable computation, and confidential computing.
+
+Contributions are welcome even if you do not write Lean or CUDA. In particular:
+
+- independently reproduce the proofs, certificate checks, GPU tests, and trust
+  audits; challenge the threat model and report claims that are too strong;
+- help turn the project into a dependable open-source repository through
+  onboarding, examples, packaging, CI, issue triage, release engineering, and
+  API design;
+- help communicate and demonstrate the project: identify useful audiences,
+  improve explanations, write tutorials, and develop credible example results;
+- connect SparkInterval with theorem provers, verified numerics, proof
+  certificate, reproducible-computation, and confidential-computing projects;
+- add well-scoped finite computations once their semantics, bounds,
+  certificates, and intended theorem are clear; and
+- help extend the proved arithmetic/compiler surface, build the secure evidence
+  path, and design the content-addressed certificate library.
+
+Start with the [contributor guide](docs/CONTRIBUTING.md), then use the
+[correctness matrix](docs/CORRECTNESS_CLAIMS.md) to understand what a change is
+allowed to claim. The [collaboration roadmap](docs/ROADMAP.md) separates the
+work needed for a trustworthy public foundation from later computation and
+ecosystem expansion. The project is MIT licensed.
 
 ## CPU and Lean quick start
 
@@ -182,6 +257,9 @@ offline CLI checks and the separate generated-`sm_90` polynomial path.
 
 ## Documentation
 
+- [Project vision and target architecture](docs/VISION.md)
+- [Contributing](docs/CONTRIBUTING.md)
+- [Collaboration roadmap](docs/ROADMAP.md)
 - [User workflows](docs/USING.md)
 - [Documentation index](docs/README.md)
 - [Verification guide](docs/VERIFYING.md)

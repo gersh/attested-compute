@@ -1,7 +1,16 @@
 # Documentation
 
-SparkInterval separates mathematical verification, modeled GPU execution, and
-physical-run provenance. Start with the section that matches your role.
+SparkInterval's goal is provable, explicitly bounded arithmetic on CPUs and
+GPUs, with secure execution evidence turned into reusable finite-computation
+certificates that Lean can reference through a narrow axiom boundary. The
+[project vision](VISION.md) describes that target architecture; the
+[contributor guide](CONTRIBUTING.md) lists the most useful open work, and the
+[collaboration roadmap](ROADMAP.md) organizes verification, adoption,
+partnerships, and future computations.
+
+The current implementation separates mathematical verification, modeled GPU
+execution, and physical-run provenance. Start with the section that matches
+your role, and consult the correctness matrix before interpreting a result.
 
 The Lean execution boundary is deliberately singular:
 `accepted_run_certificate_sound` is the only project execution axiom. DGX and
@@ -26,6 +35,8 @@ certificate axiom alone supplies the per-run physical-to-formal connection.
 ## Users
 
 - [Project overview and quick start](../README.md)
+- [Project vision and target architecture](VISION.md)
+- [Collaboration roadmap](ROADMAP.md)
 - [User workflows](USING.md)
 - [DGX Spark setup](DGX_SPARK_SETUP.md)
 - [Worked examples](../examples/README.md)
@@ -42,6 +53,7 @@ certificate axiom alone supplies the per-run physical-to-formal connection.
 
 ## Operators and maintainers
 
+- [Contributor guide and priority work](CONTRIBUTING.md)
 - [Memory-safe build requirements](MEMORY_SAFE_BUILDS.md)
 - [LeanArchitect proof-map generation](PROOF_BLUEPRINT.md)
 - [DGX Spark setup and acceptance runs](DGX_SPARK_SETUP.md)

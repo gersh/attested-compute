@@ -1,5 +1,11 @@
 # Attestation adapters
 
+The project goal is to turn evidence from measured secure CPU/GPU execution
+into durable certificates for finite computations. Those certificates can be
+stored by digest and referenced through SparkInterval's explicit Lean
+execution axiom. This directory is the beginning of that evidence boundary,
+not a completed production implementation.
+
 This directory contains fail-closed and negative-test adapters for the H100
 evidence boundary:
 
@@ -16,8 +22,13 @@ record and never become hardware evidence.
 No included component collects or cryptographically verifies positive NVIDIA
 confidential-computing evidence. Replacing the stub requires a supported H100
 CC system, pinned trust roots, measurement/result binding, freshness and
-replay checks, and negative acceptance tests.
+replay checks, negative acceptance tests, and a reviewed importer into Lean's
+private positive-evidence capability. The content-addressed shared certificate
+library described in the [project vision](../docs/VISION.md) is also future
+work.
 
 Start with the [verifier guide](../docs/VERIFYING.md), then consult the
 [trust model](../docs/TRUST_MODEL.md), [bundle format](../docs/FORMAT.md), and
-[H100 guide](../docs/H100.md).
+[H100 guide](../docs/H100.md). Contributors can use the
+[secure-execution work list](../docs/CONTRIBUTING.md#secure-execution-and-certificates)
+to find the next missing pieces.
