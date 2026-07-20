@@ -30,13 +30,21 @@ import hashlib
 import json
 import math
 import pathlib
+import re
+import secrets
+import shutil
 import struct
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from fractions import Fraction
 
 import mpmath
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import create_run_bundle as bundle_format  # noqa: E402
+import verify_run_bundle as bundle_verify  # noqa: E402
 
 INPUT_MAGIC = b"SGRHIN01"
 OUTPUT_MAGIC = b"SGRHOT01"
@@ -269,6 +277,78 @@ def compute_epsilon(group, exponents, parity):
 # ---------------------------------------------------------------------------
 
 
+GAMMA_JG = 8
+GAMMA_SHIFT = 12
+DEFAULT_BERN_J = 10
+
+
+def encode_job(group, characters, t_values, terms_m, bern_j=DEFAULT_BERN_J):
+    """Deterministic byte encoding of one GPU job.
+
+    Shared by the runner and by the bundle verifier, which re-encodes every
+    recorded job from the certificate's character data and the recorded
+    ordinate list and requires byte equality — so a verifier confirms
+    exactly which computation the GPU was asked to run without re-running
+    it.  Requires mpmath.mp.dps = 60 for reproducibility.
+    """
+    q = group.q
+    lnq_pi = mpmath.log(mpmath.mpf(q) / mpmath.pi)
+    lnq_pi_lo, lnq_pi_hi = mpf_to_interval(lnq_pi, ulps=2)
+
+    two_j1 = 2 * bern_j + 1
+    em_rconst = (4 / mpmath.power(2 * mpmath.pi, two_j1)
+                 / (mpmath.mpf("0.5") + 2 * bern_j))
+    em_rconst_hi = mpf_to_interval(em_rconst, ulps=2)[1]
+    g2 = 2 * GAMMA_JG + 2
+    g_rconst = (abs(BERNOULLI[g2]) / (g2 * (g2 - 1))
+                * Fraction(2 ** (GAMMA_JG + 1)))
+    g_rconst_hi = fraction_to_interval(g_rconst)[1]
+
+    header = struct.pack(
+        "<8s8I4d", INPUT_MAGIC, q, group.phi, len(characters),
+        len(t_values), terms_m, bern_j, GAMMA_JG, GAMMA_SHIFT,
+        lnq_pi_lo, lnq_pi_hi, em_rconst_hi, g_rconst_hi)
+
+    parts = [header]
+    parts.append(struct.pack(f"<{group.phi}I", *group.residues))
+    parts.append(bytes(c["parity"] for c in characters))
+    for j in range(1, bern_j + 1):
+        c_j = BERNOULLI[2 * j] / factorial(2 * j)
+        parts.append(struct.pack("<2d", *fraction_to_interval(c_j)))
+    for j in range(1, GAMMA_JG + 1):
+        c_j = BERNOULLI[2 * j] / (2 * j * (2 * j - 1))
+        parts.append(struct.pack("<2d", *fraction_to_interval(c_j)))
+    for c in characters:
+        for a in group.residues:
+            angle = group.char_value_angle(c["exponents"], a)
+            value = char_value_mp(angle)
+            re = mpf_to_interval(value.real)
+            im = mpf_to_interval(value.imag)
+            parts.append(struct.pack("<4d", re[0], re[1], im[0], im[1]))
+    for c in characters:
+        re = mpf_to_interval(c["eps"].real)
+        im = mpf_to_interval(c["eps"].imag)
+        parts.append(struct.pack("<4d", re[0], re[1], im[0], im[1]))
+    parts.append(struct.pack(f"<{len(t_values)}d", *t_values))
+    return b"".join(parts)
+
+
+def parse_job_ordinates(blob):
+    """Header fields and the ordinate list of a recorded job blob."""
+    magic, = struct.unpack_from("<8s", blob, 0)
+    if magic != INPUT_MAGIC:
+        raise RuntimeError("bad job magic")
+    (q, phi, char_count, t_count, terms_m, bern_j, gamma_jg,
+     gamma_shift) = struct.unpack_from("<8I", blob, 8)
+    t_offset = len(blob) - 8 * t_count
+    t_values = list(struct.unpack_from(f"<{t_count}d", blob, t_offset))
+    return {
+        "q": q, "phi": phi, "char_count": char_count, "t_count": t_count,
+        "terms_m": terms_m, "bern_j": bern_j, "gamma_jg": gamma_jg,
+        "gamma_shift": gamma_shift, "t_values": t_values,
+    }
+
+
 class GPUJob:
     def __init__(self, group, characters, executable, work_dir, device=0):
         self.group = group
@@ -276,58 +356,17 @@ class GPUJob:
         self.executable = executable
         self.work_dir = pathlib.Path(work_dir)
         self.device = device
-        self.gamma_jg = 8
-        self.gamma_shift = 12
         self.calls = 0
         self.gpu_ms = 0.0
         self.term_evals = 0.0
 
-    def run(self, t_values, terms_m, bern_j=10):
+    def run(self, t_values, terms_m, bern_j=DEFAULT_BERN_J):
         """Evaluate Lambda enclosures for all characters at t_values."""
-        group = self.group
-        q = group.q
-        lnq_pi = mpmath.log(mpmath.mpf(q) / mpmath.pi)
-        lnq_pi_lo, lnq_pi_hi = mpf_to_interval(lnq_pi, ulps=2)
-
-        two_j1 = 2 * bern_j + 1
-        em_rconst = (4 / mpmath.power(2 * mpmath.pi, two_j1)
-                     / (mpmath.mpf("0.5") + 2 * bern_j))
-        em_rconst_hi = mpf_to_interval(em_rconst, ulps=2)[1]
-        g2 = 2 * self.gamma_jg + 2
-        g_rconst = (abs(BERNOULLI[g2]) / (g2 * (g2 - 1))
-                    * Fraction(2 ** (self.gamma_jg + 1)))
-        g_rconst_hi = fraction_to_interval(g_rconst)[1]
-
-        header = struct.pack(
-            "<8s8I4d", INPUT_MAGIC, q, group.phi, len(self.characters),
-            len(t_values), terms_m, bern_j, self.gamma_jg, self.gamma_shift,
-            lnq_pi_lo, lnq_pi_hi, em_rconst_hi, g_rconst_hi)
-
-        parts = [header]
-        parts.append(struct.pack(f"<{group.phi}I", *group.residues))
-        parts.append(bytes(c["parity"] for c in self.characters))
-        for j in range(1, bern_j + 1):
-            c_j = BERNOULLI[2 * j] / factorial(2 * j)
-            parts.append(struct.pack("<2d", *fraction_to_interval(c_j)))
-        for j in range(1, self.gamma_jg + 1):
-            c_j = BERNOULLI[2 * j] / (2 * j * (2 * j - 1))
-            parts.append(struct.pack("<2d", *fraction_to_interval(c_j)))
-        for c in self.characters:
-            for a in group.residues:
-                angle = group.char_value_angle(c["exponents"], a)
-                value = char_value_mp(angle)
-                re = mpf_to_interval(value.real)
-                im = mpf_to_interval(value.imag)
-                parts.append(struct.pack("<4d", re[0], re[1], im[0], im[1]))
-        for c in self.characters:
-            re = mpf_to_interval(c["eps"].real)
-            im = mpf_to_interval(c["eps"].imag)
-            parts.append(struct.pack("<4d", re[0], re[1], im[0], im[1]))
-        parts.append(struct.pack(f"<{len(t_values)}d", *t_values))
-
         in_path = self.work_dir / f"job-{self.calls:04d}.bin"
         out_path = self.work_dir / f"out-{self.calls:04d}.bin"
-        in_path.write_bytes(b"".join(parts))
+        in_path.write_bytes(
+            encode_job(self.group, self.characters, t_values, terms_m,
+                       bern_j))
         result = subprocess.run(
             [str(self.executable), str(in_path), str(out_path),
              str(self.device)],
@@ -591,6 +630,9 @@ def verify_certificate(path):
 
 
 def cmd_run(args):
+    if args.nonce is not None and not re.fullmatch(r"[0-9a-f]{64}",
+                                                   args.nonce):
+        raise SystemExit("nonce must be 64 lowercase hex characters")
     mpmath.mp.dps = 60
     started = time.time()
     group = CharacterGroup(args.q)
@@ -618,11 +660,24 @@ def cmd_run(args):
 
     work_dir = pathlib.Path(args.work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
-    job = GPUJob(group, characters, args.executable, work_dir, args.device)
 
+    # Stage the executable so the bundle binds exactly the binary that ran.
+    artifacts_dir = work_dir / "artifacts"
+    artifacts_dir.mkdir(exist_ok=True)
+    staged_executable = artifacts_dir / "sparkinterval-grh-lambda"
+    shutil.copy2(args.executable, staged_executable)
+    staged_executable.chmod(0o755)
+    definition_source = REPO_ROOT / "docs" / "algorithms" / "GRH_POC.md"
+    staged_definition = work_dir / "algorithm-definition.md"
+    shutil.copy2(definition_source, staged_definition)
+
+    job = GPUJob(group, characters, staged_executable, work_dir, args.device)
+
+    start_utc = datetime.now(timezone.utc)
     step = 5.0 / 64.0
     results, reality_violations = isolate_zeros(
         job, characters, args.t_lo, args.t_hi, step)
+    end_utc = datetime.now(timezone.utc)
     if reality_violations:
         raise SystemExit(
             f"{reality_violations} samples violated Im Lambda enclosing 0")
@@ -692,20 +747,292 @@ def cmd_run(args):
     payload_path = work_dir / "grh-certificate.json"
     payload_path.write_text(blob)
     digest = hashlib.sha256(blob.encode()).hexdigest()
+
+    nonce = args.nonce or secrets.token_hex(32)
+    bundle = create_grh_bundle(
+        work_dir, group, characters, payload, job, nonce,
+        start_utc, end_utc)
+    receipt = verify_bundle_root(work_dir)
+    if not receipt["accepted"]:
+        raise SystemExit(f"self-verification failed: {receipt}")
     print(json.dumps({
         "certificate": str(payload_path),
         "sha256": digest,
+        "bundle": str(work_dir / "run-bundle.json"),
+        "statement_sha256": bundle["statement_sha256"],
+        "bundle_sha256": bundle["bundle_sha256"],
+        "nonce": nonce,
         "q": group.q,
         "characters": len(characters),
         "total_brackets": total_zeros,
         "gpu_ms": job.gpu_ms,
         "gpu_term_evals": job.term_evals,
         "wall_seconds": payload["wall_seconds"],
+        "self_verified": True,
     }, indent=1))
 
 
+REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+ALGORITHM_ID = "sparkinterval.grh_lambda_interval_poc.v1"
+IO_INDEX_KIND = "sparkinterval_grh_gpu_io_index"
+
+
+def _rational_fields(value):
+    frac = Fraction(value)
+    return frac.numerator, frac.denominator
+
+
+def create_grh_bundle(root, group, characters, payload, job, nonce,
+                      start_utc, end_utc):
+    """Bind the GRH run into a canonical signed-eligible run bundle."""
+    root = pathlib.Path(root)
+    jobs = []
+    for index in range(job.calls):
+        input_name = f"job-{index:04d}.bin"
+        output_name = f"out-{index:04d}.bin"
+        input_sha = hashlib.sha256(
+            (root / input_name).read_bytes()).hexdigest()
+        output_sha = hashlib.sha256(
+            (root / output_name).read_bytes()).hexdigest()
+        jobs.append({
+            "input": input_name, "input_sha256": input_sha,
+            "output": output_name, "output_sha256": output_sha,
+        })
+    io_index = {
+        "kind": IO_INDEX_KIND,
+        "schema_version": 1,
+        "jobs": jobs,
+    }
+    io_index_path = root / "gpu-io-index.json"
+    io_index_path.write_bytes(bundle_format.canonical_json_bytes(io_index))
+
+    lo_num, lo_den = _rational_fields(payload["t_lo"])
+    hi_num, hi_den = _rational_fields(payload["t_hi"])
+    parameters = {
+        "q": group.q,
+        "phi": group.phi,
+        "character_count": len(characters),
+        "ordinate_lo_num": lo_num, "ordinate_lo_den": lo_den,
+        "ordinate_hi_num": hi_num, "ordinate_hi_den": hi_den,
+        "grid_step_num": 5, "grid_step_den": 64,
+        "terms_m": payload["terms_m"],
+        "bernoulli_terms": DEFAULT_BERN_J,
+        "gamma_terms": GAMMA_JG,
+        "gamma_shift": GAMMA_SHIFT,
+        "gpu_calls": job.calls,
+    }
+    domain_coverage = {
+        "q": group.q,
+        "ordinate_lo_num": lo_num, "ordinate_lo_den": lo_den,
+        "ordinate_hi_num": hi_num, "ordinate_hi_den": hi_den,
+        "characters": [
+            {
+                "index": c["index"],
+                "conductor": c["conductor"],
+                "parity": c["parity"],
+                "exponents": c["exponents"],
+            }
+            for c in payload["characters"]
+        ],
+    }
+    execution_environment = {
+        "device": job.last_report["device"],
+        "runner": "sparkinterval-grh-lambda",
+        "paper": payload["paper"],
+    }
+    completion = {
+        "status": "success",
+        "exit_code": 0,
+        "expected_output_count": job.calls,
+        "written_output_count": job.calls,
+        "cuda_errors": [],
+        "start_time_utc": start_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "end_time_utc": end_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    build_artifacts = [
+        ("host_executable", root / "artifacts" / "sparkinterval-grh-lambda"),
+        ("gpu_executable", root / "artifacts" / "sparkinterval-grh-lambda"),
+        ("algorithm_definition", root / "algorithm-definition.md"),
+    ]
+    for index, entry in enumerate(jobs):
+        build_artifacts.append(
+            (f"gpu_input_{index:04d}", root / entry["input"]))
+        build_artifacts.append(
+            (f"gpu_output_{index:04d}", root / entry["output"]))
+
+    target_profile = bundle_format.load_profile(
+        REPO_ROOT / "profiles" / "targets" / "dgx_spark_sm121.json", "target")
+    trust_profile = bundle_format.load_profile(
+        REPO_ROOT / "profiles" / "trust" / "local_unattested.json", "trust")
+    definition_sha = hashlib.sha256(
+        (root / "algorithm-definition.md").read_bytes()).hexdigest()
+    bundle = bundle_format.create_bundle(
+        root=root,
+        target_profile=target_profile,
+        trust_profile=trust_profile,
+        algorithm_id=ALGORITHM_ID,
+        algorithm_definition_sha256=definition_sha,
+        input_path=io_index_path,
+        parameters=parameters,
+        domain_coverage=domain_coverage,
+        output_path=root / "grh-certificate.json",
+        nonce=nonce,
+        build_artifacts=build_artifacts,
+        execution_environment=execution_environment,
+        completion=completion,
+    )
+    bundle_format.write_bundle(bundle, root / "run-bundle.json")
+    return bundle
+
+
+def verify_bundle_root(root):
+    """Full local verification of a GRH bundle root without re-running the
+    GPU computation:
+
+    1. generic canonical-bundle verification (structure, profile catalog,
+       and byte-exact re-hash of every bound artifact);
+    2. statement cross-checks against the certificate;
+    3. deterministic re-encoding of every recorded GPU job from the
+       certificate's character data and the recorded ordinate lists,
+       requiring byte equality (proves exactly what the GPU was asked);
+    4. byte-exact binding of every certificate bracket endpoint to a
+       rectangle in the recorded GPU outputs; and
+    5. the exact-rational mathematical certificate checks.
+
+    Operator-signature verification remains with the generic
+    verify_run_bundle.py --policy dgx_operator_signed CLI.
+    """
+    root = pathlib.Path(root)
+    bundle_path = root / "run-bundle.json"
+    bundle = bundle_format.load_canonical_json(bundle_path)
+    receipt = bundle_verify.verify_bundle(
+        bundle,
+        profiles_dir=REPO_ROOT / "profiles",
+        artifact_root=root,
+        policy=bundle_verify.INTEGRITY_POLICY,
+    )
+    statement = bundle["statement"]
+    if statement["algorithm"]["algorithm_id"] != ALGORITHM_ID:
+        raise RuntimeError("unexpected algorithm id")
+
+    payload = json.loads((root / "grh-certificate.json").read_text())
+    parameters = statement["parameters"]["value"]
+    if parameters["q"] != payload["q"]:
+        raise RuntimeError("statement/certificate modulus mismatch")
+    if parameters["character_count"] != len(payload["characters"]):
+        raise RuntimeError("statement/certificate character count mismatch")
+    lo = Fraction(parameters["ordinate_lo_num"],
+                  parameters["ordinate_lo_den"])
+    hi = Fraction(parameters["ordinate_hi_num"],
+                  parameters["ordinate_hi_den"])
+    if lo != Fraction(payload["t_lo"]) or hi != Fraction(payload["t_hi"]):
+        raise RuntimeError("statement/certificate window mismatch")
+
+    io_index = bundle_format.load_canonical_json(root / "gpu-io-index.json")
+    if io_index["kind"] != IO_INDEX_KIND:
+        raise RuntimeError("bad io index kind")
+
+    # Rebuild the character data deterministically from the certificate.
+    mpmath.mp.dps = 60
+    group = CharacterGroup(payload["q"])
+    characters = []
+    for entry in payload["characters"]:
+        char = {
+            "exponents": tuple(entry["exponents"]),
+            "conductor": entry["conductor"],
+            "parity": entry["parity"],
+        }
+        char["eps"] = compute_epsilon(
+            group, char["exponents"], char["parity"])
+        eps_re = mpmath.mpf(entry["epsilon"]["re"])
+        if abs(eps_re - char["eps"].real) > mpmath.mpf("1e-25"):
+            raise RuntimeError("certificate epsilon mismatch")
+        characters.append(char)
+
+    # Byte-exact re-encoding of every recorded job.
+    rect_index = {}
+    jobs_checked = 0
+    for entry in io_index["jobs"]:
+        job_blob = (root / entry["input"]).read_bytes()
+        if hashlib.sha256(job_blob).hexdigest() != entry["input_sha256"]:
+            raise RuntimeError(f"io-index digest mismatch: {entry['input']}")
+        info = parse_job_ordinates(job_blob)
+        rebuilt = encode_job(group, characters, info["t_values"],
+                             info["terms_m"], info["bern_j"])
+        if rebuilt != job_blob:
+            raise RuntimeError(
+                f"job re-encoding mismatch: {entry['input']}")
+        out_blob = (root / entry["output"]).read_bytes()
+        if hashlib.sha256(out_blob).hexdigest() != entry["output_sha256"]:
+            raise RuntimeError(f"io-index digest mismatch: {entry['output']}")
+        char_count, t_count, summary, _ = struct.unpack_from(
+            "<4I", out_blob, 8)
+        if summary != 0:
+            raise RuntimeError("recorded GPU output has nonfinite status")
+        if char_count != len(characters) or t_count != info["t_count"]:
+            raise RuntimeError("output shape mismatch")
+        for i, t in enumerate(info["t_values"]):
+            for k in range(char_count):
+                offset = 24 + 32 * (i * char_count + k)
+                rect_index[(struct.pack("<d", t), k)] = (
+                    out_blob[offset:offset + 32])
+        jobs_checked += 1
+
+    # Byte-exact binding of every bracket endpoint to a recorded rectangle.
+    endpoints_bound = 0
+    for entry in payload["characters"]:
+        k = entry["index"]
+        for bracket in entry["brackets"]:
+            for endpoint, value in (
+                    ("lower", bracket["lower_value"]),
+                    ("upper", bracket["upper_value"])):
+                t = float.fromhex(bracket[endpoint])
+                key = (struct.pack("<d", t), k)
+                if key not in rect_index:
+                    raise RuntimeError(
+                        f"bracket endpoint t={t} char={k} not present in "
+                        f"recorded outputs")
+                recorded = rect_index[key]
+                claimed = struct.pack(
+                    "<4d",
+                    float.fromhex(value["re_lo"]),
+                    float.fromhex(value["re_hi"]),
+                    float.fromhex(value["im_lo"]),
+                    float.fromhex(value["im_hi"]))
+                if recorded != claimed:
+                    raise RuntimeError(
+                        f"bracket endpoint value mismatch at t={t} char={k}")
+                endpoints_bound += 1
+
+    ok, message = verify_certificate(root / "grh-certificate.json")
+    if not ok:
+        raise RuntimeError(f"certificate recheck failed: {message}")
+
+    return {
+        "accepted": True,
+        "policy": receipt["policy"],
+        "statement_sha256": receipt["statement_sha256"],
+        "bundle_sha256": receipt["bundle_sha256"],
+        "evidence_class": receipt["evidence_class"],
+        "hardware_evidence": receipt["hardware_evidence"],
+        "jobs_reencoded": jobs_checked,
+        "bracket_endpoints_bound": endpoints_bound,
+        "certificate_recheck": message,
+    }
+
+
 def cmd_verify(args):
-    ok, message = verify_certificate(args.certificate)
+    target = pathlib.Path(args.certificate)
+    if target.is_dir():
+        try:
+            receipt = verify_bundle_root(target)
+        except (RuntimeError, ValueError, OSError) as error:
+            print(json.dumps({"accepted": False, "detail": str(error)},
+                             indent=1))
+            raise SystemExit(1)
+        print(json.dumps(receipt, indent=1))
+        return
+    ok, message = verify_certificate(target)
     print(json.dumps({"accepted": ok, "detail": message}, indent=1))
     if not ok:
         raise SystemExit(1)
@@ -730,6 +1057,10 @@ def main():
         help="benchmark option: only process the first K primitive "
              "characters (0 = all); a full verification must cover all")
     run_parser.add_argument("--max-cross-checks", type=int, default=200)
+    run_parser.add_argument(
+        "--nonce", default=None,
+        help="64-hex challenger nonce; freshly generated when omitted "
+             "(freshness is only proved when the verifier supplied it)")
     run_parser.set_defaults(func=cmd_run)
     verify_parser = sub.add_parser("verify")
     verify_parser.add_argument("certificate")

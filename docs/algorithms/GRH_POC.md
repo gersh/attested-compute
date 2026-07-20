@@ -187,6 +187,54 @@ intervals.  A production run must either port the lattice algorithm with
 high-precision seeds (Platt used 300-bit MPFI) or use double-double
 interval arithmetic on the GPU.
 
+## Signed run bundles and verification without re-running
+
+`run` now emits a canonical `sparkinterval_run_bundle` (`run-bundle.json`)
+in the work directory alongside the certificate, binding by SHA-256: the
+staged runner executable that actually ran, every GPU job input and
+output blob, the algorithm definition, integer-only parameters and
+domain coverage, a completion record, and a challenger nonce
+(`--nonce`, freshly generated when omitted).  The bundle uses the
+`dgx_spark_sm121` target and `local_unattested` trust profiles, so the
+standard operator-signature workflow applies unchanged:
+
+```bash
+python3 tools/local_operator_signature.py keygen \
+  --private-key op-private.pem --public-key op-public.pem \
+  --passphrase-file passphrase.txt
+python3 tools/local_operator_signature.py sign \
+  "$WORK/run-bundle.json" --artifact-root "$WORK" \
+  --private-key op-private.pem --out grh-run.signature.json
+python3 tools/verify_run_bundle.py "$WORK/run-bundle.json" \
+  --artifact-root "$WORK" --policy dgx_operator_signed \
+  --operator-signature grh-run.signature.json \
+  --trusted-operator-key op-public.pem --replay-db nonces.sqlite3
+```
+
+A verifier therefore checks, without re-running the GPU sweep:
+
+1. the Ed25519 signature over the canonical bundle against the pinned
+   operator key, with nonce replay rejection (generic tooling);
+2. byte-exact digests of every bound artifact (generic tooling);
+3. `run_grh_poc.py verify <work-dir>` additionally re-encodes every
+   recorded GPU job deterministically from the certificate's character
+   data and the recorded ordinate lists and requires byte equality —
+   establishing exactly which computation the GPU was asked to run —
+   then binds every certificate bracket endpoint byte-for-byte to a
+   rectangle in the recorded GPU outputs, and re-runs the exact-rational
+   certificate checks.
+
+Tamper tests confirm each layer: a flipped bit in an output blob fails
+artifact re-hashing; a doctored certificate fails the output digest; a
+doctored certificate inside a fully re-hashed self-consistent bundle
+(the no-key attacker) fails the endpoint binding; a reused nonce is
+rejected.  As everywhere in this repository, the signature proves that
+the pinned key endorsed exactly this record — not that the record is
+true, and not hardware attestation (`hardware_evidence: false`,
+evidence class `local_unattested`).  The mathematical claim rests on the
+independent certificate checks and the Lean layer, which never consume
+the signature.
+
 ## Reproducing
 
 ```bash
