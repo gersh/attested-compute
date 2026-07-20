@@ -254,6 +254,53 @@ proves exact payload/hash binding, and the upper-bound or sum checkers add
 independently checked mathematics. No current command imports a zeta bundle
 into that private Lean capability.
 
+## GRH finite-verification POC
+
+The GRH proof-of-concept implements the computation of Platt
+(arXiv:1305.3087) on DGX Spark: rigorous interval enclosures of the
+completed Dirichlet function for every primitive character of one
+modulus, strict sign-change zero brackets on the critical line, a
+mathematical certificate, and a canonical signed-eligible run bundle.
+The algorithm, trust boundaries, certified in-Lean numerics, and
+benchmarks are documented in the
+[GRH POC guide](algorithms/GRH_POC.md) and
+[benchmarks](algorithms/GRH_POC_BENCHMARKS.md).
+
+Build the runner once, then run, verify, and Lean-check:
+
+```bash
+cmake -S . -B build/grh-dev -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CUDA_ARCHITECTURES=121
+cmake --build build/grh-dev --target sparkinterval-grh-lambda
+python3 tools/run_grh_poc.py run --q 4 --t-hi 200 \
+  --work-dir build/grh-poc/q4-t200
+python3 tools/run_grh_poc.py verify build/grh-poc/q4-t200
+python3 tools/generate_grh_lean.py \
+  --certificate build/grh-poc/q4-t200/grh-certificate.json \
+  --output build/grh-poc/GeneratedChiFourCert.lean
+./tools/safe_lean.sh build/grh-poc/GeneratedChiFourCert.lean
+```
+
+`run` emits `grh-certificate.json` plus a canonical `run-bundle.json`
+binding the staged runner executable, every GPU job input and output
+blob, the algorithm definition, integer-only parameters, and a
+challenger nonce (`--nonce`; generated when omitted). `verify` on the
+work directory checks canonical-bundle integrity, deterministically
+re-encodes every recorded GPU job and requires byte equality, binds
+every certificate bracket endpoint byte-for-byte to a recorded output
+rectangle, and re-runs the exact-rational certificate checks — all
+without re-running the GPU sweep. The bundle uses the standard
+`dgx_spark_sm121`/`local_unattested` profiles, so the operator-signature
+commands from the DGX workflow above apply unchanged with
+`--artifact-root` pointing at the GRH work directory.
+
+The generated Lean module kernel-checks the bracket family and states a
+conditional finite-strip GRH theorem whose remaining analytic premises
+(evaluator model, endpoint-enclosure realization, and the total
+zero-count bound) are explicit hypotheses; supported Lean-instantiated
+moduli today are 3 and 4, whose primitive characters are fully
+classified in `SparkInterval/Dirichlet/SmallModuli.lean`.
+
 ## H100 native local validation
 
 To build the strict native CLIs and check their `sm_90` images and pre-CUDA
