@@ -47,6 +47,24 @@ that each area is ready to advance.
 - Develop certificate checkers for finite searches, sums, and interval sweeps.
 - Complete the analytic and numerical foundations listed in the
   [high-bound zeta verifier](algorithms/ZETA_ZERO_VERIFIER.md).
+- Grow the certified in-Lean numerics layer (`SparkInterval/Certified`):
+  compose the Stirling Gamma-factor evaluator from the existing proved
+  `log`/`arctan`/`exp` primitives, prove a rational upper bound for the
+  Euler-Maclaurin error radius, and consume the two named remainder
+  premises so the [GRH POC](algorithms/GRH_POC.md) endpoint enclosures
+  become fully machine-checked.
+- Attack the GRH POC's named analytic obligations directly, in rough order
+  of difficulty: the L-function conjugation-symmetry lemma (identity
+  theorem; upgrades one-sided windows to symmetric strips), the
+  Euler-Maclaurin remainder for `HurwitzZeta.hurwitzZeta`, the complex
+  Stirling remainder for `Complex.Gamma`, reality of the completed
+  Dirichlet function (discharging the evaluator-model premise), and a
+  formal Turing-method zero count — the deepest missing layer for both
+  the zeta and Dirichlet verifiers.
+- Port Platt's lattice/Taylor and unit-group-FFT algorithms to the GPU in
+  double-double interval arithmetic so the evaluator reaches full-range
+  heights (the direct evaluator is valid only for moderate ordinates; see
+  the [benchmarks](algorithms/GRH_POC_BENCHMARKS.md) for the cost model).
 
 ### CPU/GPU correctness
 

@@ -13,6 +13,14 @@ coverage, result, and hashes remain available in a certificate. A proved Lean
 checker turns that certificate into an ordinary theorem that later Lean code
 can import and compose without rerunning the original calculation.
 
+The flagship worked example implements the computation behind Platt's
+verification of the Generalized Riemann Hypothesis (arXiv:1305.3087): a
+rigorous GPU interval evaluator isolates zeros of Dirichlet L-functions
+on the critical line, runs are bound into signed-eligible canonical
+bundles, and Lean kernel-checks the zero certificates into conditional
+finite-strip GRH theorems — see the
+[GRH POC quick start](#grh-poc-quick-start) below.
+
 For provenance-sensitive computations, the intended production path uses
 measured code inside a secure execution environment (a CPU TEE together with
 GPU confidential-computing support where available). An external verifier
@@ -145,6 +153,8 @@ The table below is the precise status, including the boundary of every claim.
 | H100 (`x86_64`, `sm_90`) native | Strict probe, primitive, and postfix-expression runners; exact CPU conformance; PTX/SASS audits; a real-integer zeta POC; and target-selected generated-polynomial conformance | Current runs are local evidence only; the zeta bundle is `local_unattested`, and no NVIDIA confidential-computing evidence is collected or accepted |
 | High-bound zeta-zero foundation | Lean canonically checks a signed full endpoint payload, bridges analytic multiplicity to distinct counts, and conditionally composes a Hardy-Z model plus multiplicity bound into the finite-height theorem | Endpoint realization and the analytic Turing/argument-principle bound remain uninstantiated; no height has been certified |
 | Ternary Goldbach external-computation work | Catalogs all thirteen live source atoms; fully replays the CH25 A.7 FLINT leaves and the CDEM Abel producer, then independently replays all 1,000 CDEM chunks with a separate bounded-memory implementation; supplies exact bounded references for psi, Proposition 12.2.4, R2Star, Möbius, and squarefree campaigns; includes exact CUDA R2Star and Möbius/squarefree producers with independent host checks and hash-linked states | The Proposition 12.2.4 reference has checked one complete directed `q` window, not its full campaign. R2Star still needs ambiguous-row fallback, scalable factor digests, and a complete chain. The Möbius producer has bounded runs, not a complete or compressed `10^16` campaign. A.7 still trusts FLINT/Arb; CDEM still trusts its reviewed, hash-pinned C++ source/header set plus the selected compiler/runtime; both lack Lean realization theorems. No source atom is discharged yet |
+| GRH POC (Dirichlet L-functions, arXiv:1305.3087) | A rigorous GPU interval evaluator isolates critical-line zeros of every primitive character of a modulus; runs emit signed-eligible canonical bundles whose job inputs re-encode deterministically and whose certificate endpoints byte-bind to recorded outputs; Lean kernel-checks the bracket families and derives conditional finite-strip GRH theorems, with moduli 3 and 4 fully classified | The evaluator-realization and Turing zero-count premises remain explicit hypotheses; the direct evaluator is valid only for moderate ordinates, and no Platt-scale height or modulus range is certified |
+| Certified in-Lean numerics (`SparkInterval/Certified`) | Executable, fully proved rational-interval `sqrt`, `exp`, `log`, `sin`, `cos`, `arctan`, complex rectangles, and unconditional certified evaluators for the GRH Dirichlet main sums and Euler-Maclaurin correction terms | The Stirling Gamma-factor composition and the two named analytic remainder premises (Euler-Maclaurin tail, Stirling) are stated but not yet proved; kernel reduction does not evaluate `Nat.sqrt`-based enclosures, so evaluator-bound checks need compiled evaluation |
 
 ## Choose a workflow
 
@@ -154,6 +164,12 @@ The table below is the precise status, including the boundary of every claim.
   [DGX workflow](docs/USING.md#dgx-spark-local-bundle-and-operator-signature).
 - To compute a rigorous tutorial enclosure of real `zeta(s)` on DGX Spark or
   H100, use the [zeta workflow](docs/USING.md#real-integer-zeta-poc).
+- To isolate Dirichlet L-function zeros on the GPU and check the resulting
+  certificates in Lean, use the
+  [GRH POC workflow](docs/USING.md#grh-finite-verification-poc); its
+  algorithm, trust boundaries, and benchmarks are documented in the
+  [GRH POC guide](docs/algorithms/GRH_POC.md) and
+  [benchmarks](docs/algorithms/GRH_POC_BENCHMARKS.md).
 - To review or extend the high-bound zero verifier, start with its
   [formal architecture and status](docs/algorithms/ZETA_ZERO_VERIFIER.md).
 - To audit the thirteen external atoms used by the ternary Goldbach theorem,
@@ -262,6 +278,30 @@ challenger nonces, continue with the
 Lean builds are serialized and memory-capped; read
 [Memory-safe builds](docs/MEMORY_SAFE_BUILDS.md) before changing those limits.
 
+## GRH POC quick start
+
+With the DGX build available, isolate the critical-line zeros of the
+primitive character mod 4 to ordinate 200, verify the signed-eligible
+bundle and certificate, and generate the Lean instantiation:
+
+```bash
+cmake -S . -B build/grh-dev -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CUDA_ARCHITECTURES=121
+cmake --build build/grh-dev --target sparkinterval-grh-lambda
+python3 tools/run_grh_poc.py run --q 4 --t-hi 200 \
+  --work-dir build/grh-poc/q4-t200
+python3 tools/run_grh_poc.py verify build/grh-poc/q4-t200
+python3 tools/generate_grh_lean.py \
+  --certificate build/grh-poc/q4-t200/grh-certificate.json \
+  --output build/grh-poc/GeneratedChiFourCert.lean
+./tools/safe_lean.sh build/grh-poc/GeneratedChiFourCert.lean
+```
+
+The final command kernel-checks every zero bracket and produces a
+conditional finite-strip GRH theorem for modulus 4 depending only on
+Lean's standard axioms; the [GRH POC guide](docs/algorithms/GRH_POC.md)
+states the remaining analytic premises exactly.
+
 ## H100 quick start
 
 On a host with exactly one visible NVIDIA H100 at compute capability 9.0,
@@ -318,6 +358,17 @@ offline CLI checks and the separate generated-`sm_90` polynomial path.
   its explicit refinement premise.
 - The division-capable CUDA runner used by that POC is not covered by the
   generated polynomial-machine theorem.
+- The GRH POC's generated theorems are conditional: the evaluator model,
+  the endpoint-enclosure realization, and the total zero-count (Turing)
+  bound are explicit hypotheses. The certified in-Lean evaluators
+  discharge the heavy endpoint arithmetic unconditionally, but the two
+  named analytic remainder premises and the Gamma-factor composition
+  remain open, so no GRH height is certified unconditionally today.
+- GRH GPU enclosures rely on documented CUDA Math API maximum-ulp error
+  bounds for `log`, `exp`, `sin`, `cos`, and `atan`, outward-widened and
+  cross-checked against independent high-precision recomputation; that
+  vendor bound is a stated trust assumption of the numeric layer, not a
+  Lean theorem.
 - PTX and SASS audits are conservative artifact checks, not formal proofs that
   `ptxas`, the CUDA driver, or physical hardware implements Lean's machine.
 - An operator signature is not hardware attestation.
@@ -362,3 +413,5 @@ offline CLI checks and the separate generated-`sm_90` polynomial path.
 - [Real-zeta POC algorithm](docs/algorithms/REAL_ZETA_POC.md)
 - [High-bound zeta-zero verifier status](docs/algorithms/ZETA_ZERO_VERIFIER.md)
 - [Ternary Goldbach external atoms](docs/algorithms/TERNARY_GOLDBACH_EXTERNAL_ATOMS.md)
+- [GRH POC: GPU evaluator, certificates, certified numerics, and Lean instantiation](docs/algorithms/GRH_POC.md)
+- [GRH POC benchmarks and full-run extrapolation](docs/algorithms/GRH_POC_BENCHMARKS.md)
