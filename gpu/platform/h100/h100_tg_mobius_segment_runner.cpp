@@ -19,11 +19,14 @@ void h100_usage() {
   std::cout
       << "usage: sparkinterval-h100-tg-mobius-segment "
          "[--lower N] [--count N] [--incoming-mertens M] "
-         "[--incoming-squarefree Q] [--previous-receipt-sha256 HEX] "
+         "[--incoming-squarefree Q] [--incoming-little-mertens-lower L] "
+         "[--incoming-little-mertens-upper U] "
+         "[--previous-receipt-sha256 HEX] "
          "[--device N]\n"
          "Requires exactly one visible NVIDIA H100 (compute capability 9.0); "
          "cross-device overrides are disabled. This checks one bounded exact "
-         "Moebius/squarefree state transition.\n";
+         "Moebius/squarefree state transition with exact directed "
+         "little-Mertens checks.\n";
 }
 
 }  // namespace

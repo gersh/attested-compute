@@ -109,6 +109,7 @@ ctest --test-dir "$build_dir" \
 probe_runner="${build_dir}/sparkinterval-h100-probe-runner"
 primitive_runner="${build_dir}/sparkinterval-h100-interval-batch"
 expression_runner="${build_dir}/sparkinterval-h100-expression-batch"
+grh_runner="${build_dir}/sparkinterval-h100-grh-lambda"
 probe_cubin="${build_dir}/h100/h100_rounding_probe.sm_90.cubin"
 cuobjdump="${CUOBJDUMP:-}"
 if [[ -z "$cuobjdump" ]]; then
@@ -118,7 +119,7 @@ if [[ -z "$cuobjdump" && -x /usr/local/cuda/bin/cuobjdump ]]; then
   cuobjdump=/usr/local/cuda/bin/cuobjdump
 fi
 
-for executable in "$probe_runner" "$primitive_runner" "$expression_runner"; do
+for executable in "$probe_runner" "$primitive_runner" "$expression_runner" "$grh_runner"; do
   if [[ ! -x "$executable" ]]; then
     echo "missing H100 native executable: $executable" >&2
     exit 66
@@ -156,6 +157,15 @@ python3 "${repo_root}/gpu/platform/h100/h100_interval_batch_ptx_audit.py" \
 "${repo_root}/tools/inspect_sass.sh" \
   "${output_dir}/static/primitive.sass" \
   "${output_dir}/static/primitive.sass.json" \
+  --allow-division-lowering
+
+"$cuobjdump" --dump-ptx "$grh_runner" \
+  >"${output_dir}/static/grh-lambda.ptx"
+"$cuobjdump" --dump-sass "$grh_runner" \
+  >"${output_dir}/static/grh-lambda.sass"
+"${repo_root}/tools/inspect_sass.sh" \
+  "${output_dir}/static/grh-lambda.sass" \
+  "${output_dir}/static/grh-lambda.sass.json" \
   --allow-division-lowering
 
 "$probe_runner" --cubin "$probe_cubin" \

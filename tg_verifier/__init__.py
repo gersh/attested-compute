@@ -49,8 +49,14 @@ from .arithmetic import (
 )
 from .catalog import ATOMS, ATOMS_BY_ID, AtomSpec, CatalogError, load_catalog
 from .mobius_cuda import (
+    LITTLE_MERTENS_2_11_LIMIT,
+    LITTLE_MERTENS_SCALE,
+    LITTLE_MERTENS_SCALE_BITS,
+    LITTLE_MERTENS_STRONGER_LIMIT,
     MobiusChainResult,
     MobiusReceiptError,
+    little_mertens_fixed_point_increment,
+    little_mertens_fixed_point_squared_slack,
     verify_mobius_receipt,
     verify_mobius_receipt_chain,
 )
@@ -80,6 +86,10 @@ __all__ = [
     "HurstSampleResult",
     "LittleMertensBound",
     "LittleMertensSampleResult",
+    "LITTLE_MERTENS_2_11_LIMIT",
+    "LITTLE_MERTENS_SCALE",
+    "LITTLE_MERTENS_SCALE_BITS",
+    "LITTLE_MERTENS_STRONGER_LIMIT",
     "MobiusChainResult",
     "MobiusReceiptError",
     "SquarefreeEndpointClassification",
@@ -95,6 +105,8 @@ __all__ = [
     "hurst_squared_slack",
     "little_mertens_interval_slack",
     "little_mertens_prefix_sums",
+    "little_mertens_fixed_point_increment",
+    "little_mertens_fixed_point_squared_slack",
     "load_catalog",
     "mobius_linear",
     "mobius_segment",

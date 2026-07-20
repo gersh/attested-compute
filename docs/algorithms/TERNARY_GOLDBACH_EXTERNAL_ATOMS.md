@@ -91,18 +91,18 @@ discharging the corresponding Lean declaration.
 | ID | Present evidence and strongest local check | Feasibility of next honest step | Missing before Lean discharge |
 | --- | --- | --- | --- |
 | `ch25-a7-boundary` | The pinned full replay recomputes all 16,191 FLINT/Arb leaf boxes, all nonvanishing guards, and both exact dyadic evidence endpoints; the local run took 1.56 s. | Complete external analytic replay is implemented. | Prove that the FLINT enclosures realize Mathlib's zeta and zeta-derivative definitions. |
-| `ch25-psi-1e13` | A bounded-memory exact reference recomputes every prime power, rational directed `log` enclosure, endpoint inequality, and hash-linked state; the measured bounded run reaches `10^6`. No full artifact exists. | The literal Python route is multi-year; an optimized exact CPU/GPU producer is the credible next step. | Complete the run through `10^13`, retain authenticated states and a final receipt, and prove that the event stream realizes Lean's `psi`. |
-| `platt-head-2e4` | A retained FLINT summary, a fresh FLINT replay, an independently downloaded LMFDB fold, and an ordinary-kernel reciprocal fold exist. The SparkInterval checker pins the exact summary bytes/configuration and checks stored rational relationships, but not the ordinate-digest preimage or FLINT semantics. | Best current full-zeta pilot; 22,492 brackets are small enough to iterate on. | Hardy-Z endpoint realization, multiplicity-aware Turing count, and a proof that committed cells biject with all zero slots through height 20,000. |
-| `platt-trudgian-rh-3e12` | Paper citation only; the zero database, interval source, Turing logs, and run output are not local. | Blocked on source artifacts and a production-grade zero verifier. | The missing database/logs, or a new amortized Hardy-Z/Riemann-Siegel and Turing-count campaign through `3000175332800`. |
-| `helfgott-prop-12-2-4` | Exact 3,389,047,618-row `q` scheduling and structural hash chaining are implemented. A bounded directed-rational producer and stronger chunk replay now recompute source endpoints, exact `G_q(k)`, and every final margin without native-float decisions; the representative `q=6469693230` row checks all 136 conservative `k` values. | The formula evaluator is no longer the blocker; next optimize the bounded chunk producer and measure representative `q` blocks. | Complete all 3,389,047,618 `q` rows and their `(q,k)` windows, retain the full authenticated chain, and prove a Lean realization theorem for the rational evaluator and its theorem-backed constant intervals. |
+| `ch25-psi-1e13` | A bounded-memory exact reference recomputes every prime power, rational directed `log` enclosure, and endpoint inequality. A source-hash-bound supervisor now retains compact event commitments, atomically resumes the gap-free directed state/hash chain through the literal `10^13` endpoint, and can independently regenerate selected or all chunks. | The full Python campaign is runnable in form but remains computationally prohibitive; optimize the producer before attempting it. | Complete and independently replay the run through `10^13`, then prove that the event stream realizes Lean's `psi`. |
+| `platt-head-2e4` | A resumable pinned-FLINT campaign recomputes exact `N(20000)=22491`, all 22,492 indexed critical-line isolations, disjointness, cutoff bracketing, multiplicity completeness, and the directed reciprocal bound. Its compact chunks are hash-linked and independently replayable. | Complete external analytic replay is implemented; the retained historical summary and LMFDB fold remain useful independent comparisons. | Prove that FLINT's zero/count routines realize Mathlib's zeta zeros and analytic multiplicities, then check the compact campaign in Lean. |
+| `platt-trudgian-rh-3e12` | The same bounded-memory campaign implementation pins source height `3000175332800` and source count `12363153437138`, checks a fresh exact `zeta_nzeros` result, and can isolate/resume/finalize every indexed batch. No source-height campaign has been run. | Range-complete implementation exists, but naively revisiting more than twelve trillion zeros is computationally enormous and needs serious amortization/scale-out. | A completed source-height chain, practical optimized production, and the same FLINT-to-Lean analytic realization bridge. |
+| `helfgott-prop-12-2-4` | A literal full-source supervisor schedules all 3,389,047,618 admissible `q` rows, streams the exceptional 23,207,009-value `q=1` window with directed fixed-point `G` bounds, atomically resumes a hash-linked chain, and independently regenerates each transition. Bounded and representative-row tests pass. | Exact and full-domain-capable, but the Python implementation is prohibitively slow; optimize before attempting the full run. | Complete and independently replay the source campaign, then prove a Lean realization theorem for the rational evaluator and its theorem-backed constant intervals. |
 | `cdem-squarefree` | Exact reference checker is retained through 550,000. The exact CUDA Möbius producer has pinned root known answers through 450,000, independent per-row CPU replay, exact real-endpoint comparisons, and hash-linked `Q` states. | Naively visiting every unit interval through `10^16` remains prohibitive; the new producer is infrastructure, not compression. | An authenticated complete compressed chain or a proved compressed squarefree argument, plus its Lean bridge. |
 | `cdem-table-abel` | The supervisor captures, hash-pins, and compiles the exact reviewed C++ source plus its SHA-256 header dependency, checks an independent small recurrence, and runs the complete five-billion-step producer in about 87 s. A separately reviewed Eratosthenes/binary-search/serial implementation independently replayed all 1,000 exact chunks in 45.85 s with at most 20 MB of principal chunk storage per worker. | Complete external production and independent bounded-memory replay are implemented. | A Lean theorem realizing the finite recurrence and a kernel-checkable certificate bridge; the reviewed C++ source/header set and selected compiler/runtime remain external trust until then. |
 | `mertens-hurst` | Exact-integer Python sample through 2,300,000. The exact CUDA Möbius producer has pinned root known answers through 450,000, independent per-row CPU replay, the squared `571/1000` check, and hash-linked `M` states. | Naive enumeration through `10^16` remains prohibitive; no Hurst-style compression or artifact is local. | Hurst's sublinear/block artifacts or a comparable compressed exact algorithm and state-chain checker. |
-| `ramare-zuniga-lemma-6-2` | The retained 21-billion report relies on a stated libm model. The exact Python reference recomputes complete hash-linked transitions. A bounded CUDA producer now reproduces its scale-2^32 log, coefficient, blocked prefix, envelope, full-factor digest, and canonical chunk hash or rejects; arbitrary-precision replay passes across partitions and at the retained worst-index probe, and the blocked transition matches the retained serial reference. | Add exact fallback for Q64-ambiguous rows and scalable full-factor digest production, then run all 21 billion endpoints. | A complete replayed chain and Lean realization of the R2Star recurrence, log, and Euler gamma. |
-| `helfgott-platt-theorem-4-1` | Explicit local Goldbach witnesses through 200,000; the paper reports deletion of the full per-range files. | Blocked on reconstruction of the prime-ladder corpus. | Complete ordered ladder, gap-coverage proof, and Proth/ECPP primality certificates for roughly 492,700 ladder intervals. |
-| `platt-dirichlet-theorem-7-1` | Exact source statement, but no local character database, zero database, computation source, or logs. | Blocked on source artifacts and algorithm. | Canonical primitive-character enumeration, completed-L interval evaluation, and multiplicity-aware Turing counts in every conductor/parity range. |
-| `platt-little-mertens-2-11` | Segmented numerical loop and bounded exact reference; no directed full run or authenticated state chain. | A full multi-GPU campaign through `10^12` appears plausible after the target implementation exists. | Exact fixed-point Möbius stream, all real-step intervals, composable chunk states, full run, and Lean checking. |
-| `platt-little-mertens-stronger` | Same bounded exact reference and incomplete production evidence. | A full single-H100 campaign through `7727068587` appears plausible after implementation. | Exact directed stream, left-limit endpoint checks, composable states, full run, and Lean checking. |
+| `ramare-zuniga-lemma-6-2` | The retained 21-billion report relies on a stated libm model. The exact Python reference recomputes complete hash-linked transitions. A CUDA producer reproduces its scale-2^32 log, coefficient, blocked prefix, envelope, full-factor digest, and canonical chunk hash; rare Q64-ambiguous rows use an arbitrary-precision rational host fallback, while an exact segmented host sieve commits every factor. A full-source supervisor captures the runner and atomically resumes the verified gap-free state/hash prefix. | The full engine and scheduler are implemented; benchmark and run all 21 billion endpoints. | A complete replayed chain and Lean realization of the R2Star recurrence, log, and Euler gamma. |
+| `helfgott-platt-theorem-4-1` | A literal source reconstruction fixes all 492,700 ranges, exactly checks compact Proth/Pocklington ladder certificates, uses a 256-grid bounded built-in producer with an unbounded certificate-producing fallback, and separately replays deterministic prime pairs for every even through `4e18`. Bounded tests pass; no full artifact exists. | End-to-end and resumable in form, but the naive binary-Goldbach scan is computationally astronomical; a source-grade compressed/imported prerequisite is needed in practice. | Complete both external campaigns and prove their interval-covering reduction in Lean. |
+| `platt-dirichlet-theorem-7-1` | The exact CRT/Conrey scheduler covers 29,565,923,837 primitive characters for `q=2..400000`. A pinned-FLINT reference backend replaces a numeric Turing heuristic with a rigorous Arb argument-principle count and strict Hardy-Z brackets; `q=1` is composed from the stronger zeta-3e12 campaign. Small `q=3,4,5` runs pass. | Full-source and resumable in form, but the direct contour method is astronomical and producer/checker share one implementation. The strict `sm_90` upstream GRH evaluator remains a moderate-height POC, not the missing Platt-scale lattice/FFT backend. | Complete the source run with a practical algorithm, independently check it, capture the runtime closure, and prove the completed-L/Hardy-Z/count realization in Lean. |
+| `platt-little-mertens-2-11` | Full-range-capable exact CUDA/CPU directed stream, real-slab checks, hash-linked state, and resumable supervisor; bounded tests only. | The implemented single-GPU campaign accepts all rows through `10^12`; no complete run is retained. | Full campaign receipts, independent execution review/attestation as desired, and a Lean realization/checker. |
+| `platt-little-mertens-stronger` | The same implementation preserves the exceptional closed endpoint `7727068587`; bounded tests and resume tests pass. | The implemented shorter campaign requires 78 maximum-size segments. | Full campaign receipts and a Lean realization/checker. |
 
 The exact Lean names and source-shaped claims follow.  Keeping these names in
 one catalog prevents a convenient surrogate calculation from being mistaken
@@ -179,9 +179,20 @@ decision.  Run a bounded instance with:
 python3 tools/tg_verify.py --pretty verify-psi-range --limit 100000
 ```
 
-The same streaming code accepts `--limit 10000000000000`, but the current
-Python rational-log implementation would take years.  “Full-capable” here
-describes coverage and bounded memory, not practical runtime or Lean discharge.
+The resumable full-source wrapper keeps compact event digests rather than
+retaining the enormous prime-power stream:
+
+```bash
+python3 tools/tg_psi_campaign.py run /durable/psi-1e13
+python3 tools/tg_psi_campaign.py verify /durable/psi-1e13
+python3 tools/tg_psi_campaign.py replay /durable/psi-1e13 --max-chunks 1
+```
+
+Use `run --max-chunks N` for a clean bounded stop; the identical command later
+resumes from the verified prefix. The same engine reaches the literal
+`10^13` endpoint without a sample mode, but the current Python rational-log
+implementation would take years. “Full-capable” here describes exact coverage
+and bounded retained state, not practical runtime or Lean discharge.
 
 ### `platt-head-2e4`
 
@@ -211,6 +222,17 @@ Recompute the FLINT summary externally:
   --max-seconds 600
 ```
 
+The repository-native resumable route computes the count, all interval-digest
+preimages, the bracketing zero, and the reciprocal enclosure:
+
+```bash
+OUT="$(mktemp -d build/tg/zeta-head-2e4.XXXXXX)"
+.venv-tg-flint/bin/python tools/tg_zeta_campaign.py --pretty full "$OUT" \
+  --profile platt-head-2e4
+.venv-tg-flint/bin/python tools/tg_zeta_campaign.py --pretty verify \
+  "$OUT" --complete
+```
+
 An independent LMFDB-data route can check official file hashes, decode the
 published ordinate stream, recompute the reciprocal fold, and compare cells:
 
@@ -221,13 +243,13 @@ published ordinate stream, recompute the reciprocal fold, and compare cells:
   "$CLAUDE_MATH_ROOT/ext/ch25_certificates/certificates/ch25_prop77_lmfdb.json"
 ```
 
-Use `--offline` after the two LMFDB files have been cached.  Neither route by
-itself replays Platt's isolation proof or its multiplicity-aware Turing
-completeness argument.  A list of 22,491 plausible ordinates is not a proof
-that no zero is missing, duplicated, multiple, or off the critical line.  The
-lightweight SparkInterval receipt pins the retained summary bytes and the
-stored ordinate digest, but does not possess the ordinate preimage and thus
-does not recompute that digest's analytic content.
+Use `--offline` after the two LMFDB files have been cached. A list of 22,491
+plausible ordinates alone is not a completeness proof. The new FLINT campaign
+instead combines `zeta_nzeros`, which counts all zeros with multiplicity, with
+22,491 disjoint critical-line isolations below the cutoff and one isolation
+above it. Equality supplies the external multiplicity/completeness argument.
+The remaining trust is FLINT's analytic implementation and its absent Lean
+realization, not a missing stored ordinate preimage.
 
 ### `platt-trudgian-rh-3e12`
 
@@ -240,10 +262,22 @@ AnalyticNT.ChebyshevPsi.finite_check_platt_trudgian_rh_zeta_3e12
 Claim: every nontrivial zeta zero with
 `0 < Im(s) <= 3000175332800` lies on `Re(s)=1/2`.
 
-No local command can independently replay this claim today.  The paper is a
-citation, not a substitute for the missing zero database, interval code,
-Turing logs, and output.  Offline `sm_90` compilation in this repository does
-not change that status.
+The [resumable zeta-zero campaign](TG_ZETA_ZERO_CAMPAIGN.md) provides the same
+exact count plus indexed-isolation logic at this height:
+
+```bash
+.venv-tg-flint/bin/python tools/tg_zeta_campaign.py --pretty init \
+  build/tg/zeta-rh-3000175332800 --profile platt-trudgian-rh-3e12 \
+  --batch-size 1000000
+.venv-tg-flint/bin/python tools/tg_zeta_campaign.py --pretty run \
+  build/tg/zeta-rh-3000175332800 --max-chunks 10
+```
+
+Initialization must freshly obtain the exact source count
+`N(3000175332800)=12363153437138`. Repeating `run` eventually covers all
+`N+1` indices and `finalize` proves the external finite-height claim. The
+implementation is bounded-memory and resumable, but this literal campaign is
+still extraordinarily expensive; no source-height completion is claimed.
 
 ### `platt-dirichlet-theorem-7-1`
 
@@ -254,9 +288,28 @@ MathExtras.Helfgott.MajorArcsStart.platt_theorem_7_1_dirichlet_verification_sour
 ```
 
 Claim: every primitive character of conductor `q <= 400000` satisfies the
-parity-dependent Platt zero-height ranges.  This requires character-specific
-completed-L evaluations and completeness counts, not reuse of an ordinary
-Riemann-zeta zero table.  No local production artifact or target kernel exists.
+parity-dependent Platt zero-height ranges. The exact scheduler, resumable
+campaign, source composition, and rigorous slow FLINT backend are documented
+in [DIRICHLET_GRH_CAMPAIGN.md](DIRICHLET_GRH_CAMPAIGN.md). The backend counts
+zeros with multiplicity by the argument principle on
+`[-1/2,3/2] x [-T-1/64,T+1/64]`, subtracts the known simple `s=0` zero for
+even primitive characters, and requires the same total number of disjoint
+strict Hardy-Z sign changes. Equality leaves no off-line or even-multiplicity
+unaccounted zero.
+
+The single source command composes `q=1` from a completed stronger
+`platt-trudgian-rh-3e12` campaign and then resumes all `q>=2` characters:
+
+```bash
+.venv-tg-flint/bin/python tools/tg_dirichlet_campaign.py source \
+  build/tg/platt-dirichlet-7-1-source \
+  --q1-zeta-final build/tg/zeta-rh-3000175332800/final.json
+```
+
+This is a literal unscaled reference, not a practical replacement for
+Platt's lattice/FFT and Turing implementation. The H100-bound upstream GRH
+evaluator is useful at moderate height but its direct sums lose resolution at
+the source ordinates.
 
 ## Exact arithmetic atoms
 
@@ -301,8 +354,24 @@ That command checks the entire conservative window `586 <= k <= 721` (136
 rows), reports one checked `q` out of 3,389,047,618, and leaves both
 `full_source_campaign` and `lean_atom_discharged` false.  See
 [the directed-reference design](PROP1224_DIRECTED_REFERENCE.md) for formulas
-and assurance boundaries.  A complete verification still needs an optimized,
-authenticated full campaign and a Lean realization theorem.
+and assurance boundaries.
+
+The literal source supervisor adds bounded-memory handling of the much larger
+`q=1` window, immutable parameters, atomic resume, and independent arithmetic
+replay:
+
+```bash
+python3 tools/tg_prop1224_campaign.py run /durable/prop1224
+python3 tools/tg_prop1224_campaign.py verify /durable/prop1224
+python3 tools/tg_prop1224_campaign.py replay /durable/prop1224
+```
+
+Omitting `--max-chunks` fixes the endpoint at the full source sentinel; a
+bounded stop remains visibly incomplete. The implementation is exact but far
+too slow for a practical full Python run. See
+[`PROP1224_FULL_CAMPAIGN.md`](PROP1224_FULL_CAMPAIGN.md). A completed external
+campaign would still need a Lean realization theorem before discharging the
+atom.
 
 ### `cdem-squarefree`
 
@@ -336,13 +405,18 @@ cmake --build build/dgx-spark --target sparkinterval-tg-mobius-segment
 Its coarse rational interval for `6/pi^2` is checked against the tighter
 Machin enclosure by `tests/test_tg_mobius_cuda.py`.  The runner checks the
 integer endpoint and the left limit before each jump; convexity supplies the
-real unit interval.  Non-root segments require both incoming prefix states
-and the previous receipt digest. `tg_verifier.mobius_cuda` structurally
-verifies and composes those summaries; save each JSON receipt and run
+real unit interval. Non-root segments require the incoming Mertens,
+squarefree, and directed little-Mertens prefix states plus the previous
+receipt digest. `tg_verifier.mobius_cuda` structurally verifies and composes
+those summaries. The full-range-capable supervisor can run or resume the
+literal scan with
 
 ```bash
-python3 tools/tg_verify.py --pretty verify-mobius-receipts \
-  receipt-000000.json receipt-000001.json
+python3 tools/tg_mobius_campaign.py run \
+  --runner build/dgx-spark/sparkinterval-tg-mobius-segment \
+  --output-dir /durable/path/cdem-squarefree \
+  --target squarefree --segment-count 100000000 \
+  --allow-other-device
 ```
 
 The chain checker enforces the runner's 100-million-row receipt cap, one
@@ -353,9 +427,9 @@ anchor the final digest. Its classification therefore says
 `not_execution_authenticated`, and neither it nor the producer claims to
 prove the external atom.
 
-Do not extrapolate a bounded receipt to `10^16`.  A fresh 10-million-row GB10
-run took 54.29 ms in the kernel but 3.706 s in independent CPU replay and exact
-endpoint checks.  Linear extrapolation is invalid at the source scale; even
+Do not extrapolate a bounded receipt to `10^16`.  A fresh v2 10-million-row
+GB10 run took 40.26 ms in the kernel, 3.717 s in independent CPU replay plus
+all exact bounds, and 4.32 s wall time. Linear extrapolation is invalid at the source scale; even
 the small-run kernel rate alone would need about 1.7 years, and the independent
 checker rate would need well over a century.  A production solution needs a
 compressed argument, not merely more GPU cores.
@@ -435,7 +509,21 @@ incoming states meaningful; an isolated non-root receipt is explicitly
 conditional.  The 10-million-row GB10 run found the minimum squared slack
 `882159` at `n=199` and no failure, but is only one-billionth of the required
 range.  Neither this linear scan nor an H100 rebuild supplies Hurst's missing
-sublinear decomposition.
+sublinear decomposition. It is nevertheless wired as a guarded, resumable
+full-domain linear campaign:
+
+```bash
+python3 tools/tg_mobius_campaign.py run \
+  --runner build/dgx-spark/sparkinterval-tg-mobius-segment \
+  --output-dir /durable/path/mertens-hurst \
+  --target hurst --segment-count 100000000 \
+  --allow-other-device
+```
+
+At `10^16` this is a theoretical fallback, not a practical replacement for a
+compressed proof. Both target modes stop on their own first-failure fields,
+retain the failing receipt, and report full target completeness only after a
+gap-free rooted chain reaches the exact source endpoint.
 
 ### `ramare-zuniga-lemma-6-2`
 
@@ -446,7 +534,7 @@ MathExtras.RamareMertens2025.ramare_zuniga_2024_lemma_6_2_source
 ```
 
 Claim: for every real `3 <= X <= 21000000000`,
-`|R2Star(X)| <= 1.93*sqrt(X)*log(X)`.
+`|r2Star(floor(X))| <= 1.93*sqrt(X)*log(X)`.
 
 Audit the retained focused report and bind it to the retained raw report:
 
@@ -531,12 +619,16 @@ Claims:
 - for every real `3 <= x <= 7727068587`,
   `|sum_(n<=x) mu(n)/n| <= 1/(2*sqrt(x))`.
 
-Exact `Fraction` sampling checks both predicates but is intentionally a slow
-reference implementation.  A production checker should use directed
-fixed-point accumulators, prove the relationship between integer endpoints
-and all real `x`, and emit hash-linked chunk states.  The stronger range is a
-reasonable first full GPU target; the `10^12` range is a larger multi-GPU
-campaign.
+Exact `Fraction` sampling remains the small independent reference.  The
+`sparkinterval-tg-mobius-segment` runner now adds scale-`2^96` floor/ceiling
+reciprocal accumulation, checked signed-128-bit state, unsigned-256-bit
+source-shaped squared comparisons at every real-slab limiting endpoint, and
+hash-linked composable state.  `tools/tg_mobius_campaign.py` captures one
+runner and provides atomic checkpointing, exact resume, and offline chain
+validation for the full `7727068587` or `10^12` endpoint.  See
+[`LITTLE_MERTENS_CUDA_CAMPAIGN.md`](LITTLE_MERTENS_CUDA_CAMPAIGN.md) for the
+equations, commands, and trust boundary.  Only bounded tests have been run;
+no full campaign or Lean realization is claimed.
 
 ## Goldbach finite-range atom
 
@@ -551,13 +643,38 @@ Math.Problems.TernaryGoldbach.helfgott_platt_theorem_4_1_source
 Claim: every odd `n` from 7 through
 `8875694145621773516800000000000` is a sum of three primes.
 
-Checking explicit witnesses through 200,000 is only a bounded sample.  The
-published finite verification used a prime ladder, but the paper reports that
-the full per-range files were deleted.  A replacement certificate must include
-an ordered ladder, proof that adjacent ladder entries cover every required
-odd target under the reduction used in the paper, and independently checkable
-Proth or ECPP primality certificates.  A list of probable primes or scattered
-Goldbach witnesses is not enough.
+Checking explicit witnesses through 200,000 is only a bounded sample. The
+published finite verification used a prime ladder and a separate verification
+of binary Goldbach through `4e18`, but the paper reports that its full
+per-range ladder files were deleted.
+
+The literal reconstruction now supplies both missing finite workflows:
+
+```bash
+python3 tools/tg_goldbach_campaign.py full /durable/goldbach-source \
+  --general-prime-producer tools/tg_pocklington_producer.py
+```
+
+That single command fixes the paper's 492,700 ranges of width
+`2^54 * 10^9`, requires ladder gaps at most `4e18`, checks the two-`2e18`
+endpoint tolerances, streams exact Proth-52 or recursive Pocklington evidence,
+and independently checks a prime pair for every even integer from 4 through
+`4e18`. The built-in search tries 256 Pocklington factor grids before handing
+off to the supplied unbounded in-repository producer. Miller--Rabin is used
+only to reject unlikely candidates; acceptance comes from the exact
+Pocklington checker with a fully factored factor greater than the square root.
+The binary campaign uses
+the deterministic 64-bit primality domain and independently regenerates every
+retained witness transcript.
+
+This is a literal correctness fallback, not a practical reproduction plan:
+the row-by-row binary campaign is computationally astronomical. Its value is
+to make the domain, equations, resume boundary, and certificate acceptance
+executable without pretending the deleted corpus was recovered. A practical
+run should import or reimplement the published compressed binary-Goldbach
+method. See [`GOLDBACH_LADDER_CAMPAIGN.md`](GOLDBACH_LADDER_CAMPAIGN.md).
+A list of probable primes or scattered Goldbach witnesses remains
+insufficient, and no completed campaign or Lean reduction is claimed.
 
 ## Measurements on the development host
 
@@ -652,17 +769,17 @@ divergence, host work, memory capacity, reduction, and I/O differ.
 | --- | --- | --- |
 | `ch25-a7-boundary` | Measured SparkInterval leaf replay: 1.56 s | GPU work is unnecessary; the missing task is the analytic Lean bridge |
 | `ch25-psi-1e13` | Current exact Python reference plus cold replay: roughly 3.8--10 years by bounded event-rate extrapolation | Not estimated: no matching segmented-sieve/fixed-log target kernel |
-| `platt-head-2e4` | Measured external replay: 123.79--124.14 s | Not estimated: no Hardy-Z/Turing target implementation |
-| `platt-trudgian-rh-3e12` | Blocked on PT21 database and verifier | Blocked; an offline `sm_90` build is not a zero benchmark |
-| `helfgott-prop-12-2-4` | Bounded exact rational producer implemented; representative 136-pair row takes about 0.15 s, but this is not a useful extrapolation to 3,389,047,618 heterogeneous `q` rows | Not estimated: no target kernel or representative block measurement |
+| `platt-head-2e4` | Measured external replay: 123.79--124.14 s; resumable FLINT implementation is local | GPU work is unnecessary for this scale; the missing task is the FLINT-to-Lean bridge |
+| `platt-trudgian-rh-3e12` | Bounded-memory FLINT campaign implemented but full run is computationally enormous and unexecuted | No H100 estimate: the current indexed FLINT calls are host-side and need an amortized production design before GPU sizing |
+| `helfgott-prop-12-2-4` | Literal exact Python campaign implemented; a 100-row high-`q` probe took about 1.33 s, which cannot be safely extrapolated across the heterogeneous source domain | Not estimated: no target kernel or representative production-block measurement |
 | `cdem-squarefree` | Naive lower bound: 10,000,000 s (about 116 days) even at `10^9` intervals/s | Naive lower bound: 1,000,000 s (about 11.6 days) even at `10^10` intervals/s; compression required |
 | `cdem-table-abel` | Measured full producer about 86.8 s; independent all-chunk replay 45.85 s | 30--180 s estimated for a GPU producer; CPU production plus independent replay is already practical |
 | `mertens-hurst` | Naive lower bound: 10,000,000 s | Naive lower bound: 1,000,000 s; Hurst-style compression required |
 | `ramare-zuniga-lemma-6-2` | Retained full-run time: 9,173.397 s | 300--2,700 s for a one-H100 exact segmented implementation |
-| `helfgott-platt-theorem-4-1` | Blocked; historical campaign reported around 40,000 core-hours | Not estimated: ladder corpus and checker absent |
-| `platt-dirichlet-theorem-7-1` | Blocked: database and algorithm absent | Blocked: no completed-L/Turing kernel |
-| `platt-little-mertens-2-11` | 3--14 days after exact segmented implementation | 12--72 hours after target implementation |
-| `platt-little-mertens-stronger` | 30 minutes--3 hours after exact segmented implementation | 5--30 minutes after target implementation |
+| `helfgott-platt-theorem-4-1` | Literal deterministic reconstruction implemented but the naive binary prerequisite is far beyond practical local execution; the historical source campaign reported around 40,000 core-hours | No useful H100 estimate for the present host-driven binary loop; port or import the published binary-Goldbach method before production |
+| `platt-dirichlet-theorem-7-1` | Exact 29.6-billion-character scheduler and rigorous unscaled Arb argument-principle campaign implemented; source run unexecuted | Strict `sm_90` completed-L POC builds and runs at moderate height; no useful full-range estimate until the lattice/FFT production algorithm is implemented |
+| `platt-little-mertens-2-11` | Full-range-capable target implemented; complete run not performed | Prior planning estimate 12--72 hours on H100; benchmark the production segment size before relying on it |
+| `platt-little-mertens-stronger` | Full-range-capable target implemented; complete run not performed | 78 maximum-size segments; prior planning estimate 5--30 minutes, not yet measured end to end |
 
 Generate the current machine-readable timing report, including a bounded ψ
 calibration, with:

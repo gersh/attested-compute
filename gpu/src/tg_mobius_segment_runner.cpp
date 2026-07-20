@@ -28,6 +28,12 @@ namespace {
 constexpr std::uint64_t kSourceLimit = 10'000'000'000'000'000ULL;
 constexpr std::uint64_t kDefaultCount = 65'536;
 constexpr std::uint64_t kMaximumSegmentCount = 100'000'000;
+constexpr std::uint64_t kLittleMertens211Limit = 1'000'000'000'000ULL;
+constexpr std::uint64_t kLittleMertensStrongerLower = 3;
+constexpr std::uint64_t kLittleMertensStrongerLimit = 7'727'068'587ULL;
+constexpr unsigned int kLittleMertensScaleBits = 96;
+constexpr unsigned __int128 kLittleMertensScale =
+    static_cast<unsigned __int128>(1) << kLittleMertensScaleBits;
 constexpr std::string_view kZeroDigest =
     "0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -50,9 +56,13 @@ struct Options {
   std::uint64_t count = kDefaultCount;
   std::int64_t incoming_mertens = 0;
   std::uint64_t incoming_squarefree = 0;
+  signed __int128 incoming_little_mertens_lower = 0;
+  signed __int128 incoming_little_mertens_upper = 0;
   std::string previous_receipt_sha256{kZeroDigest};
   bool incoming_mertens_given = false;
   bool incoming_squarefree_given = false;
+  bool incoming_little_mertens_lower_given = false;
+  bool incoming_little_mertens_upper_given = false;
   bool previous_digest_given = false;
   int device = 0;
   bool allow_other_device = false;
@@ -67,6 +77,12 @@ struct EndpointProblem {
   std::uint64_t interval_n = 0;
   const char* side = "";
   std::uint64_t y = 0;
+};
+
+struct LittleMertensProblem {
+  bool present = false;
+  std::uint64_t interval_floor = 0;
+  std::uint64_t right_endpoint = 0;
 };
 
 [[noreturn]] void fail(const std::string& message, int code = 2) {
@@ -94,6 +110,38 @@ bool parse_i64(std::string_view text, std::int64_t* result) {
   const char* end = begin + text.size();
   const auto parsed = std::from_chars(begin, end, *result);
   return parsed.ec == std::errc{} && parsed.ptr == end;
+}
+
+bool parse_i128(std::string_view text, signed __int128* result) {
+  if (text.empty()) return false;
+  bool negative = false;
+  std::size_t offset = 0;
+  if (text.front() == '-') {
+    negative = true;
+    offset = 1;
+  }
+  if (offset == text.size()) return false;
+  const unsigned __int128 negative_limit =
+      static_cast<unsigned __int128>(1) << 127U;
+  const unsigned __int128 positive_limit = negative_limit - 1;
+  const unsigned __int128 limit = negative ? negative_limit : positive_limit;
+  unsigned __int128 magnitude = 0;
+  for (; offset < text.size(); ++offset) {
+    const char digit_character = text[offset];
+    if (digit_character < '0' || digit_character > '9') return false;
+    const unsigned int digit =
+        static_cast<unsigned int>(digit_character - '0');
+    if (magnitude > (limit - digit) / 10U) return false;
+    magnitude = magnitude * 10U + digit;
+  }
+  if (!negative) {
+    *result = static_cast<signed __int128>(magnitude);
+  } else if (magnitude == negative_limit) {
+    *result = -static_cast<signed __int128>(negative_limit - 1) - 1;
+  } else {
+    *result = -static_cast<signed __int128>(magnitude);
+  }
+  return true;
 }
 
 bool is_digest(std::string_view text) {
@@ -135,6 +183,18 @@ Options parse_options(int argc, char** argv) {
         fail("--incoming-squarefree must be a nonnegative integer");
       }
       options.incoming_squarefree_given = true;
+    } else if (argument == "--incoming-little-mertens-lower") {
+      if (!parse_i128(require_value("--incoming-little-mertens-lower"),
+                      &options.incoming_little_mertens_lower)) {
+        fail("--incoming-little-mertens-lower must be a signed 128-bit integer");
+      }
+      options.incoming_little_mertens_lower_given = true;
+    } else if (argument == "--incoming-little-mertens-upper") {
+      if (!parse_i128(require_value("--incoming-little-mertens-upper"),
+                      &options.incoming_little_mertens_upper)) {
+        fail("--incoming-little-mertens-upper must be a signed 128-bit integer");
+      }
+      options.incoming_little_mertens_upper_given = true;
     } else if (argument == "--previous-receipt-sha256") {
       options.previous_receipt_sha256 =
           std::string(require_value("--previous-receipt-sha256"));
@@ -156,12 +216,14 @@ Options parse_options(int argc, char** argv) {
           << "usage: sparkinterval-tg-mobius-segment "
              "[--lower N] [--count N] [--incoming-mertens M] "
              "[--incoming-squarefree Q] "
+             "[--incoming-little-mertens-lower L] "
+             "[--incoming-little-mertens-upper U] "
              "[--previous-receipt-sha256 HEX] [--device N] "
              "[--allow-other-device]\n"
              "Computes one exact bounded Moebius segment, independently "
              "checks every GPU record on the CPU, and emits a hash-linked "
-             "state transition. Non-root segments require all three "
-             "incoming-state arguments.\n";
+             "state transition. Non-root segments require all four prefix "
+             "state arguments plus the previous receipt digest.\n";
       std::exit(0);
     } else {
       fail("unknown argument: " + std::string(argument));
@@ -179,13 +241,17 @@ Options parse_options(int argc, char** argv) {
   if (options.lower == 1) {
     if (options.incoming_mertens != 0 ||
         options.incoming_squarefree != 0 ||
+        options.incoming_little_mertens_lower != 0 ||
+        options.incoming_little_mertens_upper != 0 ||
         options.previous_receipt_sha256 != kZeroDigest) {
       fail("a root segment must have zero incoming state and the zero previous digest");
     }
   } else if (!(options.incoming_mertens_given &&
                options.incoming_squarefree_given &&
+               options.incoming_little_mertens_lower_given &&
+               options.incoming_little_mertens_upper_given &&
                options.previous_digest_given)) {
-    fail("a non-root segment requires incoming Mertens, squarefree, and previous-digest state");
+    fail("a non-root segment requires incoming Mertens, squarefree, little-Mertens interval, and previous-digest state");
   } else if (options.previous_receipt_sha256 == kZeroDigest) {
     fail("a non-root segment requires a nonzero previous receipt digest");
   }
@@ -196,6 +262,10 @@ Options parse_options(int argc, char** argv) {
   }
   if (options.incoming_squarefree > prior_rows) {
     fail("incoming squarefree state exceeds the prefix length");
+  }
+  if (options.incoming_little_mertens_lower >
+      options.incoming_little_mertens_upper) {
+    fail("incoming little-Mertens interval is reversed");
   }
   return options;
 }
@@ -345,6 +415,82 @@ bool less_equal(const U256& left, const U256& right) {
   return true;
 }
 
+signed __int128 i128_maximum() {
+  return static_cast<signed __int128>(
+      (static_cast<unsigned __int128>(1) << 127U) - 1);
+}
+
+signed __int128 i128_minimum() {
+  return -i128_maximum() - 1;
+}
+
+signed __int128 checked_add_i128(signed __int128 left,
+                                 signed __int128 right,
+                                 const char* label) {
+  if ((right > 0 && left > i128_maximum() - right) ||
+      (right < 0 && left < i128_minimum() - right)) {
+    fail(std::string(label) + " overflowed signed 128-bit state", 6);
+  }
+  return left + right;
+}
+
+unsigned __int128 absolute_i128(signed __int128 value) {
+  return value < 0
+      ? static_cast<unsigned __int128>(-(value + 1)) + 1
+      : static_cast<unsigned __int128>(value);
+}
+
+void add_directed_reciprocal(std::uint64_t n, std::int32_t mu,
+                             signed __int128* lower,
+                             signed __int128* upper,
+                             signed __int128* lower_delta,
+                             signed __int128* upper_delta) {
+  if (mu == 0) return;
+  const unsigned __int128 quotient = kLittleMertensScale / n;
+  const bool has_remainder = kLittleMertensScale % n != 0;
+  const signed __int128 rounded_down =
+      static_cast<signed __int128>(quotient);
+  const signed __int128 rounded_up = static_cast<signed __int128>(
+      quotient + static_cast<unsigned int>(has_remainder));
+  const signed __int128 lower_increment = mu > 0 ? rounded_down : -rounded_up;
+  const signed __int128 upper_increment = mu > 0 ? rounded_up : -rounded_down;
+  *lower = checked_add_i128(*lower, lower_increment,
+                            "little-Mertens lower endpoint");
+  *upper = checked_add_i128(*upper, upper_increment,
+                            "little-Mertens upper endpoint");
+  *lower_delta = checked_add_i128(*lower_delta, lower_increment,
+                                  "little-Mertens lower delta");
+  *upper_delta = checked_add_i128(*upper_delta, upper_increment,
+                                  "little-Mertens upper delta");
+  if (*lower > *upper) fail("little-Mertens interval invariant failed", 6);
+}
+
+unsigned __int128 little_mertens_absolute_numerator(
+    signed __int128 lower, signed __int128 upper) {
+  const unsigned __int128 lower_absolute = absolute_i128(lower);
+  const unsigned __int128 upper_absolute = absolute_i128(upper);
+  return std::max(lower_absolute, upper_absolute);
+}
+
+bool little_mertens_endpoint_safe(signed __int128 lower,
+                                  signed __int128 upper,
+                                  std::uint64_t right_endpoint,
+                                  bool stronger_bound) {
+  // [lower/S, upper/S] encloses sum mu(n)/n.  Squaring the larger absolute
+  // endpoint proves either r*s^2 <= 2 or 4*r*s^2 <= 1, with no floating
+  // square root in the decision path.
+  const unsigned __int128 absolute =
+      little_mertens_absolute_numerator(lower, upper);
+  U256 lhs = multiply_u64(multiply_u128(absolute, absolute), right_endpoint);
+  U256 rhs = multiply_u128(kLittleMertensScale, kLittleMertensScale);
+  if (stronger_bound) {
+    lhs = multiply_u64(lhs, 4);
+  } else {
+    rhs = multiply_u64(rhs, 2);
+  }
+  return less_equal(lhs, rhs);
+}
+
 bool density_endpoint_safe(std::uint64_t squarefree_count, std::uint64_t y,
                            std::uint64_t density_numerator,
                            std::uint64_t bound_numerator,
@@ -398,6 +544,16 @@ std::string render_i128(signed __int128 value) {
   return std::string(digits.rbegin(), digits.rend());
 }
 
+std::string render_u128(unsigned __int128 value) {
+  if (value == 0) return "0";
+  std::string digits;
+  while (value != 0) {
+    digits.push_back(static_cast<char>('0' + value % 10));
+    value /= 10;
+  }
+  return std::string(digits.rbegin(), digits.rend());
+}
+
 std::string hash_file(const char* path) {
   std::ifstream input(path, std::ios::binary);
   if (!input) return {};
@@ -427,6 +583,15 @@ void print_problem(const EndpointProblem& problem) {
     std::cout << "{\"interval_n\": " << problem.interval_n
               << ", \"side\": \"" << problem.side << "\", \"y\": "
               << problem.y << '}';
+  }
+}
+
+void print_little_mertens_problem(const LittleMertensProblem& problem) {
+  if (!problem.present) {
+    std::cout << "null";
+  } else {
+    std::cout << "{\"interval_floor\": " << problem.interval_floor
+              << ", \"right_endpoint\": " << problem.right_endpoint << '}';
   }
 }
 
@@ -508,6 +673,12 @@ int main(int argc, char** argv) {
   std::uint64_t first_mismatch_number = 0;
   std::int64_t mertens = options.incoming_mertens;
   std::uint64_t squarefree_count = options.incoming_squarefree;
+  signed __int128 little_mertens_lower =
+      options.incoming_little_mertens_lower;
+  signed __int128 little_mertens_upper =
+      options.incoming_little_mertens_upper;
+  signed __int128 little_mertens_lower_delta = 0;
+  signed __int128 little_mertens_upper_delta = 0;
   signed __int128 minimum_hurst_slack = 0;
   std::uint64_t minimum_hurst_slack_at = 0;
   std::uint64_t hurst_checks = 0;
@@ -516,6 +687,16 @@ int main(int argc, char** argv) {
   std::uint64_t b2_checks = 0;
   EndpointProblem first_b1_problem{};
   EndpointProblem first_b2_problem{};
+  std::uint64_t little_mertens_211_checks = 0;
+  std::uint64_t little_mertens_stronger_checks = 0;
+  LittleMertensProblem first_little_mertens_211_problem{};
+  LittleMertensProblem first_little_mertens_stronger_problem{};
+  unsigned __int128 little_mertens_211_maximum_absolute = 0;
+  unsigned __int128 little_mertens_stronger_maximum_absolute = 0;
+  std::uint64_t little_mertens_211_maximum_at = 0;
+  std::uint64_t little_mertens_211_maximum_right_endpoint = 0;
+  std::uint64_t little_mertens_stronger_maximum_at = 0;
+  std::uint64_t little_mertens_stronger_maximum_right_endpoint = 0;
 
   for (std::size_t index = 0; index < count; ++index) {
     const TgMobiusSupport& actual = outputs[index];
@@ -532,6 +713,10 @@ int main(int argc, char** argv) {
     ++mobius_histogram[static_cast<std::size_t>(mu + 1)];
     mertens += mu;
     if (mu != 0) ++squarefree_count;
+    add_directed_reciprocal(n, mu, &little_mertens_lower,
+                            &little_mertens_upper,
+                            &little_mertens_lower_delta,
+                            &little_mertens_upper_delta);
 
     if (n >= 33) {
       const signed __int128 slack = hurst_slack(n, mertens);
@@ -563,6 +748,46 @@ int main(int argc, char** argv) {
     };
     check_cdem_head(9'243, 151, 2'000, &b1_checks, &first_b1_problem);
     check_cdem_head(438'429, 57, 2'000, &b2_checks, &first_b2_problem);
+
+    auto check_little_mertens =
+        [&](std::uint64_t source_lower, std::uint64_t source_upper,
+            bool stronger_bound, std::uint64_t* checks,
+            LittleMertensProblem* first_problem,
+            unsigned __int128* maximum_absolute,
+            std::uint64_t* maximum_at,
+            std::uint64_t* maximum_right_endpoint) {
+          if (n < source_lower || n > source_upper) return;
+          const std::uint64_t right_endpoint =
+              n == source_upper ? n : n + 1;
+          const unsigned __int128 absolute =
+              little_mertens_absolute_numerator(little_mertens_lower,
+                                                 little_mertens_upper);
+          if (*checks == 0 || absolute > *maximum_absolute) {
+            *maximum_absolute = absolute;
+            *maximum_at = n;
+            *maximum_right_endpoint = right_endpoint;
+          }
+          ++*checks;
+          if (!little_mertens_endpoint_safe(
+                  little_mertens_lower, little_mertens_upper,
+                  right_endpoint, stronger_bound) &&
+              !first_problem->present) {
+            *first_problem = LittleMertensProblem{true, n, right_endpoint};
+          }
+        };
+    check_little_mertens(1, kLittleMertens211Limit, false,
+                         &little_mertens_211_checks,
+                         &first_little_mertens_211_problem,
+                         &little_mertens_211_maximum_absolute,
+                         &little_mertens_211_maximum_at,
+                         &little_mertens_211_maximum_right_endpoint);
+    check_little_mertens(kLittleMertensStrongerLower,
+                         kLittleMertensStrongerLimit, true,
+                         &little_mertens_stronger_checks,
+                         &first_little_mertens_stronger_problem,
+                         &little_mertens_stronger_maximum_absolute,
+                         &little_mertens_stronger_maximum_at,
+                         &little_mertens_stronger_maximum_right_endpoint);
   }
 
   const std::string gpu_digest =
@@ -584,7 +809,7 @@ int main(int argc, char** argv) {
     fail("could not hash the running executable", 5);
   }
   std::ostringstream canonical;
-  canonical << "algorithm=tg_mobius_segment_v1\n"
+  canonical << "algorithm=tg_mobius_segment_v2\n"
             << "previous=" << options.previous_receipt_sha256 << '\n'
             << "lower=" << options.lower << '\n'
             << "upper=" << upper << '\n'
@@ -592,6 +817,19 @@ int main(int argc, char** argv) {
             << "outgoing_mertens=" << mertens << '\n'
             << "incoming_squarefree=" << options.incoming_squarefree << '\n'
             << "outgoing_squarefree=" << squarefree_count << '\n'
+            << "little_mertens_scale_bits=" << kLittleMertensScaleBits << '\n'
+            << "incoming_little_mertens_lower="
+            << render_i128(options.incoming_little_mertens_lower) << '\n'
+            << "incoming_little_mertens_upper="
+            << render_i128(options.incoming_little_mertens_upper) << '\n'
+            << "outgoing_little_mertens_lower="
+            << render_i128(little_mertens_lower) << '\n'
+            << "outgoing_little_mertens_upper="
+            << render_i128(little_mertens_upper) << '\n'
+            << "little_mertens_lower_delta="
+            << render_i128(little_mertens_lower_delta) << '\n'
+            << "little_mertens_upper_delta="
+            << render_i128(little_mertens_upper_delta) << '\n'
             << "record_sha256=" << gpu_digest << '\n'
             << "executable_sha256=" << executable_digest << '\n'
             << "density_interval=" << kDensityIntervalId << '\n'
@@ -617,7 +855,48 @@ int main(int argc, char** argv) {
             << "b2_problem_side="
             << (first_b2_problem.present ? first_b2_problem.side : "none") << '\n'
             << "b2_problem_y="
-            << (first_b2_problem.present ? first_b2_problem.y : 0) << '\n';
+            << (first_b2_problem.present ? first_b2_problem.y : 0) << '\n'
+            << "little_mertens_211_checks=" << little_mertens_211_checks << '\n'
+            << "little_mertens_211_problem_n="
+            << (first_little_mertens_211_problem.present
+                    ? first_little_mertens_211_problem.interval_floor
+                    : 0)
+            << '\n'
+            << "little_mertens_211_problem_right="
+            << (first_little_mertens_211_problem.present
+                    ? first_little_mertens_211_problem.right_endpoint
+                    : 0)
+            << '\n'
+            << "little_mertens_211_maximum_absolute="
+            << (little_mertens_211_checks == 0
+                    ? "null"
+                    : render_u128(little_mertens_211_maximum_absolute))
+            << '\n'
+            << "little_mertens_211_maximum_at="
+            << little_mertens_211_maximum_at << '\n'
+            << "little_mertens_211_maximum_right="
+            << little_mertens_211_maximum_right_endpoint << '\n'
+            << "little_mertens_stronger_checks="
+            << little_mertens_stronger_checks << '\n'
+            << "little_mertens_stronger_problem_n="
+            << (first_little_mertens_stronger_problem.present
+                    ? first_little_mertens_stronger_problem.interval_floor
+                    : 0)
+            << '\n'
+            << "little_mertens_stronger_problem_right="
+            << (first_little_mertens_stronger_problem.present
+                    ? first_little_mertens_stronger_problem.right_endpoint
+                    : 0)
+            << '\n'
+            << "little_mertens_stronger_maximum_absolute="
+            << (little_mertens_stronger_checks == 0
+                    ? "null"
+                    : render_u128(little_mertens_stronger_maximum_absolute))
+            << '\n'
+            << "little_mertens_stronger_maximum_at="
+            << little_mertens_stronger_maximum_at << '\n'
+            << "little_mertens_stronger_maximum_right="
+            << little_mertens_stronger_maximum_right_endpoint << '\n';
   const std::string canonical_text = canonical.str();
   const std::string receipt_digest = sparkinterval::sha256_hex(
       canonical_text.data(), canonical_text.size());
@@ -632,8 +911,8 @@ int main(int argc, char** argv) {
 
   std::cout << std::setprecision(17)
             << "{\n"
-            << "  \"schema_version\": 1,\n"
-            << "  \"algorithm\": \"tg_mobius_segment_v1\",\n"
+            << "  \"schema_version\": 2,\n"
+            << "  \"algorithm\": \"tg_mobius_segment_v2\",\n"
             << "  \"classification\": \"bounded_exact_transition_not_external_atom_proof\",\n"
             << "  \"lower\": " << options.lower << ",\n"
             << "  \"upper\": " << upper << ",\n"
@@ -644,10 +923,26 @@ int main(int argc, char** argv) {
             << "  \"incoming_squarefree\": " << options.incoming_squarefree << ",\n"
             << "  \"outgoing_squarefree\": " << squarefree_count << ",\n"
             << "  \"segment_squarefree_count\": " << segment_squarefree << ",\n"
+            << "  \"little_mertens_fixed_point_scale_bits\": "
+            << kLittleMertensScaleBits << ",\n"
+            << "  \"little_mertens_fixed_point_scale\": "
+            << render_u128(kLittleMertensScale) << ",\n"
+            << "  \"incoming_little_mertens_lower\": "
+            << render_i128(options.incoming_little_mertens_lower) << ",\n"
+            << "  \"incoming_little_mertens_upper\": "
+            << render_i128(options.incoming_little_mertens_upper) << ",\n"
+            << "  \"outgoing_little_mertens_lower\": "
+            << render_i128(little_mertens_lower) << ",\n"
+            << "  \"outgoing_little_mertens_upper\": "
+            << render_i128(little_mertens_upper) << ",\n"
+            << "  \"little_mertens_lower_delta\": "
+            << render_i128(little_mertens_lower_delta) << ",\n"
+            << "  \"little_mertens_upper_delta\": "
+            << render_i128(little_mertens_upper_delta) << ",\n"
             << "  \"previous_receipt_sha256\": \""
             << options.previous_receipt_sha256 << "\",\n"
             << "  \"receipt_chain_sha256\": \"" << receipt_digest << "\",\n"
-            << "  \"canonical_transition_format\": \"tg_mobius_transition_lines_v1\",\n"
+            << "  \"canonical_transition_format\": \"tg_mobius_transition_lines_v2\",\n"
             << "  \"gpu_record_sha256_le_v1\": \"" << gpu_digest << "\",\n"
             << "  \"cpu_record_sha256_le_v1\": \"" << cpu_digest << "\",\n"
             << "  \"executable_sha256\": \"" << executable_digest << "\",\n"
@@ -681,6 +976,47 @@ int main(int argc, char** argv) {
   std::cout << ",\n  \"cdem_b2_endpoint_checks\": " << b2_checks
             << ",\n  \"cdem_b2_first_not_proved_safe\": ";
   print_problem(first_b2_problem);
+  std::cout << ",\n  \"little_mertens_2_11_real_slab_checks\": "
+            << little_mertens_211_checks
+            << ",\n  \"little_mertens_2_11_first_not_proved_safe\": ";
+  print_little_mertens_problem(first_little_mertens_211_problem);
+  std::cout << ",\n  \"little_mertens_2_11_maximum_interval_absolute_numerator\": "
+            << (little_mertens_211_checks == 0
+                    ? "null"
+                    : render_u128(little_mertens_211_maximum_absolute))
+            << ",\n  \"little_mertens_2_11_maximum_interval_absolute_at\": "
+            << (little_mertens_211_checks == 0
+                    ? "null"
+                    : std::to_string(little_mertens_211_maximum_at))
+            << ",\n  \"little_mertens_2_11_maximum_interval_absolute_right_endpoint\": "
+            << (little_mertens_211_checks == 0
+                    ? "null"
+                    : std::to_string(
+                          little_mertens_211_maximum_right_endpoint))
+            << ",\n  \"little_mertens_stronger_real_slab_checks\": "
+            << little_mertens_stronger_checks
+            << ",\n  \"little_mertens_stronger_first_not_proved_safe\": ";
+  print_little_mertens_problem(first_little_mertens_stronger_problem);
+  std::cout << ",\n  \"little_mertens_stronger_maximum_interval_absolute_numerator\": "
+            << (little_mertens_stronger_checks == 0
+                    ? "null"
+                    : render_u128(little_mertens_stronger_maximum_absolute))
+            << ",\n  \"little_mertens_stronger_maximum_interval_absolute_at\": "
+            << (little_mertens_stronger_checks == 0
+                    ? "null"
+                    : std::to_string(little_mertens_stronger_maximum_at))
+            << ",\n  \"little_mertens_stronger_maximum_interval_absolute_right_endpoint\": "
+            << (little_mertens_stronger_checks == 0
+                    ? "null"
+                    : std::to_string(
+                          little_mertens_stronger_maximum_right_endpoint))
+            << ",\n  \"little_mertens_interval_update\": "
+               "\"floor/ceil(mu(n)*2^96/n), accumulated in checked signed __int128\",\n"
+            << "  \"little_mertens_real_slab_reduction\": "
+               "\"sum is constant on [n,n+1); compare its enclosing interval at n+1, except the closed source endpoint is compared at itself\",\n"
+            << "  \"little_mertens_squared_comparisons\": "
+               "\"r*A^2 <= 2*S^2 and 4*r*A^2 <= S^2 in checked unsigned 256-bit arithmetic\",\n"
+            << "  \"fixed_point_overflow_guard_triggered\": false";
   std::cout
       << ",\n  \"incoming_state_is_locally_rooted\": "
       << (options.lower == 1 ? "true" : "false") << ",\n"
@@ -700,11 +1036,18 @@ int main(int argc, char** argv) {
       << "  \"independent_cpu_check_and_exact_bounds_milliseconds\": "
       << host_milliseconds << ",\n"
       << "  \"single_receipt_covers_full_1e16_range\": false,\n"
+      << "  \"single_receipt_covers_full_little_mertens_2_11_range\": false,\n"
+      << "  \"single_receipt_covers_full_little_mertens_stronger_range\": false,\n"
       << "  \"checks_hurst_source_shape_conditionally\": true,\n"
       << "  \"checks_cdem_squarefree_source_shape_conditionally\": true,\n"
+      << "  \"checks_little_mertens_source_shape_conditionally\": true,\n"
       << "  \"has_complete_1e16_receipt_chain\": false,\n"
+      << "  \"has_complete_little_mertens_2_11_receipt_chain\": false,\n"
+      << "  \"has_complete_little_mertens_stronger_receipt_chain\": false,\n"
       << "  \"proves_mertens_hurst_external_atom\": false,\n"
       << "  \"proves_cdem_squarefree_external_atom\": false,\n"
+      << "  \"proves_little_mertens_2_11_external_atom\": false,\n"
+      << "  \"proves_little_mertens_stronger_external_atom\": false,\n"
       << "  \"proves_any_external_atom\": false\n"
       << "}\n";
   return records_passed ? 0 : 5;

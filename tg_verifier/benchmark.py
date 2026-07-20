@@ -269,8 +269,14 @@ def full_campaign_estimates() -> list[dict[str, Any]]:
             _range("not_estimated", "no H100 Hardy-Z/Turing implementation"),
         ),
         "platt-trudgian-rh-3e12": (
-            _range("blocked", "PT21 database and production zero verifier are absent"),
-            _range("blocked", "offline sm_90 build is not a zero-verifier benchmark"),
+            _range(
+                "prohibitive_reference",
+                "literal pinned-FLINT indexed-zero campaign exists but requires 12363153437139 isolation records",
+            ),
+            _range(
+                "not_estimated",
+                "strict sm_90 GRH evaluator exists only for moderate Dirichlet ordinates; no H100 indexed-zeta production kernel",
+            ),
         ),
         "helfgott-prop-12-2-4": (
             _range(
@@ -306,20 +312,32 @@ def full_campaign_estimates() -> list[dict[str, Any]]:
             _range("planning_range", "one H100 exact segmented implementation", 300, 2700),
         ),
         "helfgott-platt-theorem-4-1": (
-            _range("blocked", "deleted ladder corpus; historical campaign about 40000 core-hours"),
-            _range("not_estimated", "trillion-rung producer and independent checker do not exist"),
+            _range(
+                "prohibitive_reference",
+                "literal binary-Goldbach scan and certificate-checked 492700-range ladder exist; historical optimized campaign about 40000 core-hours",
+            ),
+            _range(
+                "not_estimated",
+                "cluster-deployable host sidecar only; no production H100 binary-Goldbach/primality kernel",
+            ),
         ),
         "platt-dirichlet-theorem-7-1": (
-            _range("blocked", "character/zero database and algorithm are absent"),
-            _range("blocked", "no completed-L/Turing target kernel"),
+            _range(
+                "prohibitive_reference",
+                "exact 29565923837-character scheduler and rigorous Arb argument-principle fallback exist; source-scale runtime unvalidated",
+            ),
+            _range(
+                "not_estimated",
+                "strict sm_90 completed-L POC is moderate-height only; Platt-scale lattice/FFT and completeness kernel remain absent",
+            ),
         ),
         "platt-little-mertens-2-11": (
-            _range("planning_range", "exact segmented Mobius/fixed-point design", 3 * 86_400, 14 * 86_400),
-            _range("planning_range", "one H100; requires target implementation", 12 * 3_600, 72 * 3_600),
+            _range("planning_range", "implemented exact segmented CUDA/CPU fixed-point campaign; full run pending", 3 * 86_400, 14 * 86_400),
+            _range("planning_range", "implemented one-H100 resumable campaign; full run pending", 12 * 3_600, 72 * 3_600),
         ),
         "platt-little-mertens-stronger": (
-            _range("planning_range", "exact segmented Mobius/fixed-point design", 30 * 60, 3 * 3_600),
-            _range("planning_range", "one H100; requires target implementation", 5 * 60, 30 * 60),
+            _range("planning_range", "implemented exact segmented CUDA/CPU fixed-point campaign; full run pending", 30 * 60, 3 * 3_600),
+            _range("planning_range", "implemented one-H100 resumable campaign; full run pending", 5 * 60, 30 * 60),
         ),
     }
     return [

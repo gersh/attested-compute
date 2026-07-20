@@ -11,9 +11,38 @@ import unittest
 
 from tg_verifier import arithmetic
 from tg_verifier.mobius_cuda import MobiusReceiptError, verify_mobius_receipt
+from tg_verifier.mobius_cuda import (
+    LITTLE_MERTENS_SCALE,
+    little_mertens_fixed_point_increment,
+    little_mertens_fixed_point_squared_slack,
+)
 
 
 class MobiusCudaBoundaryTests(unittest.TestCase):
+    def test_directed_reciprocal_increment_is_exact(self) -> None:
+        for n in range(1, 100):
+            for mu in (-1, 0, 1):
+                lower, upper = little_mertens_fixed_point_increment(n, mu)
+                exact = Fraction(mu, n)
+                self.assertLessEqual(Fraction(lower, LITTLE_MERTENS_SCALE), exact)
+                self.assertLessEqual(exact, Fraction(upper, LITTLE_MERTENS_SCALE))
+                self.assertIn(upper - lower, (0, 1))
+
+    def test_fixed_point_squared_checks_match_the_source_shapes(self) -> None:
+        scale = LITTLE_MERTENS_SCALE
+        self.assertEqual(
+            little_mertens_fixed_point_squared_slack(
+                -scale // 4, scale // 4, 8, stronger=False
+            ),
+            2 * scale**2 - 8 * (scale // 4) ** 2,
+        )
+        self.assertEqual(
+            little_mertens_fixed_point_squared_slack(
+                -scale // 8, scale // 8, 16, stronger=True
+            ),
+            scale**2 - 4 * 16 * (scale // 8) ** 2,
+        )
+
     def test_coarse_density_interval_contains_machin_enclosure(self) -> None:
         lower = Fraction(607_927_101_854_026_628, 10**18)
         upper = Fraction(607_927_101_854_026_629, 10**18)

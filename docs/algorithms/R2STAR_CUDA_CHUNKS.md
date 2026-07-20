@@ -29,7 +29,7 @@ The fixed CUDA configuration is:
 The two gamma integers are exactly what the arbitrary-precision Python
 contract computes for this configuration.
 
-## Exact-or-reject logarithms
+## Exact logarithms with a sparse fallback
 
 For `1 <= x <= 2`, the Python reference uses
 
@@ -51,10 +51,13 @@ rational expression in Q64 integer intervals:
 
 The kernel converts Q64 to scale `2^32` only if both ends determine the same
 floor for the lower rational bound and the same ceiling for the upper rational
-bound.  Otherwise status `log_resolution_ambiguous` rejects the entire chunk.
-It never silently widens a row because that would no longer reproduce the
-Python chunk state.  For example, `n = 1,364,330` exercises this fail-closed
-path and is pinned by the contract test.
+bound. Otherwise it marks the row `log_resolution_ambiguous`. The runner then
+recomputes that row using arbitrary-precision integer numerators and
+denominators, with exactly the Python series, tail, floor, ceil, factor, and
+coefficient formulas. It copies the corrected row back before either CUDA
+transition runs. No binary floating-point widening enters this fallback.
+For example, `n = 1,364,330` exercises the path and the contract test compares
+the resulting chunk with an independent Python replay.
 
 ## Transition and overflow boundary
 
@@ -107,9 +110,10 @@ rows.  Scale 32 gives substantially clearer overflow and resolution margins.
 ## Hash compatibility and composability
 
 The GPU factor record retains the first two factors and caps `omega` at three,
-which is enough for the coefficient.  The receipt's factor-support digest is
-stronger: independent host trial factorization emits every distinct factor
-using Python's exact encoding
+which is enough for the coefficient. The receipt's factor-support digest is
+stronger: a separate host segmented sieve divides every row by every base
+prime, retains every distinct factor (up to the proved source-range maximum of
+ten), and emits them using Python's exact encoding
 
 ```text
 "r2star-distinct-prime-support-u64be-v1" NUL
@@ -139,22 +143,35 @@ python3 tests/tg_r2star_cuda_chunk_contract.py \
   --runner build/dgx-spark/sparkinterval-tg-r2star-chunk
 ```
 
-On the local GB10, the factor kernel took 2.411 ms, log/coefficient rows took
-1.211 ms, and the blocked prefix/envelope transition took 2.584 ms for
-`[1,1000001)`, for 6.207 ms of measured kernels. The output fields and record
-hash exactly matched the former serial transition.  Independent host factor
-checking and hashing took 610.999 ms and dominated the process wall
-time.  Naively scaling the low-range host check alone over 21,000 million-row
-chunks is about 3.6 hours, but that is not a campaign ETA: high-range trial
-division is substantially more expensive, process/artifact overhead remains,
-and exact fallback rows are not implemented.  This is also not an H100
-measurement.
+The full-source supervisor captures and hashes the runner, verifies every
+receipt before atomically retaining it, and resumes only from the complete
+gap-free hash/state prefix:
 
-The remaining production work is concrete:
+```bash
+python3 tools/tg_r2star_campaign.py run \
+  --runner build/dgx-spark/sparkinterval-tg-r2star-chunk \
+  --output-dir /durable/r2star-21b \
+  --segment-count 1000000
 
-1. implement an exact fallback artifact for the Q64-ambiguous rows;
-2. replace per-process host trial division with an independently checkable
-   segmented full-factor digest producer;
-3. run, retain, and independently replay the complete gap-free chain; and
-4. prove that the integer recurrence and transcendental enclosures realize the
+python3 tools/tg_r2star_campaign.py verify /durable/r2star-21b
+```
+
+Use `--max-chunks N` for a clean bounded stop. Running the same command later
+with the identical runner and configuration resumes at the first missing
+chunk. The retained chain is locally supervised external evidence; its hashes
+do not authenticate a historical GPU execution and do not discharge Lean.
+
+After the segmented host pass was added, fresh one-million-row GB10 runs on
+2026-07-20 took 1.02 seconds at `[1,1000001)` and 1.06 seconds at the final
+million-row source block. The high block used one exact rational fallback;
+its segmented factor comparison and hashing took 582 ms, while the three CUDA
+kernel phases totaled about 6.54 ms. Linear extrapolation is roughly 6.2 hours
+for 21,000 chunks before durable-storage and supervisor overhead. That is a
+planning estimate, not a completed campaign or an H100 measurement.
+
+The remaining proof-integration work is concrete:
+
+1. run and retain the complete gap-free chain, then independently replay
+   selected or all chunks under the desired audit policy; and
+2. prove that the integer recurrence and transcendental enclosures realize the
    Lean definition of `R2Star`.

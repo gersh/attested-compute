@@ -22,7 +22,8 @@ void h100_chunk_usage() {
          "[--previous-hash HEX] [--device N] [--cross-check-serial]\n"
          "Requires exactly one visible NVIDIA H100 (compute capability 9.0); "
          "cross-device overrides are disabled. Produces only a bounded "
-         "Python-contract R2Star chunk, rejects ambiguous log rows, and can "
+         "Python-contract R2Star chunk, resolves rare ambiguous log rows "
+         "with exact rational host arithmetic, and can "
          "compare the blocked transition with its serial reference.\n";
 }
 

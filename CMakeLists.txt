@@ -7,6 +7,17 @@ project(SparkInterval LANGUAGES CXX CUDA)
 
 find_package(CUDAToolkit REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+find_path(
+  SPARKINTERVAL_BOOST_INCLUDE_DIR
+  boost/multiprecision/cpp_int.hpp
+  DOC "Directory containing Boost.Multiprecision headers"
+)
+if(NOT SPARKINTERVAL_BOOST_INCLUDE_DIR)
+  message(FATAL_ERROR
+    "Boost.Multiprecision headers are required for the exact R2Star fallback "
+    "(install libboost-dev or set SPARKINTERVAL_BOOST_INCLUDE_DIR)"
+  )
+endif()
 
 option(
   SPARKINTERVAL_BUILD_H100_NATIVE
@@ -220,6 +231,18 @@ if(SPARKINTERVAL_BUILD_H100_NATIVE)
     $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wall;-Wextra;-Wpedantic;-Werror>
   )
 
+  # The upstream GRH interval evaluator is also built as an explicitly
+  # H100-bound sm_90 executable.  It remains the moderate-height POC
+  # algorithm; this target binding does not make it a Platt-scale backend.
+  add_executable(sparkinterval-h100-grh-lambda
+    gpu/src/grh_lambda_poc.cu
+  )
+  sparkinterval_configure_h100_kernel(sparkinterval-h100-grh-lambda)
+  target_compile_definitions(sparkinterval-h100-grh-lambda PRIVATE
+    SPARKINTERVAL_REQUIRE_H100_SM90=1
+  )
+  target_link_libraries(sparkinterval-h100-grh-lambda PRIVATE CUDA::cudart)
+
   add_library(sparkinterval_h100_tg_r2star_factor_support_kernel STATIC
     gpu/platform/h100/h100_tg_r2star_factor_support_kernel.cu
   )
@@ -253,6 +276,7 @@ if(SPARKINTERVAL_BUILD_H100_NATIVE)
   )
   target_include_directories(sparkinterval-h100-tg-r2star-chunk PRIVATE
     gpu/include
+    ${SPARKINTERVAL_BOOST_INCLUDE_DIR}
   )
   target_link_libraries(sparkinterval-h100-tg-r2star-chunk PRIVATE
     sparkinterval_h100_tg_r2star_factor_support_kernel
@@ -290,6 +314,7 @@ if(SPARKINTERVAL_BUILD_H100_NATIVE)
     sparkinterval-h100-probe-runner
     sparkinterval-h100-interval-batch
     sparkinterval-h100-expression-batch
+    sparkinterval-h100-grh-lambda
     sparkinterval-h100-tg-r2star-factor-support
     sparkinterval-h100-tg-r2star-chunk
     sparkinterval-h100-tg-mobius-segment
@@ -388,7 +413,10 @@ target_compile_options(sparkinterval_tg_r2star_chunk_kernel PRIVATE
 add_executable(sparkinterval-tg-r2star-chunk
   gpu/src/tg_r2star_chunk_runner.cpp
 )
-target_include_directories(sparkinterval-tg-r2star-chunk PRIVATE gpu/include)
+target_include_directories(sparkinterval-tg-r2star-chunk PRIVATE
+  gpu/include
+  ${SPARKINTERVAL_BOOST_INCLUDE_DIR}
+)
 target_link_libraries(sparkinterval-tg-r2star-chunk PRIVATE
   sparkinterval_tg_r2star_factor_support_kernel
   sparkinterval_tg_r2star_chunk_kernel
@@ -461,6 +489,7 @@ if(SPARKINTERVAL_BUILD_H100_NATIVE)
             --probe $<TARGET_FILE:sparkinterval-h100-probe-runner>
             --primitive $<TARGET_FILE:sparkinterval-h100-interval-batch>
             --expression $<TARGET_FILE:sparkinterval-h100-expression-batch>
+            --grh-lambda $<TARGET_FILE:sparkinterval-h100-grh-lambda>
             --factor-support
             $<TARGET_FILE:sparkinterval-h100-tg-r2star-factor-support>
             --r2star-chunk

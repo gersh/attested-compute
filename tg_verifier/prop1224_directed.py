@@ -605,6 +605,27 @@ def _prop1224_margin_interval_from_exact_g(
     return _sub(right_minus_error, remote_envelope, bits)
 
 
+def prop1224_directed_margin_lower_from_g_upper(
+    parameters: Prop1224DirectedParameters,
+    k: int,
+    g_q_k_upper: Fraction,
+) -> Fraction:
+    """Return a sound lower margin using an upper enclosure for ``G_q(k)``.
+
+    The source margin is affine and decreasing in ``G_q(k)``.  Replacing the
+    exact finite sum by any rational upper bound can therefore only decrease
+    the margin.  This small interface lets the production campaign retain a
+    bounded-memory fixed-point enclosure instead of constructing the enormous
+    exact denominator of a prefix containing millions of terms.
+    """
+
+    if not isinstance(g_q_k_upper, Fraction):
+        raise FiniteCampaignError("G_q(k) upper endpoint must be an exact Fraction")
+    return _prop1224_margin_interval_from_exact_g(
+        parameters, k, g_q_k_upper
+    ).lower
+
+
 def prop1224_directed_margin(
     q: int,
     k: int,

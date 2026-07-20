@@ -68,6 +68,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--probe", type=Path, required=True)
     parser.add_argument("--primitive", type=Path, required=True)
     parser.add_argument("--expression", type=Path, required=True)
+    parser.add_argument("--grh-lambda", type=Path, required=True)
     parser.add_argument("--factor-support", type=Path, required=True)
     parser.add_argument("--r2star-chunk", type=Path, required=True)
     parser.add_argument("--mobius-segment", type=Path, required=True)
@@ -82,6 +83,7 @@ def main() -> int:
         args.probe,
         args.primitive,
         args.expression,
+        args.grh_lambda,
         args.factor_support,
         args.r2star_chunk,
         args.mobius_segment,
@@ -98,6 +100,11 @@ def main() -> int:
         [str(args.expression), "--help"],
         ("sparkinterval-h100-expression-batch", "H100", "overrides are disabled"),
     )
+    require_failure(
+        [str(args.grh_lambda)],
+        1,
+        "usage:",
+    )
     require_success(
         [str(args.factor_support), "--help"],
         (
@@ -111,7 +118,7 @@ def main() -> int:
         (
             "sparkinterval-h100-tg-r2star-chunk",
             "H100",
-            "rejects ambiguous log rows",
+            "exact rational host arithmetic",
         ),
     )
     require_success(
@@ -155,6 +162,7 @@ def main() -> int:
     require_sm90(args.cuobjdump, args.probe_cubin)
     require_sm90(args.cuobjdump, args.primitive)
     require_sm90(args.cuobjdump, args.expression)
+    require_sm90(args.cuobjdump, args.grh_lambda)
     require_sm90(args.cuobjdump, args.factor_support)
     require_sm90(args.cuobjdump, args.mobius_segment)
     require_sm90(args.cuobjdump, args.r2star_chunk)

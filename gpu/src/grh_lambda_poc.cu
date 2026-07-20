@@ -529,6 +529,19 @@ int main(int argc, char** argv) {
   }
   const int device = argc > 3 ? std::atoi(argv[3]) : 0;
   CUDA_CHECK(cudaSetDevice(device));
+#ifdef SPARKINTERVAL_REQUIRE_H100_SM90
+  cudaDeviceProp properties{};
+  CUDA_CHECK(cudaGetDeviceProperties(&properties, device));
+  if (properties.major != 9 || properties.minor != 0 ||
+      std::strstr(properties.name, "H100") == nullptr) {
+    std::fprintf(
+        stderr,
+        "strict H100 GRH runner requires device name containing H100 and "
+        "compute capability 9.0; found %s (%d.%d)\n",
+        properties.name, properties.major, properties.minor);
+    return 4;
+  }
+#endif
 
   std::FILE* in = std::fopen(argv[1], "rb");
   if (in == nullptr) {

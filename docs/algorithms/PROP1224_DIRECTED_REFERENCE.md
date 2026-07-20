@@ -60,10 +60,15 @@ structural `semantics_status` field.
 
 This is not a completed replay of Helfgott's two-week computation.  The source
 range contains exactly 3,389,047,618 admissible `q` rows, and no complete run
-or full directed chunk chain has been produced.  The current `G_q` reference
-also materializes arithmetic prefixes and is intended for bounded rows, not
-that production campaign.  Finally, no Lean theorem yet realizes this Python
-rational evaluator as the definitions in
-`RamareProp1224FiniteCite.lean`.  Accordingly every result reports
-`full_source_campaign = false` and `lean_realization_proved = false`; it must
-not be used to retire the Lean source atom by itself.
+or full directed chunk chain has been produced.  This bounded reference
+materializes exact arithmetic prefixes.  The separate
+[full-source campaign](PROP1224_FULL_CAMPAIGN.md) replaces that operation by a
+streamed fixed-point enclosure, including the 23,207,009-row conservative
+`q = 1` window, while keeping the same directed endpoint and margin formulas.
+It is executable over the literal full range but expected to be prohibitively
+slow in Python.  Finally, no Lean theorem yet realizes either Python rational
+evaluator as the definitions in
+`RamareProp1224FiniteCite.lean`.  Accordingly bounded-reference results report
+`full_source_campaign = false`; campaign results report `complete = false`
+until the actual terminal state; and both keep `lean_realization_proved =
+false`.  Neither may be used to retire the Lean source atom by itself.

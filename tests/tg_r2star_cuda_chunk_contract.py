@@ -118,32 +118,30 @@ def main() -> int:
         raise AssertionError("zero-span chunk did not fail before CUDA execution")
 
     # This row's rigorous Q64 interval straddles a scale-2^32 rounding
-    # boundary.  The producer must reject it for exact fallback instead of
-    # silently widening and thereby departing from the Python chunk contract.
-    ambiguous = subprocess.run(
-        [
-            str(args.runner),
-            "--lower",
-            "1364328",
-            "--count",
-            "5",
-            "--allow-other-device",
-            "--cross-check-serial",
-        ],
-        text=True,
-        capture_output=True,
-        check=False,
+    # boundary.  The runner must replace it with the arbitrary-precision
+    # rational result, feed that row back to both transitions, and still match
+    # the independent Python contract.
+    ambiguous_chunk, ambiguous_report = invoke(
+        args.runner,
+        lower=1_364_328,
+        count=5,
+        incoming_lower=0,
+        incoming_upper=0,
+        previous_hash=r2star.ZERO_SHA256,
     )
-    if (
-        ambiguous.returncode != 5
-        or "n=1364330" not in ambiguous.stderr
-        or "status=2" not in ambiguous.stderr
-        or "never widened" not in ambiguous.stderr
-    ):
-        raise AssertionError(
-            "Q64-ambiguous log row did not take the fail-closed path: "
-            f"code={ambiguous.returncode}, stderr={ambiguous.stderr!r}"
-        )
+    expected_ambiguous = r2star.create_r2star_chunk(
+        lower=1_364_328,
+        upper=1_364_333,
+        scale_bits=32,
+        series_terms=20,
+        harmonic_terms=100_000,
+        incoming_lower=0,
+        incoming_upper=0,
+    )
+    if ambiguous_chunk != expected_ambiguous:
+        raise AssertionError("exact fallback differs from the Python contract")
+    if ambiguous_report["exact_rational_fallback_rows"] < 1:
+        raise AssertionError("known Q64 ambiguity did not use exact fallback")
 
     prefix_overflow = subprocess.run(
         [

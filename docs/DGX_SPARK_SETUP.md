@@ -7,7 +7,8 @@ compute capability 12.1, and a CUDA toolkit that supports `sm_121`.
 
 The build and validation workflow uses:
 
-- `lean`, `lake`, Python 3, Git, CMake, and a C++ compiler;
+- `lean`, `lake`, Python 3, Git, CMake, a C++ compiler, and the
+  Boost.Multiprecision headers (`libboost-dev` on Ubuntu);
 - `nvidia-smi` and `/usr/local/cuda/bin/{nvcc,ptxas,cuobjdump,nvdisasm}`;
 - `systemd-run`, a working systemd user manager, `flock`, and `sha256sum` for
   serialized memory-capped builds and artifact records; and

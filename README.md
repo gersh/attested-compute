@@ -150,9 +150,9 @@ The table below is the precise status, including the boundary of every claim.
 | DGX operator signature | A pinned Ed25519 key endorses the exact local bundle | Proves the pinned key signed; operator attribution is out of band, and neither truth nor GPU execution follows |
 | Accepted Lean run certificate | One explicit axiom supplies both the exact historical return and, after a closed registered-invocation check, that invocation's fixed formal `Runs` relation | Requires a trusted private-evidence importer; the per-run registry bridge is not a universal determinism or backend-refinement theorem |
 | Closed registry example | `cubicSumDivThree20000V1` fixes an executable integer cube accumulator followed by one division by three; Lean proves its exact operational result `13334666700000000`, agreement with the rational sum, and u64 safety of every cube and accumulator step, all without `native_decide` | These are axiom-free model and bounded-arithmetic proofs, not a GPU-opcode or physical-execution proof; no signed bundle can enter Lean because the private-evidence importer is absent |
-| H100 (`x86_64`, `sm_90`) native | Strict probe, primitive, and postfix-expression runners; exact CPU conformance; PTX/SASS audits; a real-integer zeta POC; and target-selected generated-polynomial conformance | Current runs are local evidence only; the zeta bundle is `local_unattested`, and no NVIDIA confidential-computing evidence is collected or accepted |
+| H100 (`x86_64`, `sm_90`) native | Strict probe, primitive, postfix-expression, Dirichlet-GRH, R2Star, and Möbius runners; exact CPU conformance and PTX/SASS audits; plus a content-bound Slurm deployment for all thirteen ternary-Goldbach campaigns | Five full-source campaigns use native H100 arithmetic. Eight execute as CPU/FLINT sidecars; the full-source Dirichlet route is one of those sidecars, while its H100 evaluator remains only a bounded POC. Current runs are local evidence; no NVIDIA confidential-computing evidence is accepted |
 | High-bound zeta-zero foundation | Lean canonically checks a signed full endpoint payload, bridges analytic multiplicity to distinct counts, and conditionally composes a Hardy-Z model plus multiplicity bound into the finite-height theorem | Endpoint realization and the analytic Turing/argument-principle bound remain uninstantiated; no height has been certified |
-| Ternary Goldbach external-computation work | Catalogs all thirteen live source atoms; fully replays the CH25 A.7 FLINT leaves and the CDEM Abel producer, then independently replays all 1,000 CDEM chunks with a separate bounded-memory implementation; supplies exact bounded references for psi, Proposition 12.2.4, R2Star, Möbius, and squarefree campaigns; includes exact CUDA R2Star and Möbius/squarefree producers with independent host checks and hash-linked states | The Proposition 12.2.4 reference has checked one complete directed `q` window, not its full campaign. R2Star still needs ambiguous-row fallback, scalable factor digests, and a complete chain. The Möbius producer has bounded runs, not a complete or compressed `10^16` campaign. A.7 still trusts FLINT/Arb; CDEM still trusts its reviewed, hash-pinned C++ source/header set plus the selected compiler/runtime; both lack Lean realization theorems. No source atom is discharged yet |
+| Ternary Goldbach external-computation work | Catalogs all thirteen live source atoms and gives each an exact full-source entry point: A.7 and CDEM full replays; psi and Proposition 12.2.4 streams; head/high zeta campaigns; exact CUDA R2Star and Möbius campaigns; a literal binary-Goldbach/prime-ladder reconstruction; and a 29,565,923,837-character Dirichlet scheduler with rigorous Arb argument-principle fallback and explicit `q=1` zeta composition | Capability is not completion. High zeta, Goldbach, Dirichlet, psi, Proposition 12.2.4, and the linear `10^16` scans are prohibitively or astronomically unscaled. Several paths share producer/checker code or trust FLINT/CUDA/runtime semantics. Every source campaign still lacks its Lean realization theorem, and no source atom is discharged |
 | GRH POC (Dirichlet L-functions, arXiv:1305.3087) | A rigorous GPU interval evaluator isolates critical-line zeros of every primitive character of a modulus; runs emit signed-eligible canonical bundles whose job inputs re-encode deterministically and whose certificate endpoints byte-bind to recorded outputs; Lean kernel-checks the bracket families and derives conditional finite-strip GRH theorems, with moduli 3 and 4 fully classified | The evaluator-realization and Turing zero-count premises remain explicit hypotheses; the direct evaluator is valid only for moderate ordinates, and no Platt-scale height or modulus range is certified |
 | Certified in-Lean numerics (`SparkInterval/Certified`) | Executable, fully proved rational-interval `sqrt`, `exp`, `log`, `sin`, `cos`, `arctan`, complex rectangles, and unconditional certified evaluators for the GRH Dirichlet main sums and Euler-Maclaurin correction terms | The Stirling Gamma-factor composition and the two named analytic remainder premises (Euler-Maclaurin tail, Stirling) are stated but not yet proved; kernel reduction does not evaluate `Nat.sqrt`-based enclosures, so evaluator-bound checks need compiled evaluation |
 
@@ -173,8 +173,11 @@ The table below is the precise status, including the boundary of every claim.
 - To review or extend the high-bound zero verifier, start with its
   [formal architecture and status](docs/algorithms/ZETA_ZERO_VERIFIER.md).
 - To audit the thirteen external atoms used by the ternary Goldbach theorem,
-  including exact commands, evidence levels, and feasibility estimates, read
-  the [ternary Goldbach external-atoms guide](docs/algorithms/TERNARY_GOLDBACH_EXTERNAL_ATOMS.md).
+  or prepare their fail-closed one-job/one-H100 Slurm deployment, use the
+  [unified campaign control plane](docs/algorithms/TERNARY_GOLDBACH_CAMPAIGNS.md)
+  and [H100 cluster guide](docs/algorithms/H100_TG_CLUSTER.md); for exact
+  commands, evidence levels, and feasibility estimates, read the
+  [external-atoms guide](docs/algorithms/TERNARY_GOLDBACH_EXTERNAL_ATOMS.md).
 - The A.7 command recomputes every retained FLINT/Arb leaf. The CDEM producer
   hashes and compiles reviewed source, runs a small independent preflight, and
   executes all five billion recurrence steps. A second command recompiles a
@@ -315,7 +318,10 @@ The script builds these native artifacts:
 
 - `build/h100-native/sparkinterval-h100-probe-runner`;
 - `build/h100-native/sparkinterval-h100-interval-batch`;
-- `build/h100-native/sparkinterval-h100-expression-batch`; and
+- `build/h100-native/sparkinterval-h100-expression-batch`;
+- `build/h100-native/sparkinterval-h100-grh-lambda`;
+- `build/h100-native/sparkinterval-h100-tg-r2star-chunk`;
+- `build/h100-native/sparkinterval-h100-tg-mobius-segment`; and
 - `build/h100-native/h100/h100_rounding_probe.sm_90.cubin`.
 
 After that succeeds, run the H100-bound real-zeta tutorial in a fresh

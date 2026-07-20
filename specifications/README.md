@@ -19,6 +19,14 @@ present evidence, missing completion requirement, feasibility class, and
 work-unit count.  The catalog is an audit and planning input; it does not
 declare that an external artifact has discharged a Lean atom.
 
+`TERNARY_GOLDBACH_CAMPAIGN_PROFILES.json` is the fail-closed execution-profile
+registry for exactly those same thirteen IDs. It binds itself to the raw
+SHA-256 of the external-atom catalog and records each full source domain,
+required input, implemented or missing engine, resume capability, and exact
+assurance flags. A profile describes capability only: it is not a run receipt,
+and `sample_only` engines are forbidden from advertising full-source support.
+See the [campaign control-plane guide](../docs/algorithms/TERNARY_GOLDBACH_CAMPAIGNS.md).
+
 The shared bounded CUDA producer for the CDEM squarefree and Hurst/Mertens
 entries is `tg_mobius_segment_v1`.  Its runner emits a deterministic
 `tg_mobius_transition_lines_v1` hash chain and independently CPU-checks every

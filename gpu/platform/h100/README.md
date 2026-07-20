@@ -18,12 +18,18 @@ SparkInterval's H100 workflows:
   blocked prefix/envelope transition, and a retained serial cross-check for
   bounded hash-linked chunks;
 - `h100_tg_mobius_segment_kernel.cu` and its runner compile the exact bounded
-  Möbius/squarefree transition producer for `sm_90`; hash-linked prefix states
-  can be structurally composed by the Python checker, which does not replay
-  rows or authenticate execution; no complete `10^16` chain or Hurst-style
-  compressed algorithm exists;
+  Möbius/squarefree transition producer for `sm_90`; it also carries a directed
+  scale-`2^96` little-Mertens interval and checks both published real-slab
+  bounds with exact squared integer comparisons. Hash-linked prefix states can
+  be structurally composed or resumed by `tools/tg_mobius_campaign.py`, whose
+  retained files do not authenticate execution. No complete production chain
+  or Hurst-style compressed algorithm is retained;
 - `h100_runtime_policy.h` requires exactly one visible H100 with compute
   capability 9.0 and rejects the generic cross-device override; and
+- `sparkinterval-h100-grh-lambda` builds the upstream rigorous Dirichlet-L
+  interval evaluator as an `sm_90` executable and enforces the same H100/9.0
+  device identity. It is the documented moderate-height GRH POC, not the
+  missing Platt-scale lattice/FFT algorithm; and
 - `h100_interval_batch_ptx_audit.py` checks the restricted generated PTX.
 
 The offline artifact scripts can produce `compute_90` PTX and `sm_90` cubins
@@ -31,6 +37,10 @@ without an H100 and only syntax-check their runner sources. The native CMake
 targets also produce executables for the current host architecture, including
 on an `aarch64` build host, but without a physical H100 they produce no H100
 execution result or attestation.
+
+The native R2Star runner's exact ambiguity fallback uses the header-only
+Boost.Multiprecision library. Install the platform's Boost development headers
+or pass `-DSPARKINTERVAL_BOOST_INCLUDE_DIR=/path/to/include` at configure time.
 
 To compile all native-host runners plus the fixed probe cubin, configure with
 `-DSPARKINTERVAL_BUILD_H100_NATIVE=ON` and build the

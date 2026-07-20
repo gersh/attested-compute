@@ -1,0 +1,819 @@
+{
+  "schema_version": 1,
+  "registry_kind": "sparkinterval_ternary_goldbach_campaign_profiles",
+  "source_catalog_sha256": "ac25bba0ebfa5f8caa0c13c38b96bdd92af473cda524eee28e117be21d713d83",
+  "profiles": [
+    {
+      "atom_id": "ch25-a7-boundary",
+      "catalog_verifier": "a7_flint_leaf_replay_v1",
+      "implementation_state": "full_campaign_ready",
+      "full_source_domain": {
+        "domain_kind": "finite_index_set",
+        "lower": "0",
+        "upper": "16190",
+        "coverage_rule": "Replay every one of the 16191 retained boundary leaves with the pinned transcript identity.",
+        "work_unit": "Arb boundary box",
+        "target_work_items": 16191
+      },
+      "required_inputs": [
+        {
+          "id": "boundary_transcript",
+          "kind": "artifact",
+          "locator": "operator-supplied",
+          "immutable_sha256": "ccc11cecdc398c9d0a9bcf2b1bd4994399557985fe17bc216f0a40eb8eb49f29",
+          "purpose": "Complete retained CH25 A.7 leaf transcript."
+        },
+        {
+          "id": "tg_verify",
+          "kind": "repository_file",
+          "locator": "tools/tg_verify.py",
+          "immutable_sha256": null,
+          "purpose": "Pinned-by-plan replay entry point."
+        },
+        {
+          "id": "python_flint",
+          "kind": "python_module",
+          "locator": "flint",
+          "immutable_sha256": null,
+          "purpose": "FLINT/Arb Python bindings; the replay checks the exact supported version."
+        }
+      ],
+      "engines": [
+        {
+          "id": "flint_leaf_replay",
+          "role": "producer_and_checker",
+          "state": "ready",
+          "invocation": ["{python}", "{repository}/tools/tg_verify.py", "replay-a7-flint", "{input:boundary_transcript}"],
+          "supports_full_source": true,
+          "supports_resume": false,
+          "sample_only": false,
+          "required_input_ids": ["boundary_transcript", "tg_verify", "python_flint"]
+        }
+      ],
+      "assurance": {
+        "arithmetic_decisions_exact": true,
+        "directed_enclosures": true,
+        "gap_free_full_domain_capable": true,
+        "authenticated_resume_capable": false,
+        "independent_replay_capable": true,
+        "lean_realization_proved": false
+      },
+      "remaining_requirements": ["Prove that the FLINT zeta jets realize Mathlib's zeta and derivative definitions."]
+    },
+    {
+      "atom_id": "ch25-psi-1e13",
+      "catalog_verifier": "psi_prime_power_stream_v1",
+      "implementation_state": "full_campaign_runnable_unscaled",
+      "full_source_domain": {
+        "domain_kind": "closed_real_range",
+        "lower": "1",
+        "upper": "10000000000000",
+        "coverage_rule": "Enumerate every prime-power jump and check both one-sided real-slab endpoint reductions through 10^13.",
+        "work_unit": "prime-power event",
+        "target_work_items": 346065767406
+      },
+      "required_inputs": [
+        {
+          "id": "tg_verify",
+          "kind": "repository_file",
+          "locator": "tools/tg_verify.py",
+          "immutable_sha256": null,
+          "purpose": "Exact segmented prime-power and rational-log reference."
+        },
+        {
+          "id": "tg_psi_campaign",
+          "kind": "repository_file",
+          "locator": "tools/tg_psi_campaign.py",
+          "immutable_sha256": null,
+          "purpose": "Atomic gap-free compact-event campaign supervisor and replay entry point."
+        }
+      ],
+      "engines": [
+        {
+          "id": "python_prime_power_stream",
+          "role": "reference",
+          "state": "bounded_only",
+          "invocation": ["{python}", "{repository}/tools/tg_verify.py", "verify-psi-range", "--limit", "1000"],
+          "supports_full_source": false,
+          "supports_resume": false,
+          "sample_only": true,
+          "required_input_ids": ["tg_verify"]
+        },
+        {
+          "id": "python_psi_campaign",
+          "role": "producer_and_checker",
+          "state": "ready",
+          "invocation": ["{python}", "{repository}/tools/tg_psi_campaign.py", "run", "{workspace}/psi", "--chunk-span", "1000000", "--segment-size", "1000000"],
+          "supports_full_source": true,
+          "supports_resume": true,
+          "sample_only": false,
+          "required_input_ids": ["tg_psi_campaign"]
+        }
+      ],
+      "assurance": {
+        "arithmetic_decisions_exact": true,
+        "directed_enclosures": true,
+        "gap_free_full_domain_capable": true,
+        "authenticated_resume_capable": true,
+        "independent_replay_capable": true,
+        "lean_realization_proved": false
+      },
+      "remaining_requirements": ["Execute and retain the prohibitively large full source campaign or replace it with a faster exact producer.", "Add the Lean Chebyshev-psi realization theorem."]
+    },
+    {
+      "atom_id": "platt-head-2e4",
+      "catalog_verifier": "zeta_brackets_turing_count_v1",
+      "implementation_state": "full_campaign_ready",
+      "full_source_domain": {
+        "domain_kind": "closed_real_range",
+        "lower": "0",
+        "upper": "20000",
+        "coverage_rule": "Isolate every multiplicity-counted positive zeta zero and close a rigorous Turing count at height 20000.",
+        "work_unit": "positive zeta zero bracket",
+        "target_work_items": 22492
+      },
+      "required_inputs": [
+        {
+          "id": "tg_zeta_campaign",
+          "kind": "repository_file",
+          "locator": "tools/tg_zeta_campaign.py",
+          "immutable_sha256": null,
+          "purpose": "Resumable bounded-memory FLINT zero-isolation and Turing-count supervisor."
+        },
+        {
+          "id": "python_flint",
+          "kind": "python_module",
+          "locator": "flint",
+          "immutable_sha256": null,
+          "purpose": "Pinned FLINT/Arb bindings used for isolation and exact zeta_nzeros counts."
+        }
+      ],
+      "engines": [
+        {
+          "id": "flint_zeta_full",
+          "role": "producer_and_checker",
+          "state": "ready",
+          "invocation": ["{python}", "{repository}/tools/tg_zeta_campaign.py", "full", "{workspace}", "--profile", "platt-head-2e4"],
+          "supports_full_source": true,
+          "supports_resume": true,
+          "sample_only": false,
+          "required_input_ids": ["tg_zeta_campaign", "python_flint"]
+        }
+      ],
+      "assurance": {
+        "arithmetic_decisions_exact": true,
+        "directed_enclosures": true,
+        "gap_free_full_domain_capable": true,
+        "authenticated_resume_capable": true,
+        "independent_replay_capable": true,
+        "lean_realization_proved": false
+      },
+      "remaining_requirements": ["Run and retain the complete height-20000 campaign if a fresh artifact is required.", "Prove the FLINT zeta realization and construct the cell-to-zero-slot equivalence in Lean."]
+    },
+    {
+      "atom_id": "platt-trudgian-rh-3e12",
+      "catalog_verifier": "zeta_brackets_turing_count_v1",
+      "implementation_state": "full_campaign_runnable_unscaled",
+      "full_source_domain": {
+        "domain_kind": "closed_real_range",
+        "lower": "0",
+        "upper": "3000175332800",
+        "coverage_rule": "Isolate all nontrivial zeta zeros through the terminal height and prove the multiplicity-aware Turing count complete.",
+        "work_unit": "positive zeta zero bracket",
+        "target_work_items": 12363153437139
+      },
+      "required_inputs": [
+        {
+          "id": "tg_zeta_campaign",
+          "kind": "repository_file",
+          "locator": "tools/tg_zeta_campaign.py",
+          "immutable_sha256": null,
+          "purpose": "Resumable bounded-memory FLINT zero-isolation and Turing-count supervisor."
+        },
+        {
+          "id": "python_flint",
+          "kind": "python_module",
+          "locator": "flint",
+          "immutable_sha256": null,
+          "purpose": "Pinned FLINT/Arb bindings used for isolation and exact zeta_nzeros counts."
+        }
+      ],
+      "engines": [
+        {
+          "id": "flint_zeta_full",
+          "role": "producer_and_checker",
+          "state": "ready",
+          "invocation": ["{python}", "{repository}/tools/tg_zeta_campaign.py", "full", "{workspace}", "--profile", "platt-trudgian-rh-3e12"],
+          "supports_full_source": true,
+          "supports_resume": true,
+          "sample_only": false,
+          "required_input_ids": ["tg_zeta_campaign", "python_flint"]
+        }
+      ],
+      "assurance": {
+        "arithmetic_decisions_exact": true,
+        "directed_enclosures": true,
+        "gap_free_full_domain_capable": true,
+        "authenticated_resume_capable": true,
+        "independent_replay_capable": true,
+        "lean_realization_proved": false
+      },
+      "remaining_requirements": ["Execute and retain the more-than-12-trillion-record source campaign, which is computationally enormous in the present FLINT implementation.", "Prove the FLINT zeta and count realization in Lean."]
+    },
+    {
+      "atom_id": "helfgott-prop-12-2-4",
+      "catalog_verifier": "prop1224_interval_window_stream_v1",
+      "implementation_state": "full_campaign_runnable_unscaled",
+      "full_source_domain": {
+        "domain_kind": "compound_finite_range",
+        "lower": "1",
+        "upper": "22000000000",
+        "coverage_rule": "Check every q below 3.3e9 and every 210-divisible q in the extension below 2.2e10, including every conservative k window.",
+        "work_unit": "admissible q row (k-pair count additional)",
+        "target_work_items": 3389047618
+      },
+      "required_inputs": [
+        {
+          "id": "tg_verify",
+          "kind": "repository_file",
+          "locator": "tools/tg_verify.py",
+          "immutable_sha256": null,
+          "purpose": "Exact scheduler and bounded directed-rational q-window checker."
+        },
+        {
+          "id": "tg_prop1224_campaign",
+          "kind": "repository_file",
+          "locator": "tools/tg_prop1224_campaign.py",
+          "immutable_sha256": null,
+          "purpose": "Atomic full-source supervisor with bounded-memory q=1 streaming and independent replay."
+        }
+      ],
+      "engines": [
+        {
+          "id": "python_directed_q_window",
+          "role": "reference",
+          "state": "bounded_only",
+          "invocation": ["{python}", "{repository}/tools/tg_verify.py", "verify-prop1224-sample"],
+          "supports_full_source": false,
+          "supports_resume": false,
+          "sample_only": true,
+          "required_input_ids": ["tg_verify"]
+        },
+        {
+          "id": "prop1224_full_scheduler",
+          "role": "producer_and_checker",
+          "state": "ready",
+          "invocation": ["{python}", "{repository}/tools/tg_prop1224_campaign.py", "run", "{workspace}/prop1224"],
+          "supports_full_source": true,
+          "supports_resume": true,
+          "sample_only": false,
+          "required_input_ids": ["tg_prop1224_campaign"]
+        }
+      ],
+      "assurance": {
+        "arithmetic_decisions_exact": true,
+        "directed_enclosures": true,
+        "gap_free_full_domain_capable": true,
+        "authenticated_resume_capable": true,
+        "independent_replay_capable": true,
+        "lean_realization_proved": false
+      },
+      "remaining_requirements": ["Optimize or execute and retain the prohibitively slow full campaign over all 3389047618 q rows.", "Prove the directed transcendental realization in Lean."]
+    },
+    {
+      "atom_id": "cdem-squarefree",
+      "catalog_verifier": "squarefree_real_endpoint_stream_v1",
+      "implementation_state": "full_campaign_runnable_unscaled",
+      "full_source_domain": {
+        "domain_kind": "compound_finite_range",
+        "lower": "9243",
+        "upper": "10000000000000000",
+        "coverage_rule": "Check the two open-left ranges 9243 < y <= 10^16 and 438429 < y <= 10^16, including both one-sided real-slab endpoint reductions, with one gap-free squarefree prefix chain.",
+        "work_unit": "real unit interval",
+        "target_work_items": 10000000000000000
+      },
+      "required_inputs": [
+        {
+          "id": "mobius_runner",
+          "kind": "executable",
+          "locator": "build/h100-native/sparkinterval-h100-tg-mobius-segment",
+          "immutable_sha256": null,
+          "purpose": "Exact CUDA Moebius and squarefree transition producer."
+        },
+        {
+          "id": "cuda_device",
+          "kind": "cuda_device",
+          "locator": "NVIDIA H100 compute capability 9.0",
+          "immutable_sha256": null,
+          "purpose": "Strict H100 execution device for transition production."
+        },
+        {
+          "id": "tg_mobius_campaign",
+          "kind": "repository_file",
+          "locator": "tools/tg_mobius_campaign.py",
+          "immutable_sha256": null,
+          "purpose": "Atomic resumable Moebius/squarefree campaign supervisor."
+        }
+      ],
+      "engines": [
+        {
+          "id": "linear_squarefree_full",
+          "role": "producer_and_checker",
+          "state": "ready",
+          "invocation": ["{python}", "{repository}/tools/tg_mobius_campaign.py", "run", "--runner", "{input:mobius_runner}", "--output-dir", "{workspace}/squarefree", "--target", "squarefree", "--segment-count", "100000000"],
+          "supports_full_source": true,
+          "supports_resume": true,
+          "sample_only": false,
+          "required_input_ids": ["tg_mobius_campaign", "mobius_runner", "cuda_device"]
+        }
+      ],
+      "assurance": {
+        "arithmetic_decisions_exact": true,
+        "directed_enclosures": true,
+        "gap_free_full_domain_capable": true,
+        "authenticated_resume_capable": true,
+        "independent_replay_capable": false,
+        "lean_realization_proved": false
+      },
+      "remaining_requirements": ["Execute the presently prohibitive linear chain through 10^16 or replace it with a proved compressed squarefree algorithm.", "Connect the endpoint reduction and certificate checker to Lean."]
+    },
+    {
+      "atom_id": "cdem-table-abel",
+      "catalog_verifier": "cdem_abel_exact_scan_v1",
+      "implementation_state": "full_campaign_ready",
+      "full_source_domain": {
+        "domain_kind": "closed_integer_range",
+        "lower": "1",
+        "upper": "5000000000",
+        "coverage_rule": "Replay every recurrence step through N=5000000000 and independently replay all 1000 authenticated chunk summaries.",
+        "work_unit": "integer recurrence step",
+        "target_work_items": 5000000000
+      },
+      "required_inputs": [
+        {
+          "id": "cdem_source",
+          "kind": "repository_file",
+          "locator": "reference/tg_cdem_abel.cpp",
+          "immutable_sha256": null,
+          "purpose": "Reviewed exact OpenMP producer source, pinned again by its supervisor."
+        },
+        {
+          "id": "cpp_compiler",
+          "kind": "executable",
+          "locator": "g++",
+          "immutable_sha256": null,
+          "purpose": "C++ compiler hashed by the execution receipt."
+        },
+        {
+          "id": "tg_verify",
+          "kind": "repository_file",
+          "locator": "tools/tg_verify.py",
+          "immutable_sha256": null,
+          "purpose": "Fail-closed producer supervisor."
+        },
+        {
+          "id": "cdem_replay_source",
+          "kind": "repository_file",
+          "locator": "reference/tg_cdem_abel_chunk_replay.cpp",
+          "immutable_sha256": null,
+          "purpose": "Separately reviewed bounded-memory all-chunk replay implementation."
+        },
+        {
+          "id": "sha256_header",
+          "kind": "repository_file",
+          "locator": "gpu/include/sparkinterval/sha256.hpp",
+          "immutable_sha256": null,
+          "purpose": "Reviewed SHA-256 implementation included by the producer."
+        }
+      ],
+      "engines": [
+        {
+          "id": "cdem_exact_scan",
+          "role": "producer_and_checker",
+          "state": "ready",
+          "invocation": ["{python}", "{repository}/tools/tg_verify.py", "run-cdem-abel-full", "{input:cdem_source}", "--replay-source", "{input:cdem_replay_source}", "--compiler", "{input:cpp_compiler}", "--transcript-output", "{workspace}/transcript.txt"],
+          "supports_full_source": true,
+          "supports_resume": false,
+          "sample_only": false,
+          "required_input_ids": ["cdem_source", "cdem_replay_source", "sha256_header", "cpp_compiler", "tg_verify"]
+        }
+      ],
+      "assurance": {
+        "arithmetic_decisions_exact": true,
+        "directed_enclosures": true,
+        "gap_free_full_domain_capable": true,
+        "authenticated_resume_capable": false,
+        "independent_replay_capable": true,
+        "lean_realization_proved": false
+      },
+      "remaining_requirements": ["Add a kernel-checkable certificate bridge and prove the recurrence realization in Lean."]
+    },
+    {
+      "atom_id": "mertens-hurst",
+      "catalog_verifier": "mertens_exact_squared_stream_v1",
+      "implementation_state": "full_campaign_runnable_unscaled",
+      "full_source_domain": {
+        "domain_kind": "closed_real_range",
+        "lower": "33",
+        "upper": "10000000000000000",
+        "coverage_rule": "Check every integer Mertens prefix whose real slab intersects [33,10^16] using the exact squared inequality.",
+        "work_unit": "Mertens prefix index",
+        "target_work_items": 10000000000000000
+      },
+      "required_inputs": [
+        {
+          "id": "mobius_runner",
+          "kind": "executable",
+          "locator": "build/h100-native/sparkinterval-h100-tg-mobius-segment",
+          "immutable_sha256": null,
+          "purpose": "Exact CUDA Moebius and Mertens transition producer."
+        },
+        {
+          "id": "cuda_device",
+          "kind": "cuda_device",
+          "locator": "NVIDIA H100 compute capability 9.0",
+          "immutable_sha256": null,
+          "purpose": "Strict H100 execution device for transition production."
+        },
+        {
+          "id": "tg_mobius_campaign",
+          "kind": "repository_file",
+          "locator": "tools/tg_mobius_campaign.py",
+          "immutable_sha256": null,
+          "purpose": "Atomic resumable Moebius/Hurst campaign supervisor."
+        }
+      ],
+      "engines": [
+        {
+          "id": "linear_hurst_full",
+          "role": "producer_and_checker",
+          "state": "ready",
+          "invocation": ["{python}", "{repository}/tools/tg_mobius_campaign.py", "run", "--runner", "{input:mobius_runner}", "--output-dir", "{workspace}/hurst", "--target", "hurst", "--segment-count", "100000000"],
+          "supports_full_source": true,
+          "supports_resume": true,
+          "sample_only": false,
+          "required_input_ids": ["tg_mobius_campaign", "mobius_runner", "cuda_device"]
+        }
+      ],
+      "assurance": {
+        "arithmetic_decisions_exact": true,
+        "directed_enclosures": false,
+        "gap_free_full_domain_capable": true,
+        "authenticated_resume_capable": true,
+        "independent_replay_capable": false,
+        "lean_realization_proved": false
+      },
+      "remaining_requirements": ["Execute the presently prohibitive linear chain through 10^16 or import Hurst's compressed artifacts.", "Connect the resulting certificate boundary to Lean."]
+    },
+    {
+      "atom_id": "ramare-zuniga-lemma-6-2",
+      "catalog_verifier": "r2star_fixed_point_stream_v1",
+      "implementation_state": "full_campaign_ready",
+      "full_source_domain": {
+        "domain_kind": "closed_real_range",
+        "lower": "3",
+        "upper": "21000000000",
+        "coverage_rule": "Replay every R2Star prefix and both real-slab endpoint reductions through 21000000000 as one exact hash-linked chain.",
+        "work_unit": "R2Star prefix index",
+        "target_work_items": 21000000000
+      },
+      "required_inputs": [
+        {
+          "id": "tg_verify",
+          "kind": "repository_file",
+          "locator": "tools/tg_verify.py",
+          "immutable_sha256": null,
+          "purpose": "Arbitrary-precision exact reference producer and checker."
+        },
+        {
+          "id": "r2star_runner",
+          "kind": "executable",
+          "locator": "build/h100-native/sparkinterval-h100-tg-r2star-chunk",
+          "immutable_sha256": null,
+          "purpose": "Exact-or-fallback CUDA chunk producer with full-factor host digest."
+        },
+        {
+          "id": "tg_r2star_campaign",
+          "kind": "repository_file",
+          "locator": "tools/tg_r2star_campaign.py",
+          "immutable_sha256": null,
+          "purpose": "Atomic resumable full-source R2Star campaign supervisor."
+        },
+        {
+          "id": "cuda_device",
+          "kind": "cuda_device",
+          "locator": "NVIDIA H100 compute capability 9.0",
+          "immutable_sha256": null,
+          "purpose": "CUDA execution device for accelerated exact chunks."
+        }
+      ],
+      "engines": [
+        {
+          "id": "python_exact_r2star",
+          "role": "reference",
+          "state": "bounded_only",
+          "invocation": ["{python}", "{repository}/tools/tg_verify.py", "verify-r2star-range", "--limit", "1000"],
+          "supports_full_source": false,
+          "supports_resume": false,
+          "sample_only": true,
+          "required_input_ids": ["tg_verify"]
+        },
+        {
+          "id": "cuda_r2star_full_supervisor",
+          "role": "producer_and_checker",
+          "state": "ready",
+          "invocation": ["{python}", "{repository}/tools/tg_r2star_campaign.py", "run", "--runner", "{input:r2star_runner}", "--output-dir", "{workspace}/r2star", "--segment-count", "1000000"],
+          "supports_full_source": true,
+          "supports_resume": true,
+          "sample_only": false,
+          "required_input_ids": ["tg_r2star_campaign", "r2star_runner", "cuda_device"]
+        }
+      ],
+      "assurance": {
+        "arithmetic_decisions_exact": true,
+        "directed_enclosures": true,
+        "gap_free_full_domain_capable": true,
+        "authenticated_resume_capable": true,
+        "independent_replay_capable": false,
+        "lean_realization_proved": false
+      },
+      "remaining_requirements": ["Run and retain one gap-free 21-billion-row campaign.", "Connect the recurrence and enclosures to Lean's R2Star definition."]
+    },
+    {
+      "atom_id": "helfgott-platt-theorem-4-1",
+      "catalog_verifier": "goldbach_prime_ladder_v1",
+      "implementation_state": "full_campaign_runnable_unscaled",
+      "full_source_domain": {
+        "domain_kind": "closed_integer_range",
+        "lower": "7",
+        "upper": "8875694145621773516800000000000",
+        "coverage_rule": "Check binary Goldbach for every even from 4 through 4e18, then cover every odd target by a checked prime-ladder interval and exact Proth or Pocklington evidence.",
+        "work_unit": "compound binary-even target or prime-ladder interval",
+        "target_work_items": 2000000000000492699
+      },
+      "required_inputs": [
+        {
+          "id": "goldbach_reference",
+          "kind": "repository_file",
+          "locator": "tg_verifier/goldbach.py",
+          "immutable_sha256": null,
+          "purpose": "Bounded exact witness and primality-certificate checker."
+        },
+        {
+          "id": "tg_goldbach_campaign",
+          "kind": "repository_file",
+          "locator": "tools/tg_goldbach_campaign.py",
+          "immutable_sha256": null,
+          "purpose": "One-command literal binary-Goldbach and prime-ladder reconstruction supervisor."
+        },
+        {
+          "id": "pocklington_producer",
+          "kind": "repository_file",
+          "locator": "tools/tg_pocklington_producer.py",
+          "immutable_sha256": null,
+          "purpose": "Unbounded recursive-Pocklington liveness fallback; every result is replayed by the campaign checker."
+        }
+      ],
+      "engines": [
+        {
+          "id": "bounded_goldbach_witness_checker",
+          "role": "reference",
+          "state": "bounded_only",
+          "invocation": ["{python}", "-m", "unittest", "tests.test_tg_goldbach"],
+          "supports_full_source": false,
+          "supports_resume": false,
+          "sample_only": true,
+          "required_input_ids": ["goldbach_reference"]
+        },
+        {
+          "id": "full_prime_ladder",
+          "role": "producer_and_checker",
+          "state": "ready",
+          "invocation": ["{python}", "{repository}/tools/tg_goldbach_campaign.py", "full", "{workspace}", "--general-prime-producer", "{input:pocklington_producer}"],
+          "supports_full_source": true,
+          "supports_resume": true,
+          "sample_only": false,
+          "required_input_ids": ["tg_goldbach_campaign", "pocklington_producer"]
+        }
+      ],
+      "assurance": {
+        "arithmetic_decisions_exact": true,
+        "directed_enclosures": false,
+        "gap_free_full_domain_capable": true,
+        "authenticated_resume_capable": true,
+        "independent_replay_capable": true,
+        "lean_realization_proved": false
+      },
+      "remaining_requirements": ["Replace or execute the computationally astronomical literal binary-Goldbach scan and retain the complete ladder campaign.", "Add the Lean reduction from the checked binary result and prime ladder to the source atom."]
+    },
+    {
+      "atom_id": "platt-dirichlet-theorem-7-1",
+      "catalog_verifier": "dirichlet_l_brackets_turing_count_v1",
+      "implementation_state": "full_campaign_runnable_unscaled",
+      "full_source_domain": {
+        "domain_kind": "compound_finite_range",
+        "lower": "1",
+        "upper": "400000",
+        "coverage_rule": "Supply q=1 from a completed stronger zeta-3e12 campaign, then enumerate all 29565923837 primitive characters for q=2..400000 and close each parity-dependent range by an Arb argument-principle count and Hardy-Z brackets.",
+        "work_unit": "primitive character",
+        "target_work_items": 29565923837
+      },
+      "required_inputs": [
+        {
+          "id": "run_grh_poc",
+          "kind": "repository_file",
+          "locator": "tools/run_grh_poc.py",
+          "immutable_sha256": null,
+          "purpose": "Small-modulus GRH proof-of-concept; not a source-range producer."
+        },
+        {
+          "id": "h100_grh_runner",
+          "kind": "executable",
+          "locator": "build/h100-native/sparkinterval-h100-grh-lambda",
+          "immutable_sha256": null,
+          "purpose": "Strict sm_90/H100 rigorous interval evaluator for moderate-height bounded GRH campaigns."
+        },
+        {
+          "id": "cuda_device",
+          "kind": "cuda_device",
+          "locator": "NVIDIA H100 compute capability 9.0",
+          "immutable_sha256": null,
+          "purpose": "One scheduler-isolated H100 device for the bounded GRH evaluator."
+        },
+        {
+          "id": "tg_dirichlet_campaign",
+          "kind": "repository_file",
+          "locator": "tools/tg_dirichlet_campaign.py",
+          "immutable_sha256": null,
+          "purpose": "Exact source scheduler, resumable supervisor, and q=1 composition entry point."
+        },
+        {
+          "id": "tg_dirichlet_flint_backend",
+          "kind": "repository_file",
+          "locator": "tools/tg_dirichlet_flint_backend.py",
+          "immutable_sha256": null,
+          "purpose": "Rigorous unscaled Arb argument-principle and Hardy-Z producer/checker."
+        },
+        {
+          "id": "python_flint",
+          "kind": "python_module",
+          "locator": "flint",
+          "immutable_sha256": null,
+          "purpose": "Pinned python-flint 0.9.0 / FLINT 3.6.0 analytic interval runtime."
+        },
+        {
+          "id": "q1_zeta_final",
+          "kind": "artifact",
+          "locator": "operator-supplied completed platt-trudgian-rh-3e12 final.json",
+          "immutable_sha256": null,
+          "purpose": "Regular-file anchor for the completed stronger q=1 Riemann-zeta campaign."
+        }
+      ],
+      "engines": [
+        {
+          "id": "small_modulus_grh_poc",
+          "role": "reference",
+          "state": "bounded_only",
+          "invocation": ["{python}", "{repository}/tools/run_grh_poc.py", "run", "--q", "3", "--t-hi", "100", "--work-dir", "{workspace}/grh-poc-q3", "--executable", "{input:h100_grh_runner}"],
+          "supports_full_source": false,
+          "supports_resume": false,
+          "sample_only": true,
+          "required_input_ids": ["run_grh_poc", "h100_grh_runner", "cuda_device"]
+        },
+        {
+          "id": "dirichlet_flint_argument_full",
+          "role": "producer_and_checker",
+          "state": "ready",
+          "invocation": ["{python}", "{repository}/tools/tg_dirichlet_campaign.py", "source", "{workspace}/dirichlet", "--q1-zeta-final", "{input:q1_zeta_final}"],
+          "supports_full_source": true,
+          "supports_resume": true,
+          "sample_only": false,
+          "required_input_ids": ["tg_dirichlet_campaign", "tg_dirichlet_flint_backend", "python_flint", "q1_zeta_final"]
+        }
+      ],
+      "assurance": {
+        "arithmetic_decisions_exact": true,
+        "directed_enclosures": true,
+        "gap_free_full_domain_capable": true,
+        "authenticated_resume_capable": true,
+        "independent_replay_capable": false,
+        "lean_realization_proved": false
+      },
+      "remaining_requirements": ["Implement the practical Platt lattice/FFT and Turing pipeline or execute the astronomical unscaled reference campaign.", "Add an independent checker and capture the Python/FLINT/GMP/MPFR runtime closure.", "Prove the completed-L, Hardy-Z, and multiplicity-count realization in Lean."]
+    },
+    {
+      "atom_id": "platt-little-mertens-2-11",
+      "catalog_verifier": "little_mertens_fixed_point_stream_v1",
+      "implementation_state": "full_campaign_ready",
+      "full_source_domain": {
+        "domain_kind": "closed_real_range",
+        "lower": "1",
+        "upper": "1000000000000",
+        "coverage_rule": "Check both one-sided real-step endpoints for every exact weighted Moebius prefix through 10^12.",
+        "work_unit": "Mobius prefix index",
+        "target_work_items": 1000000000000
+      },
+      "required_inputs": [
+        {
+          "id": "tg_mobius_campaign",
+          "kind": "repository_file",
+          "locator": "tools/tg_mobius_campaign.py",
+          "immutable_sha256": null,
+          "purpose": "Atomic resumable little-Mertens campaign supervisor."
+        },
+        {
+          "id": "mobius_runner",
+          "kind": "executable",
+          "locator": "build/h100-native/sparkinterval-h100-tg-mobius-segment",
+          "immutable_sha256": null,
+          "purpose": "Exact H100 Moebius and directed little-Mertens transition producer."
+        },
+        {
+          "id": "cuda_device",
+          "kind": "cuda_device",
+          "locator": "NVIDIA H100 compute capability 9.0",
+          "immutable_sha256": null,
+          "purpose": "Strict H100 execution device for the full campaign."
+        }
+      ],
+      "engines": [
+        {
+          "id": "little_mertens_fixed_point_full",
+          "role": "producer_and_checker",
+          "state": "ready",
+          "invocation": ["{python}", "{repository}/tools/tg_mobius_campaign.py", "run", "--runner", "{input:mobius_runner}", "--output-dir", "{workspace}/little-mertens-2-11", "--target", "2-11", "--segment-count", "100000000"],
+          "supports_full_source": true,
+          "supports_resume": true,
+          "sample_only": false,
+          "required_input_ids": ["tg_mobius_campaign", "mobius_runner", "cuda_device"]
+        }
+      ],
+      "assurance": {
+        "arithmetic_decisions_exact": true,
+        "directed_enclosures": true,
+        "gap_free_full_domain_capable": true,
+        "authenticated_resume_capable": true,
+        "independent_replay_capable": false,
+        "lean_realization_proved": false
+      },
+      "remaining_requirements": ["Run and retain the complete resumable campaign through 10^12.", "Prove the real-step reduction and certificate checker in Lean."]
+    },
+    {
+      "atom_id": "platt-little-mertens-stronger",
+      "catalog_verifier": "little_mertens_fixed_point_stream_v1",
+      "implementation_state": "full_campaign_ready",
+      "full_source_domain": {
+        "domain_kind": "closed_real_range",
+        "lower": "3",
+        "upper": "7727068587",
+        "coverage_rule": "Check both one-sided real-step endpoints for every exact weighted Moebius prefix through 7727068587.",
+        "work_unit": "Mobius prefix index",
+        "target_work_items": 7727068587
+      },
+      "required_inputs": [
+        {
+          "id": "tg_mobius_campaign",
+          "kind": "repository_file",
+          "locator": "tools/tg_mobius_campaign.py",
+          "immutable_sha256": null,
+          "purpose": "Atomic resumable little-Mertens campaign supervisor."
+        },
+        {
+          "id": "mobius_runner",
+          "kind": "executable",
+          "locator": "build/h100-native/sparkinterval-h100-tg-mobius-segment",
+          "immutable_sha256": null,
+          "purpose": "Exact H100 Moebius and directed little-Mertens transition producer."
+        },
+        {
+          "id": "cuda_device",
+          "kind": "cuda_device",
+          "locator": "NVIDIA H100 compute capability 9.0",
+          "immutable_sha256": null,
+          "purpose": "Strict H100 execution device for the full campaign."
+        }
+      ],
+      "engines": [
+        {
+          "id": "little_mertens_fixed_point_full",
+          "role": "producer_and_checker",
+          "state": "ready",
+          "invocation": ["{python}", "{repository}/tools/tg_mobius_campaign.py", "run", "--runner", "{input:mobius_runner}", "--output-dir", "{workspace}/little-mertens-stronger", "--target", "stronger", "--segment-count", "100000000"],
+          "supports_full_source": true,
+          "supports_resume": true,
+          "sample_only": false,
+          "required_input_ids": ["tg_mobius_campaign", "mobius_runner", "cuda_device"]
+        }
+      ],
+      "assurance": {
+        "arithmetic_decisions_exact": true,
+        "directed_enclosures": true,
+        "gap_free_full_domain_capable": true,
+        "authenticated_resume_capable": true,
+        "independent_replay_capable": false,
+        "lean_realization_proved": false
+      },
+      "remaining_requirements": ["Run and retain the complete resumable campaign through 7727068587.", "Prove the left-limit endpoint reduction and certificate checker in Lean."]
+    }
+  ]
+}

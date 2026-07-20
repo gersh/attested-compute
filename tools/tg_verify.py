@@ -239,6 +239,42 @@ def command_replay_cdem_chunks(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_run_cdem_full(args: argparse.Namespace) -> int:
+    """Run the reviewed producer and the separate all-chunk implementation."""
+
+    receipt, transcript = build_and_run_cdem_abel(
+        args.source,
+        compiler=args.compiler,
+        block_size=args.block_size,
+        threads=args.threads,
+        max_seconds=args.max_seconds,
+        repeats=1,
+    )
+    args.transcript_output.parent.mkdir(parents=True, exist_ok=True)
+    args.transcript_output.write_text(transcript, encoding="utf-8")
+    replay = replay_cdem_production_transcript(
+        args.transcript_output,
+        source=args.replay_source,
+        compiler=args.compiler,
+        workers=args.workers,
+        compile_max_seconds=args.compile_max_seconds,
+        chunk_max_seconds=args.chunk_max_seconds,
+    )
+    _emit(
+        {
+            "schema_version": 1,
+            "classification": "full_external_producer_plus_independent_all_chunk_replay",
+            "producer": receipt,
+            "independent_replay": replay,
+            "transcript_output": str(args.transcript_output.resolve()),
+            "full_source_campaign": True,
+            "lean_atom_discharged": False,
+        },
+        pretty=args.pretty,
+    )
+    return 0
+
+
 def command_sample_arithmetic(args: argparse.Namespace) -> int:
     limit = args.limit
     mu = mobius_linear(limit)
@@ -791,6 +827,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="replay this zero-based chunk index; repeat to select several",
     )
     cdem_chunks.set_defaults(handler=command_replay_cdem_chunks)
+
+    cdem_full = subcommands.add_parser(
+        "run-cdem-abel-full",
+        help="run the full producer and independently replay all 1000 chunks",
+    )
+    cdem_full.add_argument("source", type=Path)
+    cdem_full.add_argument("--replay-source", type=Path, required=True)
+    cdem_full.add_argument("--compiler", default="g++")
+    cdem_full.add_argument("--block-size", type=int, default=5_000_000)
+    cdem_full.add_argument("--threads", type=int, default=8)
+    cdem_full.add_argument("--workers", type=int, default=8)
+    cdem_full.add_argument("--max-seconds", type=int, default=900)
+    cdem_full.add_argument("--compile-max-seconds", type=int, default=120)
+    cdem_full.add_argument("--chunk-max-seconds", type=int, default=120)
+    cdem_full.add_argument("--transcript-output", type=Path, required=True)
+    cdem_full.set_defaults(handler=command_run_cdem_full)
 
     sample = subcommands.add_parser(
         "sample-arithmetic", help="run bounded exact CPU falsification checks"

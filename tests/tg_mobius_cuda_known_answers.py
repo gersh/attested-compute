@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -23,6 +24,7 @@ from tg_verifier.mobius_cuda import (
     verify_mobius_receipt,
     verify_mobius_receipt_chain,
 )
+from tg_verifier.mobius_campaign import run_campaign, verify_campaign
 
 
 KNOWN_ROOTS = (
@@ -31,18 +33,24 @@ KNOWN_ROOTS = (
         "0410b64cd55f5a6024b9e420e3920d9d1db944eed5c9b1dc97ebdbe5f715fb34",
         -4,
         314,
+        -361587818340506630717555022,
+        -361587818340506630717554710,
     ),
     (
         10_000,
         "1538f71e023af5bcea4384ea794a5cfb48e91225f3f25a03eeb203d01a8b0a6b",
         -23,
         6_083,
+        -165008475646504406525207558,
+        -165008475646504406525201477,
     ),
     (
         450_000,
         "01046da44b889a90c3a68efc4f2b6c942f7add7be44a8d011be6a065011f0362",
         52,
         273_558,
+        9485891078195955203117526,
+        9485891078195955203391082,
     ),
 )
 
@@ -80,7 +88,7 @@ def main() -> int:
     if nonroot.returncode != 2 or "non-root segment requires" not in nonroot.stderr:
         raise AssertionError("runner accepted an unauthenticated non-root state")
 
-    for count, digest, mertens, squarefree in KNOWN_ROOTS:
+    for count, digest, mertens, squarefree, little_lower, little_upper in KNOWN_ROOTS:
         report = execute(args.runner, "--lower", "1", "--count", str(count))
         expected = {
             "lower": 1,
@@ -90,6 +98,8 @@ def main() -> int:
             "cpu_record_sha256_le_v1": digest,
             "outgoing_mertens": mertens,
             "outgoing_squarefree": squarefree,
+            "outgoing_little_mertens_lower": little_lower,
+            "outgoing_little_mertens_upper": little_upper,
             "hurst_first_failure": None,
             "cdem_b1_first_not_proved_safe": None,
             "cdem_b2_first_not_proved_safe": None,
@@ -115,6 +125,10 @@ def main() -> int:
         str(first["outgoing_mertens"]),
         "--incoming-squarefree",
         str(first["outgoing_squarefree"]),
+        "--incoming-little-mertens-lower",
+        str(first["outgoing_little_mertens_lower"]),
+        "--incoming-little-mertens-upper",
+        str(first["outgoing_little_mertens_upper"]),
         "--previous-receipt-sha256",
         str(first["receipt_chain_sha256"]),
     )
@@ -123,6 +137,13 @@ def main() -> int:
         raise AssertionError(f"unexpected composed transition: {chain}")
     if chain.execution_authenticated or chain.rows_replayed_by_chain_checker:
         raise AssertionError("structural receipt composition overclaimed execution")
+    if (
+        chain.final_little_mertens_lower
+        != 263002278022946840516464743
+        or chain.final_little_mertens_upper
+        != 263002278022946840516465956
+    ):
+        raise AssertionError(f"unexpected composed little-Mertens state: {chain}")
     tampered = dict(second)
     tampered["outgoing_mertens"] = int(second["outgoing_mertens"]) + 1
     try:
@@ -179,6 +200,10 @@ def main() -> int:
         "0",
         "--incoming-squarefree",
         "0",
+        "--incoming-little-mertens-lower",
+        "0",
+        "--incoming-little-mertens-upper",
+        "0",
         "--previous-receipt-sha256",
         "a" * 64,
     )
@@ -200,6 +225,52 @@ def main() -> int:
         pass
     else:
         raise AssertionError("receipt checker accepted omitted source-shape status")
+
+    with tempfile.TemporaryDirectory(prefix="tg-little-mertens-campaign-") as raw:
+        directory = Path(raw)
+        first_campaign = run_campaign(
+            runner=args.runner,
+            output_directory=directory,
+            target="stronger",
+            segment_count=500,
+            allow_other_device=True,
+            max_chunks=1,
+        )
+        if first_campaign.completed_upper != 500 or first_campaign.complete:
+            raise AssertionError(f"unexpected first campaign state: {first_campaign}")
+        retained = verify_campaign(directory)
+        if retained.completed_upper != 500 or retained.locally_supervised_execution:
+            raise AssertionError(f"unexpected retained campaign state: {retained}")
+        resumed = run_campaign(
+            runner=args.runner,
+            output_directory=directory,
+            target="stronger",
+            segment_count=500,
+            allow_other_device=True,
+            max_chunks=1,
+        )
+        if resumed.completed_upper != 1_000 or resumed.receipts != 2:
+            raise AssertionError(f"campaign did not resume exactly: {resumed}")
+
+    for target, count in (("hurst", 100), ("squarefree", 450_000)):
+        with tempfile.TemporaryDirectory(prefix=f"tg-{target}-campaign-") as raw:
+            sampled = run_campaign(
+                runner=args.runner,
+                output_directory=Path(raw),
+                target=target,
+                segment_count=count,
+                allow_other_device=True,
+                max_chunks=1,
+            )
+            if sampled.completed_upper != count or sampled.complete:
+                raise AssertionError(f"unexpected {target} sample: {sampled}")
+            if target == "hurst" and not sampled.structurally_reports_no_hurst_failure:
+                raise AssertionError("bounded Hurst campaign reported a failure")
+            if target == "squarefree" and not (
+                sampled.structurally_reports_no_cdem_b1_failure
+                and sampled.structurally_reports_no_cdem_b2_failure
+            ):
+                raise AssertionError("bounded squarefree campaign reported a failure")
 
     print("CUDA Moebius segment known-answer and chain tests passed.")
     return 0
