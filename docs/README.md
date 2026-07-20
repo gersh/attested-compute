@@ -3,6 +3,26 @@
 SparkInterval separates mathematical verification, modeled GPU execution, and
 physical-run provenance. Start with the section that matches your role.
 
+The Lean execution boundary is deliberately singular:
+`accepted_run_certificate_sound` is the only project execution axiom. DGX and
+H100 policy-specific names and `accepted_registered_run_sound` are proved
+projections, not additional axioms. The axiom returns both an exact historical
+outcome and the fixed `Runs` relation for any matching constructor of the
+closed invocation registry. Downstream checkers separately prove exact payload
+binding and either independently check certificate mathematics or apply an
+ordinary soundness theorem for the registered algorithm.
+
+The registry currently contains only the exact-rational
+`cubicSumDivThree20000V1` tutorial invocation. No zeta checker is registered,
+and no signed wire-bundle importer can construct Lean's private positive
+evidence capability today.
+
+For that tutorial, Lean separately proves the executable integer
+`cubicNumeratorLoop` and divide-once `cubicSumDivThreeMachine`, their exact
+result and agreement with the rational specification, and u64 no-overflow at
+every step. Those are axiom-free algorithm and bounded-arithmetic results; the
+certificate axiom alone supplies the per-run physical-to-formal connection.
+
 ## Users
 
 - [Project overview and quick start](../README.md)
@@ -18,10 +38,12 @@ physical-run provenance. Start with the section that matches your role.
 - [Trust model and execution assumptions](TRUST_MODEL.md)
 - [Reproducibility and independent-checking runbook](REPRODUCIBILITY.md)
 - [GPU and typed-machine model](GPU_MODEL.md)
+- [Proof blueprint and NVIDIA-spec traceability](PROOF_BLUEPRINT.md)
 
 ## Operators and maintainers
 
 - [Memory-safe build requirements](MEMORY_SAFE_BUILDS.md)
+- [LeanArchitect proof-map generation](PROOF_BLUEPRINT.md)
 - [DGX Spark setup and acceptance runs](DGX_SPARK_SETUP.md)
 - [Attestation component boundary](../attestation/README.md)
 
@@ -29,6 +51,7 @@ physical-run provenance. Start with the section that matches your role.
 
 - [Certificates, run bundles, profiles, and signatures](FORMAT.md)
 - [Real-integer zeta tutorial](algorithms/REAL_ZETA_POC.md)
+- [High-bound zeta-zero verifier: signed payload composition, multiplicity bridge, gaps, and host benchmark scope](algorithms/ZETA_ZERO_VERIFIER.md)
 - [Immutable algorithm specifications](../specifications/README.md)
 - [Canonical JSON schemas](../schemas/)
 - [Target and trust profiles](../profiles/)

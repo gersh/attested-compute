@@ -97,9 +97,9 @@ structure RunClaim where
 that the stated algorithm completed and returned `result`.
 
 The constructor is private on purpose: ordinary Lean code cannot manufacture
-this fact.  The only public producers in this repository are the
-conspicuously named execution axioms under `Execution/Trusted`: one for H100
-hardware attestation and one for explicitly operator-trusted DGX signatures.
+this fact.  The only trusted producer in this repository is the single
+run-certificate axiom under `Execution/Trusted`; H100 and DGX policy-specific
+entry points are proved compatibility wrappers around that one boundary.
 -/
 structure AlgorithmReturned (statement : RunStatement) (result : String) : Prop where
   private mk ::

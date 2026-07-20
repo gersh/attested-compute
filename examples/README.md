@@ -52,15 +52,32 @@ See [lean-result-certificate/README.md](lean-result-certificate/README.md).
 ```bash
 ./tools/safe_lake_build.py \
   SparkInterval.IntervalOpsSound \
+  SparkInterval.Execution.RegisteredCubicSumCertificate \
+  SparkInterval.Execution.Trusted.RunCertificate \
   SparkInterval.Execution.Trusted.DGXOperatorSignature \
   SparkInterval.Execution.Trusted.H100Attestation
 ./tools/safe_lean.sh examples/lean/IntervalArithmetic.lean
 ./tools/safe_lean.sh examples/lean/ZetaIdentity.lean
 ./tools/safe_lean.sh examples/lean/ExecutionTrust.lean
+./tools/safe_lean.sh examples/lean/SignedResultCertificate.lean
+./tools/safe_lean.sh examples/lean/RegisteredCubicSum.lean
 ```
 
 These demonstrate interval containment, an exact Mathlib zeta identity, and
-the explicit execution-trust boundary respectively.
+the explicit execution-trust boundary. The last example shows that both DGX
+and H100 policy-specific entry points route through the sole
+`accepted_run_certificate_sound` axiom. `ProducedOutcome` contains both the
+historical returned bytes and fail-closed semantics for matching closed
+registered invocations; `accepted_registered_run_sound` is a proved projection.
+The registered cubic-sum module shows that an accepted
+`cubicSumDivThree20000V1` certificate would yield exact output
+`13334666700000000` and the corresponding rational equality without
+`native_decide`. Its axiom-free algorithm layer also proves the executable
+integer accumulator/divide-once result, agreement with the rational sum, and
+u64 safety for every cube and accumulator step. These examples do not
+construct production evidence, connect that machine to GPU opcodes, prove a
+universal backend refinement, or prove that all future executions are
+deterministic.
 
 ## GPU workflows
 

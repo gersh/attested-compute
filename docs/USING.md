@@ -12,16 +12,41 @@ wrappers. Do not replace them with bare parallel `lake` or `lean` commands; see
 ```bash
 ./tools/safe_lake_build.py \
   SparkInterval.IntervalOpsSound \
-  SparkInterval.Execution.Trusted.DGXOperatorSignature \
-  SparkInterval.Execution.Trusted.H100Attestation
+  SparkInterval.Execution
 ./tools/safe_lean.sh examples/lean/IntervalArithmetic.lean
 ./tools/safe_lean.sh examples/lean/ZetaIdentity.lean
 ./tools/safe_lean.sh examples/lean/ExecutionTrust.lean
+./tools/safe_lean.sh examples/lean/SignedResultCertificate.lean
+./tools/safe_lean.sh examples/lean/RegisteredCubicSum.lean
 ```
 
 The first example checks a concrete interval enclosure. The second proves
 Mathlib's exact `riemannZeta 2 = pi^2 / 6` identity. The third demonstrates the
 explicit execution-trust boundary; it does not manufacture execution evidence.
+Both the DGX and H100 compatibility entry points depend on the sole
+`accepted_run_certificate_sound` axiom. The fourth demonstrates the
+signed-result API: `outcomeCheck_sound` proves the exact historical returned
+certificate and hash binding. `outcomeCheckForRegisteredInvocation_sound`
+additionally exposes fixed formal `Runs` semantics after a closed invocation
+check; `accepted_registered_run_sound` is a proved projection of the same sole
+axiom. The generic checked-certificate variants independently add certificate
+mathematics. The fifth specializes that interface to the complete registered
+cubic-sum computation. None of these examples is a concrete signed-bundle importer, a
+universal determinism result, or a general proof that a physical backend
+implements the formal semantics.
+
+The closed registry currently contains one tutorial invocation:
+`cubicSumDivThree20000V1`, representing the exact rational sum
+`sum (x = 0 .. 20000) (x^3 / 3)`. Its operational model accumulates integer
+cubes with `cubicNumeratorLoop`, then `cubicSumDivThreeMachine` divides once.
+Lean proves the exact machine output `13334666700000000`, its agreement with
+the rational specification, and that every cube and accumulator step fits
+u64. These algorithm and bounded-arithmetic proofs are axiom-free and use
+neither `native_decide` nor a 20,001-row result certificate; they do not prove
+that GPU opcodes implement the model. `certifyCubicSumDivThree20000` recovers
+the canonical output and mathematical equality from a matching accepted
+certificate. That theorem remains conditional on private evidence because no
+wire-to-Lean importer is implemented.
 
 ## Full Lean result certificate
 
@@ -165,6 +190,17 @@ the [algorithm definition](algorithms/REAL_ZETA_POC.md).
 The generated zeta bundle can be signed by replacing the probe bundle root in
 the preceding signing commands with `$ZETA_DIR`.
 
+At the Lean boundary, a future trusted importer would construct one
+`RunCertificate` from the exact verified statement and private evidence
+capability. If `RunCertificate.check` accepts it, the sole project axiom states
+that this particular named run returned its statement's exact result and
+supplies fixed `Runs` semantics for any matching closed registered invocation.
+The current real-zeta tutorial is not registered. For a full result-certificate
+payload, `SignedResultCertificate.outcomeCheck_sound` proves exact payload/hash
+binding, and the upper-bound or sum checkers add independently checked
+mathematics. No current command imports the signed wire bundle into that
+private Lean capability.
+
 ## H100 offline work
 
 No H100 is needed to build and audit the device artifacts. Choose either the
@@ -187,6 +223,10 @@ Do not run both sets merely to validate the same output. `CUDA_ROOT`, `NVCC`,
 These workflows create real `compute_90` PTX and `sm_90` cubin/SASS, but do not
 query an H100, execute a kernel, return an arithmetic result, or produce
 attestation. Production confidential-computing acceptance remains fail-closed.
+Any future H100-positive importer uses the same `RunCertificate` checker and
+same sole execution axiom as DGX; `h100_attested_run_sound` is only a
+historical compatibility theorem, and `accepted_registered_run_sound` is the
+derived closed-registry projection.
 See the [H100 guide](H100.md).
 
 ## Interpreting results

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reject proof escapes, allowing only the disclosed execution axioms."""
+"""Reject proof escapes, allowing only the disclosed run-certificate axiom."""
 
 from __future__ import annotations
 
@@ -9,11 +9,8 @@ from pathlib import Path
 
 
 ALLOWED_AXIOMS = {
-    Path("SparkInterval/Execution/Trusted/DGXOperatorSignature.lean"): {
-        "dgx_operator_signed_run_sound"
-    },
-    Path("SparkInterval/Execution/Trusted/H100Attestation.lean"): {
-        "h100_attested_run_sound"
+    Path("SparkInterval/Execution/Trusted/RunCertificate.lean"): {
+        "accepted_run_certificate_sound"
     }
 }
 FORBIDDEN = re.compile(r"\b(sorry|admit|unsafe)\b")
@@ -111,7 +108,7 @@ def main() -> int:
     if failures:
         print("\n".join(failures), file=sys.stderr)
         return 1
-    print("Lean source audit passed (only the two named execution trust axioms are permitted).")
+    print("Lean source audit passed (only the one named run-certificate trust axiom is permitted).")
     return 0
 
 

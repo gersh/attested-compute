@@ -15,10 +15,13 @@ The project keeps three questions separate:
 | Route | Current result | Important boundary |
 | --- | --- | --- |
 | CPU + Lean full certificate | Lean independently checks every supplied row and proves row or finite-sum bounds | Proves mathematics, not that a GPU ran |
-| Generated polynomial model | Lean proves whole-module execution and exact-real containment for the typed generated AST | Does not refine emitted PTX, `ptxas`, SASS, the driver, or hardware |
+| Generated polynomial model | Lean proves whole-module typed-AST execution and exact-real containment; a pinned PTX 9.0 slice adds opcode citations and finite/non-NaN arithmetic refinement | No full emitted-instruction-text, `ptxas`, SASS, driver, or hardware refinement |
 | DGX Spark (`aarch64`, `sm_121`) | Native CUDA runs, exact CPU replay, artifact audits, and canonical local bundles | GB10 has no supported hardware attestation; evidence is `local_unattested` |
 | DGX operator signature | A pinned Ed25519 key endorses the exact local bundle | Proves the pinned key signed; operator attribution is out of band, and neither truth nor GPU execution follows |
+| Accepted Lean run certificate | One explicit axiom supplies both the exact historical return and, after a closed registered-invocation check, that invocation's fixed formal `Runs` relation | Requires a trusted private-evidence importer; the per-run registry bridge is not a universal determinism or backend-refinement theorem |
+| Closed registry example | `cubicSumDivThree20000V1` fixes an executable integer cube accumulator followed by one division by three; Lean proves its exact operational result `13334666700000000`, agreement with the rational sum, and u64 safety of every cube and accumulator step, all without `native_decide` | These are axiom-free model and bounded-arithmetic proofs, not a GPU-opcode or physical-execution proof; no signed bundle can enter Lean because the private-evidence importer is absent |
 | H100 (`x86_64`, `sm_90`) offline | Builds and audits real `compute_90` PTX and `sm_90` cubin/SASS | No H100 execution or accepted confidential-computing evidence yet |
+| High-bound zeta-zero foundation | Lean canonically checks a signed full endpoint payload, bridges analytic multiplicity to distinct counts, and conditionally composes a Hardy-Z model plus multiplicity bound into the finite-height theorem | Endpoint realization and the analytic Turing/argument-principle bound remain uninstantiated; no height has been certified |
 
 ## Choose a workflow
 
@@ -28,6 +31,11 @@ The project keeps three questions separate:
   [DGX workflow](docs/USING.md#dgx-spark-local-bundle-and-operator-signature).
 - To compute a rigorous tutorial enclosure of real `zeta(s)`, use the
   [zeta workflow](docs/USING.md#real-integer-zeta-poc).
+- To review or extend the high-bound zero verifier, start with its
+  [formal architecture and status](docs/algorithms/ZETA_ZERO_VERIFIER.md).
+- To smoke-test the host-side schedule and synthetic streaming-bracket
+  scaffolding, run `python3 tools/benchmark_zeta_foundations.py --pretty`; this
+  is not a zeta, Lean, GPU, or production-certificate benchmark.
 - To prepare H100 device artifacts without an H100, use the
   [H100 offline workflow](docs/USING.md#h100-offline-work).
 
@@ -95,11 +103,38 @@ Lean builds are serialized and memory-capped; read
 - The real-integer zeta POC encloses positive real values for supported integer
   arguments. It does not locate or count critical-strip zeros and does not
   verify the Riemann hypothesis to any height.
+- The separate high-bound foundation parses and checks a canonical monolithic
+  endpoint payload, proves resumable endpoint/chunk composition, and can
+  reflect positive-only rows for a proved even evaluator. Its
+  Hardy-Z/Riemann-Siegel endpoint realization and analytic multiplicity-count
+  premise do not yet have production instances. It therefore does not certify
+  any positive height.
+- The preferred compact attested-summary theorem uses a closed registered
+  invocation, so the sole axiom supplies the per-run physical-to-formal
+  `Runs` bridge and no second `ExecutionRefines` premise is needed. It still
+  requires an ordinary Lean soundness theorem for that registered checker.
+  The older generic FormalPTX compact API remains available and still requires
+  its explicit refinement premise.
 - The division-capable CUDA runner used by that POC is not covered by the
   generated polynomial-machine theorem.
 - PTX and SASS audits are conservative artifact checks, not formal proofs that
   `ptxas`, the CUDA driver, or physical hardware implements Lean's machine.
 - An operator signature is not hardware attestation.
+- The sole `accepted_run_certificate_sound` axiom establishes one accepted
+  certificate's historical outcome and its fixed formal semantics for every
+  matching constructor of the closed invocation registry.
+  `accepted_registered_run_sound` and the DGX/H100 names are proved projections,
+  not additional axioms. This per-run bridge does not say that every future run
+  is deterministic or prove a general PTX/cubin/backend refinement theorem.
+- The closed registry currently contains only
+  `RegisteredAlgorithm.cubicSumDivThreeV1` and
+  `RegisteredInvocation.cubicSumDivThree20000V1`; no zeta checker is registered.
+- Its `cubicNumeratorLoop`/`cubicSumDivThreeMachine` proofs establish the
+  tutorial algorithm and u64 bounds in Lean. They do not establish that a GPU
+  executable implements those steps; that particular-run connection remains
+  exactly the certificate axiom's responsibility.
+- Literal algorithm ID/hash checks do not prove that a cubin was compiled from
+  the formal PTX module.
 - H100 production acceptance remains fail-closed until a genuine measured
   workload and trusted NVIDIA confidential-computing evidence verifier exist.
 
@@ -113,7 +148,9 @@ Lean builds are serialized and memory-capped; read
 - [H100 offline and production boundary](docs/H100.md)
 - [Run-bundle and certificate formats](docs/FORMAT.md)
 - [Memory-safe builds](docs/MEMORY_SAFE_BUILDS.md)
+- [Proof blueprint and NVIDIA-spec traceability](docs/PROOF_BLUEPRINT.md)
 - [Trust model](docs/TRUST_MODEL.md)
 - [Correctness claims](docs/CORRECTNESS_CLAIMS.md)
 - [Reproducibility details](docs/REPRODUCIBILITY.md)
 - [Real-zeta POC algorithm](docs/algorithms/REAL_ZETA_POC.md)
+- [High-bound zeta-zero verifier status](docs/algorithms/ZETA_ZERO_VERIFIER.md)

@@ -150,6 +150,26 @@ theorem check_sound {certificate : FullCertificate}
                   hcontainsExact
               exact ⟨rawOutput, output, hresult, houtput, hcontainsOutput⟩
 
+/-- If a claimed output also decodes as a finite rational interval, the
+generic extended-output containment theorem specializes to ordinary rational
+interval containment. -/
+theorem resultContains_of_decodeFinite
+    {certificate : FullCertificate} {index : Nat} {value : ℝ}
+    {raw : RawInterval} {result : RatInterval}
+    (hraw : certificate.results[index]? = some raw)
+    (hdecode : raw.decodeFinite = some result)
+    (hcontains : certificate.ResultContains index value) :
+    result.ContainsReal value := by
+  rcases hcontains with
+    ⟨rawOutput, output, hrawOutput, hdecodeOutput, houtputContains⟩
+  rw [hraw] at hrawOutput
+  simp only [Option.some.injEq] at hrawOutput
+  subst rawOutput
+  rw [RawInterval.decodeOutput_of_decodeFinite hdecode] at hdecodeOutput
+  simp only [Option.some.injEq] at hdecodeOutput
+  subst output
+  exact RawInterval.finiteOutput_containsReal_iff.mp houtputContains
+
 private def upperCheckedAt (certificate : FullCertificate) (bound : ℚ)
     (index : Nat) : Bool :=
   match certificate.results[index]? with

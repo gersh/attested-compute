@@ -62,6 +62,20 @@ class MemorySafeBuildTest(unittest.TestCase):
         self.assertEqual(completed.returncode, 2)
         self.assertIn("unknown local Lean module", completed.stderr)
 
+    def test_blueprint_facet_plans_the_registry_dependency_closure(self) -> None:
+        completed = subprocess.run(
+            [str(SAFE_LAKE_BUILD), "--plan", "--blueprint-json"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        modules = completed.stdout.splitlines()
+        self.assertEqual(modules[-1], safe_build.BLUEPRINT_MODULE)
+        self.assertIn("SparkInterval.PTX.GeneratedKernelRunRefinement", modules)
+        self.assertIn("SparkInterval.Execution.Trusted.RunCertificate", modules)
+
     def test_second_planner_waits_before_starting_a_build(self) -> None:
         PLAN_LOCK.parent.mkdir(parents=True, exist_ok=True)
         with PLAN_LOCK.open("a+b") as lock:
@@ -254,6 +268,22 @@ class MemorySafeBuildTest(unittest.TestCase):
 
     def test_source_changed_exit_status_is_stable(self) -> None:
         self.assertEqual(safe_build.SOURCE_CHANGED_EXIT, 66)
+
+    def test_blueprint_step_has_bounded_runtime_thread_headroom(self) -> None:
+        environment = safe_build.serial_lake_environment(
+            123, tasks_max=safe_build.BLUEPRINT_TASKS_MAX
+        )
+        self.assertEqual(environment["SPARKINTERVAL_TASKS_MAX"], "64")
+        self.assertEqual(environment["SPARKINTERVAL_SERIAL_LAKE_STEP"], "1")
+
+    def test_explicit_task_limit_overrides_blueprint_default(self) -> None:
+        with mock.patch.dict(
+            os.environ, {"SPARKINTERVAL_TASKS_MAX": "96"}, clear=False
+        ):
+            environment = safe_build.serial_lake_environment(
+                123, tasks_max=safe_build.BLUEPRINT_TASKS_MAX
+            )
+        self.assertEqual(environment["SPARKINTERVAL_TASKS_MAX"], "96")
 
     def test_memory_runner_rejects_nested_wrapper_before_execution(self) -> None:
         environment = os.environ.copy()

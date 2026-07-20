@@ -1,4 +1,5 @@
 import SparkInterval.EvalSound
+import SparkInterval.ComplexInterval
 import SparkInterval.FPIntervalSound
 import SparkInterval.PTX.Semantics
 import SparkInterval.PTX.MachineSemantics
@@ -14,8 +15,20 @@ import SparkInterval.PTX.PrologueRefinement
 import SparkInterval.PTX.OutputLayoutRefinement
 import SparkInterval.PTX.GeneratedKernelRunRefinement
 import SparkInterval.PTX.Emitter
+import SparkInterval.PTX.NvidiaPTXRefinement
+import SparkInterval.PTX.PowSchedule
 import SparkInterval.PTX.StructuralCompilerCorrect
 import SparkInterval.Certificate
+import SparkInterval.Execution.FormalPTXProgram
+import SparkInterval.Execution.RegisteredAlgorithm
+import SparkInterval.Execution.SignedZetaEndpointPayload
+import SparkInterval.Zeta.EndpointCertificate
+import SparkInterval.Zeta.EvenReflectionCertificate
+import SparkInterval.Zeta.HardyZContract
+import SparkInterval.Zeta.MultiplicityCount
+import SparkInterval.Zeta.StreamingEndpointCertificate
+import SparkInterval.Zeta.StreamingChunkVerifier
+import SparkInterval.Zeta.SymmetricCount
 
 /-!
 The output of these commands is part of the mathematical-core and Phase 8
@@ -28,6 +41,8 @@ modules print their separate `native_decide` dependency in the generated file.
 #print axioms SparkInterval.RealInterval.mul_contains
 #print axioms SparkInterval.RealInterval.reciprocal_contains
 #print axioms SparkInterval.RealInterval.div_contains
+#print axioms SparkInterval.ComplexInterval.mul_contains
+#print axioms SparkInterval.ComplexInterval.powNat_contains
 #print axioms SparkInterval.evalInterval_sound
 #print axioms SparkInterval.Binary64Rounding.roundDown_le
 #print axioms SparkInterval.Binary64Rounding.le_roundUp
@@ -102,6 +117,65 @@ modules print their separate `native_decide` dependency in the generated file.
 #print axioms SparkInterval.PTX.Instruction.opcode_mem_allowed
 #print axioms SparkInterval.PTX.emit_success
 #print axioms SparkInterval.PTX.emit_of_validate
+#print axioms SparkInterval.PTX.runPowSchedule_eq_pow
+#print axioms SparkInterval.PTX.NvidiaPTX90.allowedOpcode_has_pinned_clause
+#print axioms SparkInterval.PTX.NvidiaPTX90.acceptedInstruction_has_pinned_clause
+#print axioms SparkInterval.PTX.NvidiaPTX90.division_not_in_current_allowlist
+#print axioms SparkInterval.PTX.NvidiaPTX90.evalFinite_towardNegative_le
+#print axioms SparkInterval.PTX.NvidiaPTX90.le_evalFinite_towardPositive
+#print axioms SparkInterval.PTX.NvidiaPTX90.directedBinary_finite_refines
+#print axioms SparkInterval.PTX.NvidiaPTX90.minimum_nonNaN_refines
+#print axioms SparkInterval.PTX.NvidiaPTX90.maximum_nonNaN_refines
+#print axioms SparkInterval.PTX.NvidiaPTX90.executeInstruction_binaryF64_finite_refines
+#print axioms SparkInterval.PTX.NvidiaPTX90.executeInstruction_minimumF64_nonNaN_refines
+#print axioms SparkInterval.PTX.NvidiaPTX90.executeInstruction_maximumF64_nonNaN_refines
+#print axioms SparkInterval.PTX.NvidiaPTX90.renderUnchecked_startsWith_dgxSparkProfile
+#print axioms SparkInterval.PTX.NvidiaPTX90.renderUncheckedH100_startsWith_h100Profile
+#print axioms SparkInterval.PTX.NvidiaPTX90.buildModule_opcodeTrace_all_have_pinned_clauses
+#print axioms SparkInterval.PTX.NvidiaPTX90.buildModule_has_partial_ptx90_evidence
+#print axioms SparkInterval.PTX.NvidiaPTX90.buildModule_has_partial_ptx90_evidenceFor
+#print axioms SparkInterval.Execution.FormalPTXProgram.statementCheck_sound
+#print axioms SparkInterval.Execution.FormalPTXProgram.emitted_eq_renderUnchecked
+#print axioms SparkInterval.Execution.RegisteredAlgorithm.cubicSumDivThree_eq_closedForm
+#print axioms SparkInterval.Execution.RegisteredAlgorithm.cubicSumDivThree_20000
+#print axioms SparkInterval.Execution.RegisteredAlgorithm.cubicNumeratorLoop_cast
+#print axioms SparkInterval.Execution.RegisteredAlgorithm.cubicSumDivThreeMachine_20000
+#print axioms SparkInterval.Execution.RegisteredAlgorithm.cubicSumDivThreeMachine_sound_20000
+#print axioms SparkInterval.Execution.RegisteredAlgorithm.cubicNumeratorLoop_lt_u64
+#print axioms SparkInterval.Execution.RegisteredAlgorithm.cube_lt_u64
+#print axioms SparkInterval.Execution.RegisteredAlgorithm.square_lt_u64
+#print axioms SparkInterval.Execution.RegisteredAlgorithm.cubicNumeratorStep_lt_u64
+#print axioms SparkInterval.Execution.RegisteredAlgorithm.cubicSumDivThreeMachine_lt_u64
+#print axioms SparkInterval.Execution.RegisteredInvocation.statementCheck_sound
+#print axioms SparkInterval.Execution.RegisteredInvocation.cubicSumDivThree20000V1_output
+#print axioms SparkInterval.Zeta.RationalBracketFamily.exists_zeroCertificate
+#print axioms SparkInterval.Zeta.ZeroCertificate.complete_of_count_upperBound
+#print axioms SparkInterval.Zeta.ChunkCertificate.complete_of_count_upperBound
+#print axioms SparkInterval.Zeta.all_zeros_to_height_on_criticalLine
+#print axioms SparkInterval.Zeta.ZetaVerifierEvidence.all_zeros_on_criticalLine
+#print axioms SparkInterval.Zeta.ChunkedZetaVerifierEvidence.all_zeros_on_criticalLine
+#print axioms SparkInterval.Zeta.HardyZModel.zero_iff
+#print axioms SparkInterval.Zeta.HardyZModel.verifyEndpointFamily
+#print axioms SparkInterval.Zeta.one_le_zetaZeroMultiplicity
+#print axioms SparkInterval.Zeta.coe_ncard_le_zetaZeroMultiplicityCount
+#print axioms SparkInterval.Zeta.ZetaMultiplicityCountUpperBound.distinctCount_le
+#print axioms SparkInterval.Zeta.ZetaMultiplicityCountUpperBound.toZetaZeroCountUpperBound
+#print axioms SparkInterval.Zeta.ZetaMultiplicityCountCertificate.check_sound
+#print axioms SparkInterval.Certificate.RawInterval.decodeOutput_of_decodeFinite
+#print axioms SparkInterval.Certificate.FullCertificate.resultContains_of_decodeFinite
+#print axioms SparkInterval.Execution.SignedZetaEndpointPayload.CheckedPayload.enclosesEndpoints
+#print axioms SparkInterval.Execution.SignedZetaEndpointPayload.batchBindingCheck_sound
+#print axioms SparkInterval.Zeta.runEndpointChunk_append
+#print axioms SparkInterval.Zeta.checkEndpointStream_isValid
+#print axioms SparkInterval.Zeta.RationalBracket.reflect_isValid_iff
+#print axioms SparkInterval.Zeta.RationalBracketFamily.reflectPositive_isValid
+#print axioms SparkInterval.Zeta.RationalBracketFamily.reflectPositive_enclosesEndpoints
+#print axioms SparkInterval.Zeta.runEndpointChunkStream_append
+#print axioms SparkInterval.Zeta.exists_checkedEndpointChunkCertificate
+#print axioms SparkInterval.Zeta.verifyEndpointChunkStream
+#print axioms SparkInterval.Zeta.zetaZeroMultiplicityCount_partition
+#print axioms SparkInterval.Zeta.ZetaConjugationMultiplicitySymmetry.negative_eq_positive
+#print axioms SparkInterval.Zeta.PositiveZetaMultiplicityCountUpperBound.toZetaMultiplicityCountUpperBound
 #print axioms SparkInterval.Certificate.CertExpr.eval_sound
 #print axioms SparkInterval.Certificate.FullCertificate.check_sound
 #print axioms SparkInterval.Certificate.FullCertificate.checkUpperBound_sound

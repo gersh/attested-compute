@@ -165,6 +165,23 @@ generated-cubin acceptance, and real-zeta tutorial. See the
 `tools/create_run_bundle.py`; run it with `--help` for the complete required
 field list.
 
+### Lean closed-registry binding
+
+Wire-level algorithm fields do not let a caller invent formal semantics.
+`RegisteredInvocation.statementCheck` accepts only a constructor of Lean's
+closed registry and recomputes its library-defined algorithm-definition,
+canonical-input, parameter, and domain digests. The combined
+`SignedResultCertificate.outcomeCheckForRegisteredInvocation` also requires
+exact result text and output-digest binding. Only then can the sole execution
+axiom expose that invocation's fixed `Runs` proposition.
+
+The current registry contains only the tutorial invocation
+`cubicSumDivThree20000V1`; no zeta or production GPU checker is registered.
+The bundle/signature tools do not yet import a verified wire record into the
+private positive-evidence capability used by Lean. Consequently, valid JSON
+and signature bytes alone cannot construct a registered Lean theorem in this
+repository.
+
 ## Target and trust profiles
 
 Targets and evidence classes are separate:

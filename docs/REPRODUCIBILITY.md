@@ -45,9 +45,17 @@ source changes while its plan is active, it exits with status 66; rerun the
 whole command against one stable source snapshot.
 
 The axiom audit distinguishes Lean's reported foundational dependencies,
-explicit proof-reflection dependencies, and the two named project execution
-postulates. Interpret the result using the
+explicit proof-reflection dependencies, and the sole named project execution
+postulate, `accepted_run_certificate_sound`. The DGX and H100 entry points are
+proved compatibility theorems over that one boundary.
+`accepted_registered_run_sound` is also a proved projection: a matching closed
+`RegisteredInvocation.statementCheck` exposes the invocation's fixed `Runs`
+relation. Interpret the result using the
 [correctness claims](CORRECTNESS_CLAIMS.md) and [trust model](TRUST_MODEL.md).
+For the current cubic tutorial, the independently checkable side includes the
+executable integer loop, exact operational result, rational-specification
+agreement, and u64 bounds for every cube and accumulator step. These theorems
+are axiom-free; they do not reproduce or verify a GPU execution.
 
 ## Full Lean result certificate
 
@@ -213,6 +221,30 @@ An operator may sign the resulting bundle using the procedure in
 The signature authenticates the operator key's endorsement, not physical GPU
 execution.
 
+## High-bound foundation host microbenchmark
+
+The bounded host-only smoke benchmark is reproducible without CUDA:
+
+```bash
+python3 tools/benchmark_zeta_foundations.py \
+  --pretty \
+  --output "${VERIFY_ROOT}/zeta-foundations-host-benchmark.json"
+```
+
+Retain the full JSON configuration and measurement notes. The reported work is
+Python binary-power schedule validation plus generation, streaming decoding,
+exact-integer local checking, and adjacent ordering of a synthetic fixed-width
+rational-bracket format. `peak_memory_bytes` is `tracemalloc` peak Python
+allocation for each phase—not process RSS, GPU memory, or certificate storage.
+`synthetic_certificate_bytes` is exact only for that benchmark format, and
+throughput includes tracing overhead.
+
+Do not report these values as zeta evaluation/zero-verification throughput,
+Lean elaboration/kernel-check performance, GPU performance, or production
+certificate size. The benchmark exercises bounded chunk retention and the
+linear adjacent-check pattern only. See the
+[high-bound verifier status](algorithms/ZETA_ZERO_VERIFIER.md#host-foundation-microbenchmark).
+
 ## H100 offline validation
 
 The H100 test scripts each perform their own offline build and then validate
@@ -252,6 +284,22 @@ Also record:
 A manifest and all files it hashes can be replaced together. SHA-256 establishes
 identity only relative to an expected digest or accepted evidence chain. Never
 archive private operator keys or passphrases with run evidence.
+
+When a future trusted importer constructs a Lean `RunCertificate`, preserve the
+exact accepted statement, evidence-verifier output, policy and root versions,
+and result artifact bytes. Also preserve the canonical registry preimages for
+algorithm definition, input, parameters, and domain whenever the registered
+projection is claimed. The one Lean axiom converts acceptance into both the
+historical return and the fixed `Runs` relation for every matching closed
+invocation; it does not prove a universal backend theorem or deterministic
+behavior for later physical runs. Preserve the exact full result certificate
+as well when downstream Lean mathematics is independently checked. The current
+repository has no wire-to-private-capability importer.
+
+For a registered implementation, also archive the reviewed algorithm version
+and the proof audit for its operational semantics and arithmetic bounds. In the
+current tutorial, those checks prove the integer accumulator/divide-once model
+and all u64 step bounds, but not correspondence to GPU opcodes.
 
 For deterministic comparisons, compare the canonical data and raw artifact
 hashes. Absolute paths, timestamps, and NVIDIA diagnostic text can legitimately

@@ -1,30 +1,28 @@
-import SparkInterval.Execution.DGXOperatorPolicy
+import SparkInterval.Execution.Trusted.RunCertificate
 
 /-!
-# EXPLICITLY TRUSTED DGX operator-signature execution bridge
+# Compatibility theorem for DGX operator-signed certificates
 
 The external Ed25519 verifier establishes that an approved operator key signed
 the exact canonical run record.  A signature cannot establish that the record
-is truthful or that DGX hardware executed it.  This file exposes precisely that
-additional operator-trust assumption as a named axiom, separate from the
-axiom-free arithmetic and application proofs.
+is truthful or that DGX hardware executed it.  This compatibility theorem now
+routes the accepted policy through the repository's single run-certificate
+axiom in `Trusted.RunCertificate`.
 -/
 
 set_option autoImplicit false
 
 namespace SparkInterval.Execution.Trusted
 
-/-- **DGX OPERATOR-TRUSTED PHYSICAL-EXECUTION BOUNDARY.**
-
-If a trusted importer supplies a cryptographically verified operator-signature
-capability and the complete claim matches the expected DGX statement, this
-axiom imports the operator's assertion that the algorithm ran and returned the
-serialized result.  It is intentionally not described as hardware evidence.
--/
-axiom dgx_operator_signed_run_sound
+/-- Backward-compatible DGX handoff.  It introduces no axiom beyond
+`accepted_run_certificate_sound`. -/
+theorem dgx_operator_signed_run_sound
     {statement : RunStatement}
     {attestation : Attestation}
     (accepted : checkDGXOperatorSignature statement attestation = true) :
-    AlgorithmReturned statement statement.result
+    AlgorithmReturned statement statement.result := by
+  exact accepted_algorithm_returned
+    (certificate := { statement, attestation })
+    (RunCertificate.check_of_dgxOperatorSignature accepted)
 
 end SparkInterval.Execution.Trusted

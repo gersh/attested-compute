@@ -24,6 +24,7 @@ DGX bundle beyond local evidence.
 | Exact real and binary64 interval mathematics | Lean containment and directed-rounding theorems | Proved within Lean |
 | Polynomial expression evaluator | Status-aware `PolynomialExpr.evalKernel` | Proved to contain corresponding exact-real values |
 | Generated typed PTX AST | Exact compiler structure, opcode order, register/dataflow facts, and instruction execution | Proved for the compiler's generated polynomial subset |
+| Pinned NVIDIA PTX 9.0 slice | Clause table for every allowlisted opcode; finite-operand directed `add/sub/mul` and non-NaN `min/max` transcription | Those arithmetic steps refine the transcription; clause coverage alone is not opcode semantics |
 | Lean one-thread machine | Control flow, typed registers, word-size-aware addressing, global memory, thread specials, stores, and return | Whole generated module proved under explicit hypotheses |
 | Emitted PTX text | Deterministic rendering of the same validated AST | No operational text parser/refinement back to the machine |
 | `ptxas` cubin and SASS | Offline assembly plus conservative instruction audits | No proof that translation preserves the typed-machine semantics |
@@ -33,6 +34,34 @@ The PTX and SASS audits reject disallowed or suspicious instruction patterns
 and the conformance runners compare output bits and statuses with exact
 rational Python evaluation. These checks are valuable backend evidence, but
 they do not turn any external row of the table into a Lean refinement theorem.
+
+The closed registered-execution path is intentionally different from a proved
+connection between adjacent rows of this table. `RegisteredAlgorithm` and
+`RegisteredInvocation` fix formal semantics and canonical inputs in Lean. For
+one accepted, exactly matching certificate, the sole
+`accepted_run_certificate_sound` axiom supplies that invocation's `Runs`
+relation; `accepted_registered_run_sound` is a derived projection. Thus the
+particular-run physical-to-formal bridge is explicit trust, not a Lean proof of
+general `ptxas`, SASS, driver, or hardware conformance. The registry currently
+contains only the exact-rational `cubicSumDivThree20000V1` tutorial and no GPU
+or zeta checker.
+
+That tutorial is nevertheless a complete algorithm-level example: its `Runs`
+relation uses an executable integer `cubicNumeratorLoop` and divide-once
+`cubicSumDivThreeMachine`. Lean proves the exact machine result, agreement with
+the rational specification, and that every cube and accumulator step fits
+u64. This axiom-free bounded-arithmetic layer does not connect the machine to
+the generated PTX AST, emitted opcodes, or physical GPU; those are distinct
+rows in the boundary above.
+
+The NVIDIA source layer pins the archived PTX ISA 9.0 PDF and cites the
+rounding and instruction clauses used by the typed subset. Lean proves exact
+agreement between its existing arithmetic model and the independent
+transcription for finite operands of directed `add/sub/mul`, and for `min/max`
+on the model's non-NaN numeric domain. It does not formalize the whole PTX ISA
+or prove semantic refinement for every cited integer, address, memory,
+conversion, predicate, control-flow, or special-register instruction. The
+faithfulness of the prose-to-Lean transcription remains a review obligation.
 
 ## Generated polynomial theorem
 
@@ -140,8 +169,15 @@ Spark does not create or validate an `x86_64` H100 host executable.
 The offline workflows do not query H100 presence or attempt execution; their
 manifests state that no result was returned and no production attestation
 exists.
-The repository has no H100 expression/generated-polynomial execution path and
-no accepted H100 confidential-computing evidence.
+The typed polynomial emitter can now render the same validated module with an
+`sm_90` directive. The dedicated formal-program checker proves the selected
+emitted-PTX digest and target while also binding the parsed canonical input,
+canonical input/parameter/domain hashes, target-profile hash, and artifact-hash
+record. Those artifact fields are identities, not a proof that the named cubin
+was compiled from the PTX. The repository still has no operational H100
+expression/generated-polynomial run and acceptance path, no
+PTX-to-cubin/hardware refinement, and no accepted H100 confidential-computing
+evidence.
 
 See [H100 setup and status](H100.md), [Trust model](TRUST_MODEL.md), and the
 [Verifier guide](VERIFYING.md) before interpreting an artifact or run bundle.

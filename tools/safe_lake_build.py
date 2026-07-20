@@ -23,6 +23,12 @@ EXECUTABLE_ROOTS = {
     "sparkinterval-gen": "SparkInterval.GeneratePTX",
     "sparkinterval-check-certificate": "SparkInterval.Certificate.CLI",
 }
+BLUEPRINT_MODULE = "SparkInterval.Blueprint"
+BLUEPRINT_TASKS_MAX = "64"
+BLUEPRINT_FACETS = {
+    "blueprint-json": "blueprintJson",
+    "blueprint-tex": "blueprint",
+}
 
 
 class SourceChangedError(RuntimeError):
@@ -173,7 +179,9 @@ def capped_command(*arguments: str) -> list[str]:
     return [str(MEMORY_RUNNER), *arguments]
 
 
-def serial_lake_environment(plan_lock_fd: int) -> dict[str, str]:
+def serial_lake_environment(
+    plan_lock_fd: int, *, tasks_max: str | None = None
+) -> dict[str, str]:
     """Authorize one dependency-ordered Lake step inside the wrapper.
 
     The inherited descriptor is a capability tied to the planner that holds
@@ -182,6 +190,11 @@ def serial_lake_environment(plan_lock_fd: int) -> dict[str, str]:
     environment = os.environ.copy()
     environment["SPARKINTERVAL_SERIAL_LAKE_STEP"] = "1"
     environment["SPARKINTERVAL_PLAN_LOCK_FD"] = str(plan_lock_fd)
+    if tasks_max is not None:
+        # LeanArchitect's metadata loader creates more runtime support threads
+        # than ordinary `-j1` elaboration.  This changes only the cgroup task
+        # ceiling; Lean parallelism and aggregate memory limits stay fixed.
+        environment.setdefault("SPARKINTERVAL_TASKS_MAX", tasks_max)
     return environment
 
 
@@ -207,13 +220,29 @@ def main() -> int:
             "dependency closure; may be repeated"
         ),
     )
+    for option, facet in BLUEPRINT_FACETS.items():
+        parser.add_argument(
+            f"--{option}",
+            action="store_true",
+            help=(
+                f"build the LeanArchitect {facet} facet for "
+                f"{BLUEPRINT_MODULE} after its dependency closure"
+            ),
+        )
     args = parser.parse_args()
+
+    requested_blueprint_facets = [
+        facet
+        for option, facet in BLUEPRINT_FACETS.items()
+        if getattr(args, option.replace("-", "_"))
+    ]
 
     try:
         graph = local_graph()
         requested_modules = [
             *args.modules,
             *(EXECUTABLE_ROOTS[target] for target in args.target),
+            *([BLUEPRINT_MODULE] if requested_blueprint_facets else []),
         ]
         selected = requested_closure(graph, requested_modules)
         order = topological_order(graph, selected)
@@ -266,7 +295,14 @@ def main() -> int:
             subprocess.run(
                 capped_command("lake", "build", f"+{name}"),
                 cwd=PROJECT_ROOT,
-                env=serial_lake_environment(plan_lock.fileno()),
+                env=serial_lake_environment(
+                    plan_lock.fileno(),
+                    tasks_max=(
+                        BLUEPRINT_TASKS_MAX
+                        if name == BLUEPRINT_MODULE
+                        else None
+                    ),
+                ),
                 pass_fds=(plan_lock.fileno(),),
                 check=True,
             )
@@ -278,7 +314,7 @@ def main() -> int:
 
         if args.target:
             targets = list(dict.fromkeys(args.target))
-        elif not args.modules:
+        elif not args.modules and not requested_blueprint_facets:
             targets = [
                 "SparkInterval",
                 "sparkinterval-gen",
@@ -300,6 +336,25 @@ def main() -> int:
             )
             require_unchanged_sources(
                 source_snapshot, sources, f"during executable target {target}"
+            )
+
+        for facet in requested_blueprint_facets:
+            target = f"+{BLUEPRINT_MODULE}:{facet}"
+            require_unchanged_sources(
+                source_snapshot, sources, f"before blueprint facet {facet}"
+            )
+            print(f"safe Lean blueprint facet: {facet}", flush=True)
+            subprocess.run(
+                capped_command("lake", "build", target),
+                cwd=PROJECT_ROOT,
+                env=serial_lake_environment(
+                    plan_lock.fileno(), tasks_max=BLUEPRINT_TASKS_MAX
+                ),
+                pass_fds=(plan_lock.fileno(),),
+                check=True,
+            )
+            require_unchanged_sources(
+                source_snapshot, sources, f"during blueprint facet {facet}"
             )
     return 0
 

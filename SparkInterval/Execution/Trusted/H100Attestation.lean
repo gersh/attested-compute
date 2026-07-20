@@ -1,10 +1,10 @@
-import SparkInterval.Execution.H100Policy
+import SparkInterval.Execution.Trusted.RunCertificate
 
 /-!
-# EXPLICITLY TRUSTED H100 execution bridge
+# Compatibility theorem for H100 execution certificates
 
-This file contains the repository's H100 hardware-attestation execution axiom.
-It is not a cryptographic proof in Lean.  The axiom trusts that production
+This file retains the H100-specific public theorem shape.  It is not a
+cryptographic proof in Lean.  The single run-certificate axiom trusts that production
 `H100HardwareEvidence` was created only after authentic NVIDIA H100
 confidential-computing evidence was cryptographically verified, that the
 physical run completed, and that the verified evidence truthfully contains its
@@ -19,15 +19,15 @@ set_option autoImplicit false
 
 namespace SparkInterval.Execution.Trusted
 
-/-- **SOLE H100 HARDWARE/CRYPTOGRAPHIC TRUST BOUNDARY.**
-
-An accepted production attestation is imported as the fact that the exact
-algorithm statement completed and returned its exact serialized result.
--/
-axiom h100_attested_run_sound
+/-- Backward-compatible H100 handoff.  It introduces no axiom beyond
+`accepted_run_certificate_sound`. -/
+theorem h100_attested_run_sound
     {statement : RunStatement}
     {attestation : Attestation}
     (accepted : checkH100Attestation statement attestation = true) :
-    AlgorithmReturned statement statement.result
+    AlgorithmReturned statement statement.result := by
+  exact accepted_algorithm_returned
+    (certificate := { statement, attestation })
+    (RunCertificate.check_of_h100Attestation accepted)
 
 end SparkInterval.Execution.Trusted

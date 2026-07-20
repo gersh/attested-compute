@@ -272,6 +272,58 @@ theorem decodeFinite_isValid {raw : RawInterval} {result : RatInterval}
             exact RatInterval.isValid_eq_true.mp hvalid
           · simp [hlo, hhi, hvalid] at hdecode
 
+/-- A finite interval decodes to the corresponding pair of finite extended
+endpoints in the more permissive output decoder. -/
+theorem decodeOutput_of_decodeFinite {raw : RawInterval} {result : RatInterval}
+    (hdecode : raw.decodeFinite = some result) :
+    raw.decodeOutput = some {
+      lo := .finite result.lo
+      hi := .finite result.hi
+    } := by
+  unfold decodeFinite at hdecode
+  cases hlo : Binary64.decodeFinite raw.lo with
+  | none => simp [hlo] at hdecode
+  | some lo =>
+      cases hhi : Binary64.decodeFinite raw.hi with
+      | none => simp [hlo, hhi] at hdecode
+      | some hi =>
+          by_cases hvalid : ({ lo, hi } : RatInterval).isValid = true
+          · simp [hlo, hhi, hvalid] at hdecode
+            subst result
+            unfold decodeOutput
+            rw [Binary64.decodeEndpoint_of_decodeFinite hlo,
+              Binary64.decodeEndpoint_of_decodeFinite hhi]
+            have hle : lo ≤ hi := by
+              simpa [RatInterval.isValid] using hvalid
+            have hout :
+                ({ lo := .finite lo, hi := .finite hi } :
+                  OutputInterval).isValid = true := by
+              unfold OutputInterval.isValid OutputInterval.IsValid
+              change decide (lo ≤ hi) = true
+              exact decide_eq_true_eq.mpr hle
+            change (if
+                ({ lo := .finite lo, hi := .finite hi } :
+                  OutputInterval).isValid = true
+              then some ({
+                lo := .finite lo
+                hi := .finite hi
+              } : OutputInterval)
+              else none) = some ({
+                lo := .finite lo
+                hi := .finite hi
+              } : OutputInterval)
+            rw [hout]
+            rfl
+          · simp [hlo, hhi, hvalid] at hdecode
+
+/-- On finite endpoints, `OutputInterval.ContainsReal` is exactly the ordinary
+rational-interval containment proposition. -/
+@[simp] theorem finiteOutput_containsReal_iff
+    {interval : RatInterval} {value : ℝ} :
+    ({ lo := .finite interval.lo, hi := .finite interval.hi } :
+      OutputInterval).ContainsReal value ↔ interval.ContainsReal value := by
+  rfl
+
 theorem decodeOutput_isValid {raw : RawInterval} {result : OutputInterval}
     (hdecode : raw.decodeOutput = some result) : result.IsValid := by
   unfold decodeOutput at hdecode

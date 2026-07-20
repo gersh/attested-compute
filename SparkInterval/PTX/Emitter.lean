@@ -196,13 +196,25 @@ def validate (module : Module) : Except String Unit := do
 private def declaration (kind : String) (regStem : String) (count : Nat) : String :=
   s!"\t.reg .{kind} %{regStem}<{count}>;"
 
+/-- Architecture directive selected by the deterministic emitter.  The typed
+instruction body is shared; deployment profiles choose only the reviewed PTX
+target token. -/
+inductive EmitterTarget where
+  | sm90
+  | sm121
+  deriving BEq, DecidableEq, Repr
+
+def EmitterTarget.token : EmitterTarget → String
+  | .sm90 => "sm_90"
+  | .sm121 => "sm_121"
+
 /-- Deterministically render the complete module after validation has been
 discharged.  Keeping this total rendering function separate makes the
 successful-emission theorem below definitionally transparent. -/
-def renderUnchecked (module : Module) : String :=
+def renderUncheckedFor (target : EmitterTarget) (module : Module) : String :=
   let header := [
     ".version 9.0",
-    ".target sm_121",
+    ".target " ++ target.token,
     ".address_size 64",
     "",
     ".visible .global .align 4 .u32 sparkinterval_generated_abi_version = 1;",
@@ -223,17 +235,29 @@ def renderUnchecked (module : Module) : String :=
   let lines := header ++ module.body.toList.map renderInstruction ++ ["}", ""]
   String.intercalate "\n" lines
 
+/-- Backwards-compatible DGX Spark rendering. -/
+def renderUnchecked (module : Module) : String :=
+  renderUncheckedFor .sm121 module
+
+/-- Deterministic H100 `sm_90` rendering of the same typed module. -/
+def renderUncheckedH100 (module : Module) : String :=
+  renderUncheckedFor .sm90 module
+
+/-- Deterministically render a validated typed module for the selected target. -/
+def emitFor (target : EmitterTarget) (module : Module) : Except String String := do
+  validate module
+  return renderUncheckedFor target module
+
 /-- Deterministically render a validated typed module as PTX 9.0 for sm_121. -/
 def emit (module : Module) : Except String String := do
-  validate module
-  return renderUnchecked module
+  emitFor .sm121 module
 
-/-- Successful emission is exactly the total rendering of the same typed
-module; there is no untyped source-injection path. -/
-theorem emit_success {module : Module} {text : String}
-    (hemits : emit module = .ok text) :
-    validate module = .ok () ∧ text = renderUnchecked module := by
-  unfold emit at hemits
+/-- Successful target-parameterized emission is exactly the total rendering
+of the same typed module. -/
+theorem emitFor_success {target : EmitterTarget} {module : Module} {text : String}
+    (hemits : emitFor target module = .ok text) :
+    validate module = .ok () ∧ text = renderUncheckedFor target module := by
+  unfold emitFor at hemits
   cases hvalidate : validate module with
   | error message =>
       rw [hvalidate] at hemits
@@ -242,15 +266,29 @@ theorem emit_success {module : Module} {text : String}
       cases value
       rw [hvalidate] at hemits
       cases hemits
-      constructor
-      · rfl
-      · rfl
+      exact ⟨rfl, rfl⟩
+
+/-- Successful emission is exactly the total rendering of the same typed
+module; there is no untyped source-injection path. -/
+theorem emit_success {module : Module} {text : String}
+    (hemits : emit module = .ok text) :
+    validate module = .ok () ∧ text = renderUnchecked module := by
+  simpa [emit, renderUnchecked] using
+    (emitFor_success (target := EmitterTarget.sm121) hemits)
+
+/-- Once validation succeeds, target-parameterized emission cannot fail or
+choose different text. -/
+theorem emitFor_of_validate {target : EmitterTarget} {module : Module}
+    (hvalidate : validate module = .ok ()) :
+    emitFor target module = .ok (renderUncheckedFor target module) := by
+  unfold emitFor
+  rw [hvalidate]
+  rfl
 
 /-- Once validation succeeds, emission cannot fail or choose different text. -/
 theorem emit_of_validate {module : Module} (hvalidate : validate module = .ok ()) :
     emit module = .ok (renderUnchecked module) := by
-  unfold emit
-  rw [hvalidate]
-  rfl
+  simpa [emit, renderUnchecked] using
+    (emitFor_of_validate (target := EmitterTarget.sm121) hvalidate)
 
 end SparkInterval.PTX

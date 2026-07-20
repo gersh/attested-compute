@@ -9,6 +9,16 @@ defaultTargets = ["SparkInterval", "sparkinterval-gen"]
 weakLeanArgs = ["-j1", "-M8192"]
 moreGlobalServerArgs = ["-j1", "-M4096"]
 
+# Lean-native proof-architecture metadata.  Pin the release matching the
+# repository toolchain; blueprint extraction is documentation tooling and is
+# not imported by the mathematical or execution libraries themselves.
+[[require]]
+name = "LeanArchitect"
+git = "https://github.com/hanwenzhu/LeanArchitect.git"
+rev = "d9013cc08bd2b5483e837368dfa4cc7ead92a5c2"
+
+# Keep mathlib last so its already-pinned transitive revisions take precedence
+# over compatible but older revisions requested by documentation tooling.
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4.git"

@@ -24,8 +24,22 @@ routine work:
 ./tools/safe_lake_build.py SparkInterval.PTX.InstructionRefinement
 ./tools/safe_lake_build.py --target sparkinterval-gen
 ./tools/safe_lake_build.py SparkInterval.PTX.StructuralCompilerCorrect
+./tools/safe_lake_build.py --blueprint-json
 make lean
 ```
+
+The `--blueprint-json` and `--blueprint-tex` modes build the single curated
+`SparkInterval.Blueprint` LeanArchitect facet after its local dependency
+closure. They retain the same complete-plan lock, source snapshot, serial
+module ordering, and aggregate memory cap. See the
+[proof-blueprint guide](PROOF_BLUEPRINT.md); do not replace these modes with a
+direct `lake build :blueprintJson` command.
+
+LeanArchitect's metadata loader needs more runtime support threads than an
+ordinary elaboration even though Lean remains at `-j1`. The safe planner gives
+only the Blueprint module and facets `TasksMax=64`; all other steps retain the
+default `TasksMax=32`, and every step retains the same 12 GiB aggregate memory
+ceiling. An explicit `SPARKINTERVAL_TASKS_MAX` still takes precedence.
 
 For an individual generated, scratch, or example Lean file, first build its
 local imports with the safe planner, then use `safe_lean.sh`; do not invoke
