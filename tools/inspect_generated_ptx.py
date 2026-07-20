@@ -3,7 +3,7 @@
 
 The authoritative generator validation is over the typed Lean AST.  This
 post-emission audit checks that the concrete text still contains only the
-expected sm_121 polynomial-kernel instruction vocabulary.
+expected target-selected polynomial-kernel instruction vocabulary.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ ALLOWED = {
     "ret",
 }
 FORBIDDEN_ROUNDING = re.compile(r"\.(?:rn|rz)\.f64\b")
-TARGET = re.compile(r"^\.target sm_121$", re.MULTILINE)
+TARGET_DIRECTIVE = re.compile(r"^\.target\s+(\S+)$", re.MULTILINE)
 VERSION = re.compile(r"^\.version 9\.0$", re.MULTILINE)
 ADDRESS_SIZE = re.compile(r"^\.address_size 64$", re.MULTILINE)
 ENTRY = re.compile(r"^\.visible \.entry sparkinterval_generated\($", re.MULTILINE)
@@ -80,7 +80,6 @@ PARAMETERS = (
 )
 FIXED_HEADER_DIRECTIVES = {
     ".version 9.0",
-    ".target sm_121",
     ".address_size 64",
     ".visible .global .align 4 .u32 sparkinterval_generated_abi_version = 1;",
 }
@@ -113,7 +112,7 @@ def _canonical_pair(left: int, right: int) -> tuple[int, int]:
 
 
 def analyze_lowering(text: str, instruction_counts: Counter[str]) -> dict[str, Any]:
-    """Predict the exact sm_121 lowering counts for the generated SSA subset.
+    """Predict the expected lowering counts for the generated SSA subset.
 
     ptxas performs dead-code elimination, common-subexpression elimination, and
     exponent-only load narrowing on this kernel family.  Raw PTX site counts are
@@ -422,7 +421,7 @@ def analyze_lowering(text: str, instruction_counts: Counter[str]) -> dict[str, A
 
 
 def parse_instructions(
-    text: str,
+    text: str, *, expected_target: str,
 ) -> tuple[list[str], list[str], list[str], list[str], dict[str, int]]:
     instructions: list[str] = []
     unparsed: list[str] = []
@@ -453,7 +452,7 @@ def parse_instructions(
                 grammar_errors.append(f"expected entry body, found: {line}")
             continue
         if state == "header":
-            if line in FIXED_HEADER_DIRECTIVES:
+            if line in FIXED_HEADER_DIRECTIVES or line == f".target {expected_target}":
                 continue
             if VARIABLE_COUNT.fullmatch(line) is not None:
                 continue
@@ -505,6 +504,12 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("input", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument(
+        "--target",
+        choices=("sm_121", "sm_90"),
+        default="sm_121",
+        help="exact PTX deployment target to require (default: sm_121)",
+    )
     args = parser.parse_args()
 
     raw = args.input.read_bytes()
@@ -515,16 +520,17 @@ def main() -> int:
         unknown_directives,
         grammar_errors,
         register_declarations,
-    ) = parse_instructions(text)
+    ) = parse_instructions(text, expected_target=args.target)
     instruction_counts = Counter(instructions)
     lowering_model = analyze_lowering(text, instruction_counts)
     unexpected = sorted(set(instructions) - ALLOWED)
     variable_counts = [int(value) for value in VARIABLE_COUNT.findall(text)]
     forbidden_rounding = sorted(set(FORBIDDEN_ROUNDING.findall(text)))
+    observed_targets = TARGET_DIRECTIVE.findall(text)
     passed = (
         bool(instructions)
         and len(VERSION.findall(text)) == 1
-        and len(TARGET.findall(text)) == 1
+        and observed_targets == [args.target]
         and len(ADDRESS_SIZE.findall(text)) == 1
         and len(ENTRY.findall(text)) == 1
         and len(ABI.findall(text)) == 1
@@ -543,7 +549,8 @@ def main() -> int:
         "schema_version": 1,
         "audit_kind": "lean_generated_polynomial_ptx_allowlist",
         "input_sha256": hashlib.sha256(raw).hexdigest(),
-        "target": "sm_121",
+        "target": args.target,
+        "observed_targets": observed_targets,
         "version_9_0_count": len(VERSION.findall(text)),
         "address_size_64_count": len(ADDRESS_SIZE.findall(text)),
         "variable_counts": variable_counts,

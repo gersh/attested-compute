@@ -44,6 +44,8 @@ int main(int argc, char** argv) {
       .output_file_sha256 = kOutputHash,
       .output_file_size_bytes = 48,
       .row_count = 1,
+      .target = "sm_121",
+      .target_device_policy = "exact-NVIDIA-GB10-compute-capability-12.1",
   };
   std::ostringstream encoded;
   sparkinterval::write_generated_driver_report(encoded, report);
@@ -61,7 +63,9 @@ int main(int argc, char** argv) {
       "\",\"module_size_bytes\":128,\"module_kind\":\"offline_cubin\","
       "\"output_file_sha256\":\"" + std::string(kOutputHash) +
       "\",\"output_file_size_bytes\":48,\"row_count\":1,"
-      "\"schema_version\":1}\n";
+      "\"schema_version\":1,\"target\":\"sm_121\","
+      "\"target_device_policy\":"
+      "\"exact-NVIDIA-GB10-compute-capability-12.1\"}\n";
   if (!check_equal(encoded.str(), expected, "bound")) return 1;
 
   if (argc == 2 && std::string_view(argv[1]) == "--emit-json") {

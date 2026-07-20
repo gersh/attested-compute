@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+"""Offline checks for H100-native build artifacts and fail-closed CLIs.
+
+The test intentionally invokes only argument paths that return before CUDA
+device discovery. It therefore validates build/target wiring on a host with no
+H100 while making no execution or attestation claim.
+"""
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+import re
+import subprocess
+
+
+def run(command: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(command, text=True, capture_output=True, check=False)
+
+
+def require_success(command: list[str], expected_stdout: tuple[str, ...]) -> None:
+    completed = run(command)
+    if completed.returncode != 0:
+        raise AssertionError(
+            f"{command!r} returned {completed.returncode}: {completed.stderr.strip()}"
+        )
+    for text in expected_stdout:
+        if text not in completed.stdout:
+            raise AssertionError(f"{command!r} stdout is missing {text!r}")
+
+
+def require_failure(
+    command: list[str], expected_code: int, expected_stderr: str
+) -> None:
+    completed = run(command)
+    if completed.returncode != expected_code:
+        raise AssertionError(
+            f"{command!r} returned {completed.returncode}, expected {expected_code}; "
+            f"stderr={completed.stderr.strip()!r}"
+        )
+    if expected_stderr not in completed.stderr:
+        raise AssertionError(
+            f"{command!r} stderr is missing {expected_stderr!r}: "
+            f"{completed.stderr.strip()!r}"
+        )
+
+
+def require_sm90(cuobjdump: Path, artifact: Path) -> None:
+    if not artifact.is_file():
+        raise AssertionError(f"missing H100 build artifact: {artifact}")
+    completed = run([str(cuobjdump), "--list-elf", str(artifact)])
+    if completed.returncode != 0:
+        raise AssertionError(
+            f"cuobjdump rejected {artifact}: {completed.stderr.strip()}"
+        )
+    if re.search(r"\.sm_90\.cubin(?:\s|$)", completed.stdout) is None:
+        raise AssertionError(
+            f"{artifact} does not contain a listed sm_90 device image: "
+            f"{completed.stdout.strip()!r}"
+        )
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--probe", type=Path, required=True)
+    parser.add_argument("--primitive", type=Path, required=True)
+    parser.add_argument("--expression", type=Path, required=True)
+    parser.add_argument("--probe-cubin", type=Path, required=True)
+    parser.add_argument("--cuobjdump", type=Path, required=True)
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    for executable in (args.probe, args.primitive, args.expression):
+        if not executable.is_file():
+            raise AssertionError(f"missing H100 executable: {executable}")
+
+    require_success([str(args.probe), "--help"], ("usage:", "H100"))
+    require_success(
+        [str(args.primitive), "--help"],
+        ("sparkinterval-h100-interval-batch", "H100", "overrides are disabled"),
+    )
+    require_success(
+        [str(args.expression), "--help"],
+        ("sparkinterval-h100-expression-batch", "H100", "overrides are disabled"),
+    )
+
+    for executable in (args.primitive, args.expression):
+        require_failure(
+            [str(executable), "--allow-other-device"],
+            4,
+            "--allow-other-device is disabled by the H100 runner",
+        )
+        require_failure(
+            [str(executable), "--device", "not-a-device"],
+            2,
+            "--device must be a nonnegative integer",
+        )
+        require_failure(
+            [str(executable), "--unknown-option"],
+            2,
+            "unknown argument: --unknown-option",
+        )
+
+    require_failure(
+        [str(args.probe), "--unknown-option"],
+        64,
+        "unknown or incomplete argument: --unknown-option",
+    )
+
+    require_sm90(args.cuobjdump, args.probe_cubin)
+    require_sm90(args.cuobjdump, args.primitive)
+    require_sm90(args.cuobjdump, args.expression)
+    print("H100 native build and fail-closed CLI checks passed without GPU execution.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

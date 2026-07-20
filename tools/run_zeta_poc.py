@@ -55,6 +55,9 @@ import verify_run_bundle as bundle_verify  # noqa: E402
 SCHEMA_VERSION = 1
 REPORT_KIND = "sparkinterval_real_zeta_poc_report"
 ALGORITHM_ID = "sparkinterval.real_zeta_integer_dirichlet_integral_tail.v1"
+H100_ALGORITHM_ID = (
+    "sparkinterval.real_zeta_integer_dirichlet_integral_tail.h100.v1"
+)
 MIN_S = 2
 MAX_S = expression.MAX_POW_EXPONENT
 MAX_TERMS = expression.MAX_ROWS
@@ -62,7 +65,11 @@ DEFAULT_TERMS = 4096
 ONE_BITS = 0x3FF0000000000000
 ZERO_INTERVAL = exact.Binary64Interval(exact.POSITIVE_ZERO, exact.POSITIVE_ZERO)
 ALGORITHM_DEFINITION = REPOSITORY_ROOT / "specifications/REAL_ZETA_POC.md"
+H100_ALGORITHM_DEFINITION = (
+    REPOSITORY_ROOT / "specifications/REAL_ZETA_POC_H100.md"
+)
 TARGET_PROFILE = REPOSITORY_ROOT / "profiles/targets/dgx_spark_sm121.json"
+H100_TARGET_PROFILE = REPOSITORY_ROOT / "profiles/targets/h100_sm90.json"
 TRUST_PROFILE = REPOSITORY_ROOT / "profiles/trust/local_unattested.json"
 REPORT_NAME = "zeta-report.json"
 BUNDLE_NAME = "run-bundle.json"
@@ -81,6 +88,15 @@ STAGED_SOURCES: dict[str, Path] = {
     "source_expression_header": REPOSITORY_ROOT / "gpu/include/expression_batch.h",
     "source_expression_kernel": REPOSITORY_ROOT / "gpu/src/expression_batch_kernel.cu",
     "source_expression_runner": REPOSITORY_ROOT / "gpu/src/expression_batch_runner.cpp",
+    "source_h100_expression_kernel": (
+        REPOSITORY_ROOT / "gpu/platform/h100/h100_expression_batch_kernel.cu"
+    ),
+    "source_h100_expression_runner": (
+        REPOSITORY_ROOT / "gpu/platform/h100/h100_expression_batch_runner.cpp"
+    ),
+    "source_h100_runtime_policy": (
+        REPOSITORY_ROOT / "gpu/platform/h100/h100_runtime_policy.h"
+    ),
 }
 
 
@@ -96,6 +112,7 @@ STAGED_PATHS: dict[str, str] = {
     "replay_runner_report": "artifacts/replay-runner.json",
     "gpu_output": OUTPUT_NAME,
     "gpu_replay_output": REPLAY_OUTPUT_NAME,
+    "source_target_profile": "sources/target-profile.json",
     **{
         role: f"sources/{source.name}"
         for role, source in STAGED_SOURCES.items()
@@ -114,6 +131,83 @@ class DerivedResult:
     result: exact.Binary64Interval
     tail_lower: Fraction
     tail_upper: Fraction
+
+
+@dataclass(frozen=True)
+class TargetConfig:
+    profile_id: str
+    profile_path: Path
+    algorithm_id: str
+    algorithm_definition: Path
+    host_architecture: str
+    ptx_target: str
+    compute_capability: str
+    device_name_exact: str | None
+    device_name_contains: str | None
+    default_executable: Path
+    run_label: str
+    limitation: str
+
+    def accepts_device_name(self, name: object) -> bool:
+        if not isinstance(name, str):
+            return False
+        if self.device_name_exact is not None:
+            return name == self.device_name_exact
+        assert self.device_name_contains is not None
+        return self.device_name_contains in name
+
+
+DGX_TARGET = TargetConfig(
+    profile_id="dgx_spark_sm121",
+    profile_path=TARGET_PROFILE,
+    algorithm_id=ALGORITHM_ID,
+    algorithm_definition=ALGORITHM_DEFINITION,
+    host_architecture="aarch64",
+    ptx_target="sm_121",
+    compute_capability="12.1",
+    device_name_exact="NVIDIA GB10",
+    device_name_contains=None,
+    default_executable=(
+        REPOSITORY_ROOT / "build/dgx-spark/sparkinterval-expression-batch"
+    ),
+    run_label="DGX Spark",
+    limitation=(
+        "DGX Spark supplies no hardware-backed execution attestation; a user "
+        "signature authenticates only an endorsement of these bytes."
+    ),
+)
+
+H100_TARGET = TargetConfig(
+    profile_id="h100_sm90",
+    profile_path=H100_TARGET_PROFILE,
+    algorithm_id=H100_ALGORITHM_ID,
+    algorithm_definition=H100_ALGORITHM_DEFINITION,
+    host_architecture="x86_64",
+    ptx_target="sm_90",
+    compute_capability="9.0",
+    device_name_exact=None,
+    device_name_contains="H100",
+    default_executable=(
+        REPOSITORY_ROOT / "build/h100-native/sparkinterval-h100-expression-batch"
+    ),
+    run_label="H100",
+    limitation=(
+        "This H100 record is local_unattested; it contains no verified NVIDIA "
+        "confidential-computing evidence."
+    ),
+)
+
+TARGETS: dict[str, TargetConfig] = {
+    target.profile_id: target for target in (DGX_TARGET, H100_TARGET)
+}
+
+
+def _target_config(profile_id: str) -> TargetConfig:
+    try:
+        return TARGETS[profile_id]
+    except KeyError as exc:
+        _fail(f"unsupported target profile {profile_id!r}")
+        raise AssertionError("unreachable") from exc
 
 
 def _fail(message: str) -> None:
@@ -388,7 +482,14 @@ def derive_output(path: Path, s: int, terms: int) -> DerivedResult:
     return DerivedResult(partial, tail, result, tail_lower, tail_upper)
 
 
-def _runner_fields(value: dict[str, Any], *, s: int, terms: int, what: str) -> dict[str, Any]:
+def _runner_fields(
+    value: dict[str, Any],
+    *,
+    target: TargetConfig,
+    s: int,
+    terms: int,
+    what: str,
+) -> dict[str, Any]:
     fields = {
         "schema_version",
         "kind",
@@ -419,12 +520,19 @@ def _runner_fields(value: dict[str, Any], *, s: int, terms: int, what: str) -> d
         "zero_divisor_row_count": 0,
         "nonfinite_widening_row_count": 0,
         "all_rows_valid": True,
-        "device_name": "NVIDIA GB10",
-        "compute_capability": "12.1",
+        "compute_capability": target.compute_capability,
     }
     for key, expected in expected_values.items():
         if report[key] != expected:
-            _fail(f"{what}.{key} does not match the strict DGX zeta run")
+            _fail(
+                f"{what}.{key} does not match the strict "
+                f"{target.run_label} zeta run"
+            )
+    if not target.accepts_device_name(report["device_name"]):
+        _fail(
+            f"{what}.device_name does not match the strict "
+            f"{target.run_label} zeta run"
+        )
     for key in ("cuda_driver_api_version", "cuda_runtime_version"):
         _integer(report[key], f"{what}.{key}", minimum=1)
     for key in ("kernel_milliseconds", "kernel_rows_per_second"):
@@ -439,19 +547,22 @@ def _runner_fields(value: dict[str, Any], *, s: int, terms: int, what: str) -> d
     }
 
 
-def _validate_audits(root: Path) -> None:
+def _validate_audits(root: Path, target: TargetConfig) -> None:
     ptx = root / STAGED_PATHS["gpu_ptx"]
     sass = root / STAGED_PATHS["gpu_sass"]
     ptx_audit = _load_canonical(root / STAGED_PATHS["ptx_audit"])
     sass_audit = _load_canonical(root / STAGED_PATHS["sass_audit"])
     try:
         expected_ptx_audit = inspect_expression_ptx.audit_ptx(
-            ptx.read_bytes(), expected_target="sm_121"
+            ptx.read_bytes(), expected_target=target.ptx_target
         )
     except OSError as exc:
         raise ZetaPocError(f"cannot independently audit staged PTX: {exc}") from exc
     if ptx_audit != expected_ptx_audit or expected_ptx_audit.get("passed") is not True:
-        _fail("PTX audit does not accept the exact staged sm_121 PTX")
+        _fail(
+            "PTX audit does not accept the exact staged "
+            f"{target.ptx_target} PTX"
+        )
 
     with tempfile.TemporaryDirectory(prefix="sparkinterval-zeta-sass-audit-") as raw:
         independent_path = Path(raw) / "sass-audit.json"
@@ -479,26 +590,36 @@ def _report_artifacts(root: Path) -> dict[str, dict[str, Any]]:
     return result
 
 
-def make_report(root: Path, s: int, terms: int, derived: DerivedResult) -> dict[str, Any]:
+def make_report(
+    root: Path,
+    s: int,
+    terms: int,
+    derived: DerivedResult,
+    target: TargetConfig = DGX_TARGET,
+) -> dict[str, Any]:
     primary = _load_runner_report(root / STAGED_PATHS["runner_report"])
     replay = _load_runner_report(root / STAGED_PATHS["replay_runner_report"])
-    device = _runner_fields(primary, s=s, terms=terms, what="runner report")
-    replay_device = _runner_fields(replay, s=s, terms=terms, what="replay runner report")
+    device = _runner_fields(
+        primary, target=target, s=s, terms=terms, what="runner report"
+    )
+    replay_device = _runner_fields(
+        replay, target=target, s=s, terms=terms, what="replay runner report"
+    )
     if replay_device != device:
         _fail("deterministic replay used different reported hardware or CUDA versions")
-    _validate_audits(root)
+    _validate_audits(root, target)
     output_hash = _sha256(root / OUTPUT_NAME)
     replay_hash = _sha256(root / REPLAY_OUTPUT_NAME)
     if output_hash != replay_hash:
         _fail("deterministic replay output is not byte-identical")
     definition_hash = _sha256(root / STAGED_PATHS["algorithm_definition"])
-    if definition_hash != _sha256(ALGORITHM_DEFINITION):
+    if definition_hash != _sha256(target.algorithm_definition):
         _fail("staged algorithm definition is not the checked-in version for this algorithm id")
     return {
         "schema_version": SCHEMA_VERSION,
         "kind": REPORT_KIND,
         "algorithm": {
-            "algorithm_id": ALGORITHM_ID,
+            "algorithm_id": target.algorithm_id,
             "definition_sha256": definition_hash,
         },
         "parameters": {
@@ -551,7 +672,7 @@ def make_report(root: Path, s: int, terms: int, derived: DerivedResult) -> dict[
         "limitations": [
             "The interval encloses zeta(s) for the recorded real integer s; it does not verify zeta zeros.",
             "The PTX and SASS inspections are lexical audits, not formal compiler or hardware semantics.",
-            "DGX Spark supplies no hardware-backed execution attestation; a user signature authenticates only an endorsement of these bytes.",
+            target.limitation,
         ],
     }
 
@@ -582,6 +703,7 @@ def _build_artifacts(root: Path) -> list[tuple[str, Path]]:
 def create_local_bundle(
     root: Path,
     *,
+    target: TargetConfig = DGX_TARGET,
     s: int,
     terms: int,
     nonce: str,
@@ -589,13 +711,15 @@ def create_local_bundle(
     end_time_utc: str,
 ) -> dict[str, Any]:
     primary = _load_runner_report(root / STAGED_PATHS["runner_report"])
-    device = _runner_fields(primary, s=s, terms=terms, what="runner report")
+    device = _runner_fields(
+        primary, target=target, s=s, terms=terms, what="runner report"
+    )
     try:
         bundle = bundle_format.create_bundle(
             root=root,
-            target_profile=bundle_format.load_profile(TARGET_PROFILE, "target"),
+            target_profile=bundle_format.load_profile(target.profile_path, "target"),
             trust_profile=bundle_format.load_profile(TRUST_PROFILE, "trust"),
-            algorithm_id=ALGORITHM_ID,
+            algorithm_id=target.algorithm_id,
             algorithm_definition_sha256=_sha256(
                 root / STAGED_PATHS["algorithm_definition"]
             ),
@@ -608,7 +732,7 @@ def create_local_bundle(
             execution_environment={
                 "host_architecture": platform.machine(),
                 "python_version": platform.python_version(),
-                "target_profile": "dgx_spark_sm121",
+                "target_profile": target.profile_id,
                 **device,
             },
             completion={
@@ -627,7 +751,13 @@ def create_local_bundle(
     return bundle
 
 
-def _verify_bundle_semantics(root: Path, report: dict[str, Any], s: int, terms: int) -> dict[str, Any]:
+def _verify_bundle_semantics(
+    root: Path,
+    report: dict[str, Any],
+    s: int,
+    terms: int,
+    target: TargetConfig,
+) -> dict[str, Any]:
     try:
         receipt = bundle_verify.verify_bundle_file(
             root / BUNDLE_NAME,
@@ -639,11 +769,14 @@ def _verify_bundle_semantics(root: Path, report: dict[str, Any], s: int, terms: 
     if (
         receipt.get("accepted") is not True
         or receipt.get("artifacts_verified") is not True
-        or receipt.get("target_profile") != "dgx_spark_sm121"
+        or receipt.get("target_profile") != target.profile_id
         or receipt.get("trust_profile") != "local_unattested"
         or receipt.get("hardware_evidence") is not False
     ):
-        _fail("inner run bundle did not verify as a local-unattested DGX record")
+        _fail(
+            "inner run bundle did not verify as a local-unattested "
+            f"{target.run_label} record"
+        )
     bundle = _load_canonical(root / BUNDLE_NAME)
     if not isinstance(bundle, dict):
         _fail("run bundle must be an object")
@@ -666,12 +799,15 @@ def _verify_bundle_semantics(root: Path, report: dict[str, Any], s: int, terms: 
         _fail("run bundle does not bind the complete zeta artifact set")
     environment = statement["execution_environment"]["value"]
     if (
-        environment.get("target_profile") != "dgx_spark_sm121"
-        or environment.get("host_architecture") != "aarch64"
-        or environment.get("device_name") != "NVIDIA GB10"
-        or environment.get("compute_capability") != "12.1"
+        environment.get("target_profile") != target.profile_id
+        or environment.get("host_architecture") != target.host_architecture
+        or not target.accepts_device_name(environment.get("device_name"))
+        or environment.get("compute_capability") != target.compute_capability
     ):
-        _fail("run bundle execution environment is not the strict DGX profile")
+        _fail(
+            "run bundle execution environment is not the strict "
+            f"{target.run_label} profile"
+        )
     return receipt
 
 
@@ -682,6 +818,16 @@ def verify_work_dir(work_dir: Path) -> dict[str, Any]:
         raise ZetaPocError(f"cannot resolve work directory {work_dir}: {exc}") from exc
     if not root.is_dir():
         _fail(f"work directory is not a directory: {root}")
+    bundle = _load_canonical(root / BUNDLE_NAME)
+    if not isinstance(bundle, dict):
+        _fail("run bundle must be an object")
+    try:
+        profile_id = bundle["statement"]["target_profile"]["profile_id"]
+    except (KeyError, TypeError) as exc:
+        raise ZetaPocError("run bundle has no target profile id") from exc
+    if not isinstance(profile_id, str):
+        _fail("run bundle target profile id must be a string")
+    target = _target_config(profile_id)
     report = _load_canonical(root / REPORT_NAME)
     if not isinstance(report, dict):
         _fail("zeta report must be an object")
@@ -695,16 +841,17 @@ def verify_work_dir(work_dir: Path) -> dict[str, Any]:
     replay_derived = derive_output(root / REPLAY_OUTPUT_NAME, s, terms)
     if replay_derived != derived:
         _fail("replayed GPU result has different exact interval semantics")
-    expected_report = make_report(root, s, terms, derived)
+    expected_report = make_report(root, s, terms, derived, target)
     if report != expected_report:
         _fail("zeta report differs from independent artifact recomputation")
-    bundle_receipt = _verify_bundle_semantics(root, report, s, terms)
+    bundle_receipt = _verify_bundle_semantics(root, report, s, terms, target)
     return {
         "schema_version": 1,
         "kind": "sparkinterval_real_zeta_poc_verification",
         "accepted": True,
         "integer_s": s,
         "term_count": terms,
+        "target_profile": target.profile_id,
         "zeta_enclosure": report["zeta_enclosure"],
         "report_sha256": _sha256(root / REPORT_NAME),
         "bundle_sha256": bundle_receipt["bundle_sha256"],
@@ -729,9 +876,12 @@ def _copy(source: Path, destination: Path, *, executable: bool = False) -> None:
         raise ZetaPocError(f"cannot stage {resolved}: {exc}") from exc
 
 
-def _stage_sources(root: Path) -> None:
+def _stage_sources(root: Path, target: TargetConfig) -> None:
     for role, source in STAGED_SOURCES.items():
+        if role == "algorithm_definition":
+            source = target.algorithm_definition
         _copy(source, root / STAGED_PATHS[role])
+    _copy(target.profile_path, root / STAGED_PATHS["source_target_profile"])
 
 
 def _run_command(command: Sequence[str], what: str, *, timeout: int = 300) -> subprocess.CompletedProcess[bytes]:
@@ -752,7 +902,9 @@ def _run_command(command: Sequence[str], what: str, *, timeout: int = 300) -> su
     return completed
 
 
-def _audit_device(root: Path, executable: Path) -> None:
+def _audit_device(
+    root: Path, executable: Path, target: TargetConfig = DGX_TARGET
+) -> None:
     located = shutil.which("cuobjdump")
     if located is None:
         _fail("cuobjdump is required to bind and audit the expression device code")
@@ -764,7 +916,9 @@ def _audit_device(root: Path, executable: Path) -> None:
         raise ZetaPocError(str(exc)) from exc
     ptx_path = root / STAGED_PATHS["gpu_ptx"]
     ptx_path.write_bytes(ptx)
-    ptx_audit = inspect_expression_ptx.audit_ptx(ptx, expected_target="sm_121")
+    ptx_audit = inspect_expression_ptx.audit_ptx(
+        ptx, expected_target=target.ptx_target
+    )
     if ptx_audit.get("passed") is not True:
         _fail("strict expression PTX audit failed")
     _write_canonical(root / STAGED_PATHS["ptx_audit"], ptx_audit)
@@ -827,16 +981,21 @@ def run_poc(
     work_dir: Path,
     *,
     executable: Path,
+    target_profile: str = DGX_TARGET.profile_id,
     s: int,
     terms: int,
     device: int,
     nonce: str | None,
 ) -> dict[str, Any]:
+    target = _target_config(target_profile)
     validate_parameters(s, terms)
-    if platform.machine() != "aarch64":
-        _fail("the recorded DGX profile requires an aarch64 host")
+    if platform.machine() != target.host_architecture:
+        _fail(
+            f"the recorded {target.run_label} profile requires a "
+            f"{target.host_architecture} host"
+        )
     if device != 0:
-        _fail("the recorded DGX profile requires device 0")
+        _fail(f"the recorded {target.run_label} profile requires device 0")
     if nonce is None:
         nonce = secrets.token_hex(32)
     try:
@@ -852,10 +1011,10 @@ def run_poc(
     )
     completed = False
     try:
-        _stage_sources(staging)
+        _stage_sources(staging, target)
         staged_executable = staging / STAGED_PATHS["host_executable"]
         _copy(executable, staged_executable, executable=True)
-        _audit_device(staging, staged_executable)
+        _audit_device(staging, staged_executable, target)
         write_input(staging / INPUT_NAME, s, terms)
         start_time = _utc_now()
         primary = _run_gpu(
@@ -864,29 +1023,41 @@ def run_poc(
             staging / OUTPUT_NAME,
             staging / STAGED_PATHS["runner_report"],
             device=device,
-            what="DGX zeta term run",
+            what=f"{target.run_label} zeta term run",
         )
-        _runner_fields(primary, s=s, terms=terms, what="runner report")
+        _runner_fields(
+            primary, target=target, s=s, terms=terms, what="runner report"
+        )
         replay = _run_gpu(
             staged_executable,
             staging / INPUT_NAME,
             staging / REPLAY_OUTPUT_NAME,
             staging / STAGED_PATHS["replay_runner_report"],
             device=device,
-            what="DGX zeta deterministic replay",
+            what=f"{target.run_label} zeta deterministic replay",
         )
-        _runner_fields(replay, s=s, terms=terms, what="replay runner report")
+        _runner_fields(
+            replay,
+            target=target,
+            s=s,
+            terms=terms,
+            what="replay runner report",
+        )
         end_time = _utc_now()
         derived = derive_output(staging / OUTPUT_NAME, s, terms)
         replay_derived = derive_output(staging / REPLAY_OUTPUT_NAME, s, terms)
         if replay_derived != derived or _sha256(staging / OUTPUT_NAME) != _sha256(
             staging / REPLAY_OUTPUT_NAME
         ):
-            _fail("DGX zeta replay was not byte-identical and semantically identical")
-        report = make_report(staging, s, terms, derived)
+            _fail(
+                f"{target.run_label} zeta replay was not byte-identical and "
+                "semantically identical"
+            )
+        report = make_report(staging, s, terms, derived, target)
         _write_canonical(staging / REPORT_NAME, report)
         create_local_bundle(
             staging,
+            target=target,
             s=s,
             terms=terms,
             nonce=nonce,
@@ -907,12 +1078,20 @@ def run_poc(
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    run = commands.add_parser("run", help="run, replay, check, and package the DGX POC")
+    run = commands.add_parser(
+        "run", help="run, replay, check, and package a target-bound POC"
+    )
     run.add_argument("--work-dir", type=Path, required=True)
+    run.add_argument(
+        "--target-profile",
+        choices=tuple(TARGETS),
+        default=DGX_TARGET.profile_id,
+        help="strict execution target (default: dgx_spark_sm121)",
+    )
     run.add_argument(
         "--executable",
         type=Path,
-        default=REPOSITORY_ROOT / "build/dgx-spark/sparkinterval-expression-batch",
+        help="target-specific expression runner (default selected by --target-profile)",
     )
     run.add_argument("--s", type=int, default=2)
     run.add_argument("--terms", type=int, default=DEFAULT_TERMS)
@@ -927,9 +1106,11 @@ def main(argv: Iterable[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         if args.command == "run":
+            target = _target_config(args.target_profile)
             receipt = run_poc(
                 args.work_dir,
-                executable=args.executable,
+                executable=args.executable or target.default_executable,
+                target_profile=target.profile_id,
                 s=args.s,
                 terms=args.terms,
                 device=args.device,

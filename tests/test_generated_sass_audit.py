@@ -11,7 +11,9 @@ ROOT = Path(__file__).resolve().parents[1]
 TOOL = ROOT / "tools" / "inspect_generated_sass.py"
 
 
-def ptx_audit(modeled: dict[str, int] | None = None) -> dict:
+def ptx_audit(
+    modeled: dict[str, int] | None = None, *, target: str = "sm_121"
+) -> dict:
     expected_sass_counts = {
         "DADD.RM": 2,
         "DADD.RP": 2,
@@ -30,6 +32,7 @@ def ptx_audit(modeled: dict[str, int] | None = None) -> dict:
         expected_sass_counts.update(modeled)
     return {
         "passed": True,
+        "target": target,
         "input_sha256": "0" * 64,
         "instruction_counts": {
             "add.rm.f64": 1,
@@ -54,8 +57,14 @@ def ptx_audit(modeled: dict[str, int] | None = None) -> dict:
     }
 
 
-def sass(extra: str = "", *, down_mul: int = 4, up_mul: int = 4) -> str:
-    lines = [".target sm_121", ".global sparkinterval_generated"]
+def sass(
+    extra: str = "",
+    *,
+    target: str = "sm_121",
+    down_mul: int = 4,
+    up_mul: int = 4,
+) -> str:
+    lines = [f".target {target}", ".global sparkinterval_generated"]
     offset = 0
     for mnemonic, count in (
         ("DADD.RM", 2),
@@ -68,9 +77,11 @@ def sass(extra: str = "", *, down_mul: int = 4, up_mul: int = 4) -> str:
             offset += 0x10
     lines.append(f"/*{offset:04x}*/ HFMA2 R3, -RZ, RZ, 0, 0 ;")
     offset += 0x10
-    lines.append(f"/*{offset:04x}*/ BSSY.RECONVERGENT B0, 0x100 ;")
+    bssy = "BSSY" if target == "sm_90" else "BSSY.RECONVERGENT"
+    bsync = "BSYNC" if target == "sm_90" else "BSYNC.RECONVERGENT"
+    lines.append(f"/*{offset:04x}*/ {bssy} B0, 0x100 ;")
     offset += 0x10
-    lines.append(f"/*{offset:04x}*/ BSYNC.RECONVERGENT B0 ;")
+    lines.append(f"/*{offset:04x}*/ {bsync} B0 ;")
     for mnemonic in ("DSETP.MIN.AND", "DSETP.MAX.AND"):
         for _ in range(3):
             offset += 0x10
@@ -90,7 +101,13 @@ def sass(extra: str = "", *, down_mul: int = 4, up_mul: int = 4) -> str:
 
 
 class GeneratedSassAuditTest(unittest.TestCase):
-    def audit(self, source: str, *, modeled: dict[str, int] | None = None):
+    def audit(
+        self,
+        source: str,
+        *,
+        modeled: dict[str, int] | None = None,
+        target: str = "sm_121",
+    ):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         directory = Path(temporary.name)
@@ -98,7 +115,7 @@ class GeneratedSassAuditTest(unittest.TestCase):
         ptx_path = directory / "ptx-audit.json"
         report_path = directory / "report.json"
         sass_path.write_text(source)
-        ptx_path.write_text(json.dumps(ptx_audit(modeled)))
+        ptx_path.write_text(json.dumps(ptx_audit(modeled, target=target)))
         completed = subprocess.run(
             [str(TOOL), str(sass_path), str(ptx_path), str(report_path)],
             capture_output=True,
@@ -121,6 +138,15 @@ class GeneratedSassAuditTest(unittest.TestCase):
             report["actual_corner_selection_counts"],
             {"DSETP.MAX.AND": 3, "DSETP.MIN.AND": 3},
         )
+
+    def test_accepts_h100_target_binding_and_rejects_cross_target_sass(self) -> None:
+        completed, report = self.audit(sass(target="sm_90"), target="sm_90")
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(report["target"], "sm_90")
+        self.assertTrue(report["target_binding_valid"])
+        completed, report = self.audit(sass(target="sm_90"), target="sm_121")
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertEqual(report["targets"], ["sm_90"])
 
     def test_requires_exact_value_numbered_directed_counts(self) -> None:
         completed, report = self.audit(

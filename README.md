@@ -1,8 +1,9 @@
 # SparkInterval
 
 SparkInterval verifies interval-arithmetic mathematics in Lean, runs and
-records CUDA work on NVIDIA DGX Spark, and prepares offline H100 artifacts.
-Its certificate and evidence workflows keep those assurance levels distinct.
+records CUDA work on NVIDIA DGX Spark and H100, and prepares H100 device
+artifacts without requiring the target GPU. Its certificate and evidence
+workflows keep those assurance levels distinct.
 
 The project keeps three questions separate:
 
@@ -20,7 +21,7 @@ The project keeps three questions separate:
 | DGX operator signature | A pinned Ed25519 key endorses the exact local bundle | Proves the pinned key signed; operator attribution is out of band, and neither truth nor GPU execution follows |
 | Accepted Lean run certificate | One explicit axiom supplies both the exact historical return and, after a closed registered-invocation check, that invocation's fixed formal `Runs` relation | Requires a trusted private-evidence importer; the per-run registry bridge is not a universal determinism or backend-refinement theorem |
 | Closed registry example | `cubicSumDivThree20000V1` fixes an executable integer cube accumulator followed by one division by three; Lean proves its exact operational result `13334666700000000`, agreement with the rational sum, and u64 safety of every cube and accumulator step, all without `native_decide` | These are axiom-free model and bounded-arithmetic proofs, not a GPU-opcode or physical-execution proof; no signed bundle can enter Lean because the private-evidence importer is absent |
-| H100 (`x86_64`, `sm_90`) offline | Builds and audits real `compute_90` PTX and `sm_90` cubin/SASS | No H100 execution or accepted confidential-computing evidence yet |
+| H100 (`x86_64`, `sm_90`) native | Strict probe, primitive, and postfix-expression runners; exact CPU conformance; PTX/SASS audits; a real-integer zeta POC; and target-selected generated-polynomial conformance | Current runs are local evidence only; the zeta bundle is `local_unattested`, and no NVIDIA confidential-computing evidence is collected or accepted |
 | High-bound zeta-zero foundation | Lean canonically checks a signed full endpoint payload, bridges analytic multiplicity to distinct counts, and conditionally composes a Hardy-Z model plus multiplicity bound into the finite-height theorem | Endpoint realization and the analytic Turing/argument-principle bound remain uninstantiated; no height has been certified |
 
 ## Choose a workflow
@@ -29,15 +30,17 @@ The project keeps three questions separate:
   [CPU and Lean certificate workflow](docs/USING.md#full-lean-result-certificate).
 - To run locally on DGX Spark and optionally sign the record, use the
   [DGX workflow](docs/USING.md#dgx-spark-local-bundle-and-operator-signature).
-- To compute a rigorous tutorial enclosure of real `zeta(s)`, use the
-  [zeta workflow](docs/USING.md#real-integer-zeta-poc).
+- To compute a rigorous tutorial enclosure of real `zeta(s)` on DGX Spark or
+  H100, use the [zeta workflow](docs/USING.md#real-integer-zeta-poc).
 - To review or extend the high-bound zero verifier, start with its
   [formal architecture and status](docs/algorithms/ZETA_ZERO_VERIFIER.md).
 - To smoke-test the host-side schedule and synthetic streaming-bracket
   scaffolding, run `python3 tools/benchmark_zeta_foundations.py --pretty`; this
   is not a zeta, Lean, GPU, or production-certificate benchmark.
+- To build or validate the strict native runners on an H100, use the
+  [H100 native workflow](docs/USING.md#h100-native-local-validation).
 - To prepare H100 device artifacts without an H100, use the
-  [H100 offline workflow](docs/USING.md#h100-offline-work).
+  [H100 offline workflow](docs/USING.md#h100-offline-artifacts).
 
 ## CPU and Lean quick start
 
@@ -98,6 +101,43 @@ challenger nonces, continue with the
 Lean builds are serialized and memory-capped; read
 [Memory-safe builds](docs/MEMORY_SAFE_BUILDS.md) before changing those limits.
 
+## H100 quick start
+
+On a host with exactly one visible NVIDIA H100 at compute capability 9.0,
+build, audit, and run the strict native validation suite:
+
+```bash
+H100_BUILD_JOBS=1 ./tools/run_h100_native_validation.sh
+```
+
+The script builds these native artifacts:
+
+- `build/h100-native/sparkinterval-h100-probe-runner`;
+- `build/h100-native/sparkinterval-h100-interval-batch`;
+- `build/h100-native/sparkinterval-h100-expression-batch`; and
+- `build/h100-native/h100/h100_rounding_probe.sm_90.cubin`.
+
+After that succeeds, run the H100-bound real-zeta tutorial in a fresh
+directory:
+
+```bash
+mkdir -p build/examples
+H100_ZETA_PARENT="$(mktemp -d build/examples/h100-zeta2.XXXXXX)"
+H100_ZETA_DIR="${H100_ZETA_PARENT}/run"
+python3 tools/run_zeta_poc.py run \
+  --target-profile h100_sm90 \
+  --work-dir "${H100_ZETA_DIR}" \
+  --s 2 \
+  --terms 4096
+python3 tools/run_zeta_poc.py verify "${H100_ZETA_DIR}"
+```
+
+Both surfaces are intentionally local and unattested. The zeta verification
+receipt reports `evidence_class: local_unattested` and
+`hardware_evidence: false`; neither command obtains or validates NVIDIA
+confidential-computing evidence. See the [H100 guide](docs/H100.md) for the
+offline CLI checks and the separate generated-`sm_90` polynomial path.
+
 ## Explicit nonclaims
 
 - The real-integer zeta POC encloses positive real values for supported integer
@@ -135,8 +175,10 @@ Lean builds are serialized and memory-capped; read
   exactly the certificate axiom's responsibility.
 - Literal algorithm ID/hash checks do not prove that a cubin was compiled from
   the formal PTX module.
-- H100 production acceptance remains fail-closed until a genuine measured
-  workload and trusted NVIDIA confidential-computing evidence verifier exist.
+- Successful H100 native, generated-polynomial, or real-zeta validation is
+  local execution/conformance evidence, not confidential-computing
+  attestation. Production H100 acceptance remains fail-closed until a genuine
+  measured workload and trusted NVIDIA evidence verifier exist.
 
 ## Documentation
 
@@ -145,7 +187,7 @@ Lean builds are serialized and memory-capped; read
 - [Verification guide](docs/VERIFYING.md)
 - [Examples](examples/README.md)
 - [DGX Spark setup](docs/DGX_SPARK_SETUP.md)
-- [H100 offline and production boundary](docs/H100.md)
+- [H100 native, offline, and production boundary](docs/H100.md)
 - [Run-bundle and certificate formats](docs/FORMAT.md)
 - [Memory-safe builds](docs/MEMORY_SAFE_BUILDS.md)
 - [Proof blueprint and NVIDIA-spec traceability](docs/PROOF_BLUEPRINT.md)

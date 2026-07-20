@@ -509,10 +509,14 @@ def _canonical_report_sha256(value: object) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def audit_device_artifacts(executable: Path, work_dir: Path) -> dict[str, object]:
+def audit_device_artifacts(
+    executable: Path, work_dir: Path, expected_target: str = "sm_121"
+) -> dict[str, object]:
     """Bind conformance to the executable, extracted PTX, and audited SASS."""
 
-    ptx_report = inspect_expression_ptx.audit_binary(executable)
+    ptx_report = inspect_expression_ptx.audit_binary(
+        executable, expected_target=expected_target
+    )
     if not ptx_report["passed"]:
         raise RuntimeError(
             "strict expression PTX audit failed: "
@@ -579,6 +583,26 @@ def audit_device_artifacts(executable: Path, work_dir: Path) -> dict[str, object
             ],
         },
     }
+
+
+def validate_device_identity(
+    report: dict[str, object], expected_target: str
+) -> None:
+    name = report.get("device_name")
+    capability = report.get("compute_capability")
+    if expected_target == "sm_121":
+        accepted = name == "NVIDIA GB10" and capability == "12.1"
+    elif expected_target == "sm_90":
+        accepted = (
+            isinstance(name, str) and "H100" in name and capability == "9.0"
+        )
+    else:
+        raise RuntimeError(f"unsupported expression target {expected_target!r}")
+    if not accepted:
+        raise RuntimeError(
+            "CUDA runner device identity does not match target "
+            f"{expected_target}: name={name!r}, capability={capability!r}"
+        )
 
 
 def compare_output(
@@ -721,6 +745,7 @@ def verify_output_determinism(
     device: int,
     allow_other_device: bool,
     first_output_sha256: str,
+    expected_target: str = "sm_121",
 ) -> dict[str, object]:
     """Replay one identical binary input and compare the raw output bytes."""
 
@@ -744,11 +769,14 @@ def verify_output_determinism(
             f"{completed.returncode}: {completed.stderr.strip()}"
         )
     try:
-        json.loads(completed.stdout)
+        device_report = json.loads(completed.stdout)
     except json.JSONDecodeError as exc:
         raise RuntimeError(
             f"determinism replay emitted invalid JSON: {exc}"
         ) from exc
+    if not isinstance(device_report, dict):
+        raise RuntimeError("determinism replay emitted a non-object JSON report")
+    validate_device_identity(device_report, expected_target)
     replay_sha256 = sha256_file(replay_path)
     passed = replay_sha256 == first_output_sha256
     return {
@@ -900,6 +928,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=REPOSITORY_ROOT / "build/dgx-spark/sparkinterval-expression-batch",
     )
     parser.add_argument(
+        "--target",
+        choices=("sm_121", "sm_90"),
+        default="sm_121",
+        help="required device-code and hardware target (default: sm_121)",
+    )
+    parser.add_argument(
         "--count",
         type=int,
         default=10_000,
@@ -924,6 +958,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error("--program-count must be positive")
     if args.device < 0:
         parser.error("--device must be nonnegative")
+    if args.target == "sm_90" and args.allow_other_device:
+        parser.error("--allow-other-device is forbidden for the strict sm_90 path")
     return args
 
 
@@ -943,7 +979,9 @@ def main(argv: list[str] | None = None) -> int:
         work_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        device_artifacts = audit_device_artifacts(executable, work_dir)
+        device_artifacts = audit_device_artifacts(
+            executable, work_dir, args.target
+        )
         host_validation = verify_host_rejections(executable, work_dir)
         curated = curated_programs()
         randomized = randomized_programs(args.program_count, args.seed)
@@ -979,6 +1017,7 @@ def main(argv: list[str] | None = None) -> int:
             device_report = report["device_report"]
             assert isinstance(comparison, dict)
             assert isinstance(device_report, dict)
+            validate_device_identity(device_report, args.target)
             accepted = accepted and bool(comparison["passed"])
             total_rows += int(comparison["rows"])
             total_reference_seconds += float(comparison["reference_comparison_seconds"])
@@ -994,12 +1033,14 @@ def main(argv: list[str] | None = None) -> int:
             args.device,
             args.allow_other_device,
             str(replay_report["output_sha256"]),
+            args.target,
         )
         accepted = accepted and bool(determinism["passed"])
 
         report: dict[str, object] = {
             "schema_version": 1,
             "kind": "sparkinterval_cuda_expression_conformance",
+            "target": args.target,
             "seed": args.seed,
             "requested_random_expression_rows": args.count,
             "randomized_program_count": len(randomized),

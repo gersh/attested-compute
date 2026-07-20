@@ -62,28 +62,146 @@ class PtxGeneratorTest(unittest.TestCase):
             text=True,
         )
 
-    def generate(self, batch: dict, *, canonical: bool = True):
+    def generate(
+        self,
+        batch: dict,
+        *,
+        canonical: bool = True,
+        target: str = "sm_121",
+        include_target: bool = True,
+    ):
         temporary = tempfile.TemporaryDirectory()
         directory = Path(temporary.name)
         input_path = directory / "batch.json"
         output_path = directory / "kernel.ptx"
         encoded = wire.canonical_json_bytes(batch)
         input_path.write_bytes(encoded if canonical else encoded + b"\n")
+        command = [str(MEMORY_RUNNER), str(GENERATOR)]
+        if include_target:
+            command.extend(("--target", target))
+        command.extend(("--input", str(input_path), "--output", str(output_path)))
         completed = subprocess.run(
-            [
-                str(MEMORY_RUNNER),
-                str(GENERATOR),
-                "--input",
-                str(input_path),
-                "--output",
-                str(output_path),
-            ],
+            command,
             cwd=ROOT,
             capture_output=True,
             text=True,
             check=False,
         )
         return temporary, output_path, completed
+
+    def test_target_selection_is_explicit_and_fail_closed(self) -> None:
+        missing_dir, _, missing = self.generate(
+            sample_batch(), include_target=False
+        )
+        invalid_dir, _, invalid = self.generate(
+            sample_batch(), target="sm_999"
+        )
+        self.addCleanup(missing_dir.cleanup)
+        self.addCleanup(invalid_dir.cleanup)
+        self.assertEqual(missing.returncode, 2)
+        self.assertIn("--target {sm_121|sm_90}", missing.stderr)
+        self.assertEqual(invalid.returncode, 2)
+        self.assertIn("unsupported target sm_999", invalid.stderr)
+
+    def test_h100_target_emission_and_audit(self) -> None:
+        temporary, ptx_path, generated = self.generate(
+            sample_batch(), target="sm_90"
+        )
+        self.addCleanup(temporary.cleanup)
+        self.assertEqual(generated.returncode, 0, generated.stderr)
+        text = ptx_path.read_text(encoding="utf-8")
+        self.assertIn(".target sm_90", text)
+        self.assertNotIn(".target sm_121", text)
+        report_path = ptx_path.with_suffix(".audit.json")
+        audited = subprocess.run(
+            [
+                str(AUDIT),
+                str(ptx_path),
+                str(report_path),
+                "--target",
+                "sm_90",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(audited.returncode, 0, audited.stderr)
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertEqual(report["target"], "sm_90")
+        self.assertEqual(report["observed_targets"], ["sm_90"])
+        wrong_target = subprocess.run(
+            [
+                str(AUDIT),
+                str(ptx_path),
+                str(report_path),
+                "--target",
+                "sm_121",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(wrong_target.returncode, 0)
+        self.assertEqual(
+            json.loads(report_path.read_text(encoding="utf-8"))[
+                "observed_targets"
+            ],
+            ["sm_90"],
+        )
+        ptxas = shutil.which("ptxas")
+        nvdisasm = shutil.which("nvdisasm")
+        if ptxas is None or nvdisasm is None:
+            return
+        cubin_path = ptx_path.with_suffix(".sm_90.cubin")
+        assembled = subprocess.run(
+            [ptxas, "-arch=sm_90", str(ptx_path), "-o", str(cubin_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(assembled.returncode, 0, assembled.stderr)
+        disassembled = subprocess.run(
+            [nvdisasm, str(cubin_path)],
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(disassembled.returncode, 0, disassembled.stderr)
+        sass_path = ptx_path.with_suffix(".sm_90.sass.txt")
+        sass_path.write_bytes(disassembled.stdout)
+        # Restore the passing H100 PTX audit after the deliberate cross-target
+        # rejection above, then bind the sm_90 cubin/SASS to it.
+        audited = subprocess.run(
+            [
+                str(AUDIT),
+                str(ptx_path),
+                str(report_path),
+                "--target",
+                "sm_90",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(audited.returncode, 0, audited.stderr)
+        sass_report_path = ptx_path.with_suffix(".sm_90.sass-audit.json")
+        sass_audited = subprocess.run(
+            [
+                str(ROOT / "tools/inspect_generated_sass.py"),
+                str(sass_path),
+                str(report_path),
+                str(sass_report_path),
+                "--cubin",
+                str(cubin_path),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(sass_audited.returncode, 0, sass_audited.stderr)
+        self.assertEqual(
+            json.loads(sass_report_path.read_text(encoding="utf-8"))["target"],
+            "sm_90",
+        )
 
     def test_deterministic_golden_and_ptxas(self) -> None:
         first_dir, first_path, first = self.generate(sample_batch())
@@ -230,6 +348,8 @@ class PtxGeneratorTest(unittest.TestCase):
                 [
                     str(MEMORY_RUNNER),
                     str(GENERATOR),
+                    "--target",
+                    "sm_121",
                     "--input",
                     str(input_path),
                     "--output",

@@ -41,6 +41,7 @@ constexpr std::uint64_t kPositiveInfinity = 0x7ff0000000000000ULL;
 
 struct Options {
   enum class ModuleKind { unset, cubin, ptx_jit } module_kind = ModuleKind::unset;
+  enum class Target { unset, sm_121, sm_90 } target = Target::unset;
   std::filesystem::path module_path;
   std::filesystem::path input_path;
   std::filesystem::path output_path;
@@ -50,6 +51,26 @@ struct Options {
   std::string expected_input_sha256;
   std::string challenge_nonce;
 };
+
+const char* target_token(Options::Target target) {
+  switch (target) {
+    case Options::Target::sm_121: return "sm_121";
+    case Options::Target::sm_90: return "sm_90";
+    case Options::Target::unset: break;
+  }
+  return "unset";
+}
+
+const char* target_device_policy(Options::Target target) {
+  switch (target) {
+    case Options::Target::sm_121:
+      return "exact-NVIDIA-GB10-compute-capability-12.1";
+    case Options::Target::sm_90:
+      return "NVIDIA-H100-name-and-compute-capability-9.0";
+    case Options::Target::unset: break;
+  }
+  return "unset";
+}
 
 struct Interval {
   std::uint64_t lo_bits;
@@ -127,6 +148,18 @@ Options parse_options(int argc, char** argv) {
       options.input_path = std::string(require_value("--input"));
     } else if (argument == "--output") {
       options.output_path = std::string(require_value("--output"));
+    } else if (argument == "--target") {
+      if (options.target != Options::Target::unset) {
+        fail("--target may be supplied only once");
+      }
+      const std::string_view value = require_value("--target");
+      if (value == "sm_121") {
+        options.target = Options::Target::sm_121;
+      } else if (value == "sm_90") {
+        options.target = Options::Target::sm_90;
+      } else {
+        fail("--target must be exactly sm_121 or sm_90");
+      }
     } else if (argument == "--device") {
       const std::string value(require_value("--device"));
       char* end = nullptr;
@@ -176,6 +209,7 @@ Options parse_options(int argc, char** argv) {
                    "--input ROWS.bin --output RESULTS.bin "
                    "--expected-module-sha256 HEX "
                    "--expected-input-sha256 HEX "
+                   "--target {sm_121|sm_90} "
                    "[--challenge-nonce HEX] "
                    "[--device N] [--allow-other-device]\n"
                    "The two expected hashes are mandatory for --cubin and "
@@ -188,9 +222,13 @@ Options parse_options(int argc, char** argv) {
   }
   if (options.module_kind == Options::ModuleKind::unset ||
       options.module_path.empty() || options.input_path.empty() ||
-      options.output_path.empty()) {
+      options.output_path.empty() || options.target == Options::Target::unset) {
     fail("exactly one of --cubin or --ptx, plus --input and --output, is "
-         "required (use --help)");
+         "required; --target must explicitly select sm_121 or sm_90 "
+         "(use --help)");
+  }
+  if (options.target == Options::Target::sm_90 && options.allow_other_device) {
+    fail("--allow-other-device is disabled for target sm_90");
   }
   if (options.module_kind == Options::ModuleKind::cubin &&
       (options.expected_module_sha256.empty() ||
@@ -443,16 +481,31 @@ int main(int argc, char** argv) {
              cuDeviceGetAttribute(&minor,
                                   CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR,
                                   device));
-  if ((major != 12 || minor != 1) && !options.allow_other_device) {
-    fail("expected compute capability 12.1, found " + std::to_string(major) +
-             "." + std::to_string(minor),
-         3);
-  }
-  if (std::string_view(device_name) != "NVIDIA GB10" &&
-      !options.allow_other_device) {
-    fail("expected exact device name NVIDIA GB10, found " +
-             std::string(device_name),
-         3);
+  if (!options.allow_other_device) {
+    if (options.target == Options::Target::sm_121) {
+      if (major != 12 || minor != 1) {
+        fail("target sm_121 requires compute capability 12.1, found " +
+                 std::to_string(major) + "." + std::to_string(minor),
+             3);
+      }
+      if (std::string_view(device_name) != "NVIDIA GB10") {
+        fail("target sm_121 requires exact device name NVIDIA GB10, found " +
+                 std::string(device_name),
+             3);
+      }
+    } else if (options.target == Options::Target::sm_90) {
+      if (major != 9 || minor != 0) {
+        fail("target sm_90 requires compute capability 9.0, found " +
+                 std::to_string(major) + "." + std::to_string(minor),
+             3);
+      }
+      if (std::string_view(device_name).find("H100") ==
+          std::string_view::npos) {
+        fail("target sm_90 requires an NVIDIA H100 device name, found " +
+                 std::string(device_name),
+             3);
+      }
+    }
   }
 
   CUcontext context = nullptr;
@@ -588,6 +641,8 @@ int main(int argc, char** argv) {
           .output_file_sha256 = output_sha256,
           .output_file_size_bytes = output_file_bytes.size(),
           .row_count = input.row_count,
+          .target = target_token(options.target),
+          .target_device_policy = target_device_policy(options.target),
       });
   return 0;
 }

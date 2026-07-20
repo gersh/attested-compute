@@ -25,10 +25,10 @@ mkdir -p "${output_dir}"
   nvidia-smi --query-gpu=name,compute_cap,uuid,driver_version --format=csv,noheader
   if project_commit="$(git -C "${project_root}" rev-parse --verify HEAD 2>/dev/null)"; then
     echo "project_commit=${project_commit}"
+    git -C "${project_root}" status --porcelain
   else
-    echo "project_commit=uncommitted"
+    echo "project_commit=unavailable_source_bundle"
   fi
-  git -C "${project_root}" status --porcelain
   if mathlib_commit="$(git -C "${project_root}/.lake/packages/mathlib" \
       rev-parse --verify HEAD 2>/dev/null)"; then
     echo "mathlib_commit=${mathlib_commit}"

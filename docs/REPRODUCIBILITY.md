@@ -192,7 +192,7 @@ The resulting DGX record remains `local_unattested` and must report
 evidence for the external backend; the Lean theorem itself stops at the typed
 AST and machine model.
 
-## Real-integer zeta tutorial
+## DGX real-integer zeta tutorial
 
 After the native DGX build, create and independently verify a fresh tutorial
 run:
@@ -245,6 +245,99 @@ certificate size. The benchmark exercises bounded chunk retention and the
 linear adjacent-check pattern only. See the
 [high-bound verifier status](algorithms/ZETA_ZERO_VERIFIER.md#host-foundation-microbenchmark).
 
+## H100 native local validation
+
+Run this section only on an `x86_64` host with exactly one visible NVIDIA H100
+at compute capability 9.0. The strict runners require device zero and reject
+the generic cross-device override.
+
+Use directories inside the fresh verification root so native artifacts and
+retained evidence cannot be mixed with an earlier run:
+
+```bash
+H100_BUILD_DIR="${VERIFY_ROOT}/h100-native-build"
+H100_EVIDENCE_DIR="${VERIFY_ROOT}/h100-native-evidence"
+
+H100_BUILD_JOBS=1 ./tools/run_h100_native_validation.sh \
+  --build-dir "${H100_BUILD_DIR}" \
+  --output-dir "${H100_EVIDENCE_DIR}" \
+  --primitive-count 10000 \
+  --expression-count 10000 \
+  --expression-program-count 8 \
+  --device 0 \
+  | tee "${VERIFY_ROOT}/h100-native-validation.log"
+```
+
+The script configures the H100 CMake targets, builds with one job, runs the
+offline fail-closed CLI/`sm_90` image CTest, audits the device code, executes
+the directed-rounding probe, and performs exact primitive and expression
+conformance. The fixed probe cubin is generated at:
+
+```text
+${H100_BUILD_DIR}/h100/h100_rounding_probe.sm_90.cubin
+```
+
+The probe and conformance reports are local diagnostic evidence. They do not
+contain NVIDIA confidential-computing attestation.
+
+### H100 real-integer zeta POC
+
+Use the expression runner from that exact build and retain both receipts:
+
+```bash
+H100_ZETA_DIR="${VERIFY_ROOT}/h100-zeta2-4096"
+
+python3 tools/run_zeta_poc.py run \
+  --target-profile h100_sm90 \
+  --executable "${H100_BUILD_DIR}/sparkinterval-h100-expression-batch" \
+  --work-dir "${H100_ZETA_DIR}" \
+  --s 2 \
+  --terms 4096 \
+  --device 0 \
+  > "${VERIFY_ROOT}/h100-zeta-run-receipt.json"
+python3 tools/run_zeta_poc.py verify "${H100_ZETA_DIR}" \
+  > "${VERIFY_ROOT}/h100-zeta-verification.json"
+```
+
+Require the verification receipt to name `target_profile: h100_sm90`,
+`evidence_class: local_unattested`, and `hardware_evidence: false`. Preserve
+the entire H100 zeta directory; verification needs the executable, exact input
+and both outputs, source snapshot, PTX/SASS and audits, report, and run bundle.
+This is a real-value enclosure for integer `s > 1`, not a zero-isolation,
+high-bound zero-verification, or confidential-computing workflow.
+
+### Lean-generated polynomial `sm_90` conformance
+
+The target-selected generated path is separate from the division-capable zeta
+runner. Build the Lean generator and CUDA driver from the same checkout, then
+retain the generated work directory:
+
+```bash
+./tools/safe_lake_build.py --target sparkinterval-gen
+cmake --build "${H100_BUILD_DIR}" \
+  --target sparkinterval-generated-driver \
+  --parallel 1
+
+H100_GENERATED_DIR="${VERIFY_ROOT}/generated-sm90-conformance"
+mkdir "${H100_GENERATED_DIR}"
+python3 tools/run_generated_ptx_conformance.py \
+  --generator .lake/build/bin/sparkinterval-gen \
+  --driver "${H100_BUILD_DIR}/sparkinterval-generated-driver" \
+  --target sm_90 \
+  --count 4096 \
+  --work-dir "${H100_GENERATED_DIR}" \
+  > "${VERIFY_ROOT}/generated-sm90-summary.json"
+```
+
+Check `report.json` for `accepted: true` and `target: sm_90`. The primary
+generated cubin and SASS are
+`${H100_GENERATED_DIR}/kernel.sm_90.cubin` and
+`${H100_GENERATED_DIR}/kernel.sm_90.sass.txt`; the signed-zero probe has the
+corresponding `signed-zero-kernel.sm_90.*` names. The current closure and
+canonical generated-cubin bundle tools remain DGX/`sm_121` specific, so this
+H100 report is local conformance evidence rather than a closed or CC-attested
+bundle.
+
 ## H100 offline validation
 
 The H100 test scripts each perform their own offline build and then validate
@@ -259,8 +352,8 @@ behavior. Give them fresh roots:
 
 These commands do not query an H100, execute a kernel on one, return an H100
 arithmetic result, or obtain production attestation. Do not run the separate
-build scripts first; the tests invoke them internally. See
-[H100 offline support](H100.md) for the production boundary.
+build scripts first; the tests invoke them internally. See the
+[H100 guide](H100.md) for the native and production boundaries.
 
 ## Preserve and hand off evidence
 
@@ -273,8 +366,9 @@ Also record:
 
 - the clean source commit and dependency revisions (`lean-toolchain`,
   `lake-manifest.json`, and `dependencies/mathlib4.commit`);
-- host, DGX OS, CUDA toolkit, driver, `ptxas`, `cuobjdump`, and `nvdisasm`
-  versions captured by the build workflow;
+- host architecture and OS, GPU identity, CUDA toolkit, driver, `ptxas`,
+  `cuobjdump`, and `nvdisasm` versions captured by the applicable build
+  workflow;
 - the exact commands and non-default arguments;
 - any verifier-supplied challenge and the verifier's persistent replay state;
   and

@@ -545,9 +545,18 @@ theorem buildModule_opcodeTrace (batch : ReferenceBatch) :
   rw [(buildBuilder batch).trace_eq]
   exact buildBuilder_opcodeLog batch
 
-/-- Generate deterministic sm_121 PTX from a canonical reference batch. -/
-def generateFromCanonicalBatch (text : String) : Except String String := do
+/-- Generate deterministic PTX for an explicitly selected deployment target
+from a canonical reference batch.  Parsing and typed-module construction are
+shared; only the reviewed emitter profile differs between targets. -/
+def generateFromCanonicalBatchFor (target : EmitterTarget)
+    (text : String) : Except String String := do
   let batch ← parseCanonicalReferenceBatch text
-  emit (buildModule batch)
+  emitFor target (buildModule batch)
+
+/-- Backwards-compatible library entry point for DGX Spark `sm_121` PTX.
+Command-line callers use `generateFromCanonicalBatchFor` through an explicit
+fail-closed target option. -/
+def generateFromCanonicalBatch (text : String) : Except String String :=
+  generateFromCanonicalBatchFor .sm121 text
 
 end SparkInterval.PTX

@@ -9,6 +9,26 @@ from tools import run_expression_conformance as conformance
 
 
 class ExpressionBatchFormatTests(unittest.TestCase):
+    def test_target_device_identity_is_fail_closed(self) -> None:
+        conformance.validate_device_identity(
+            {"device_name": "NVIDIA GB10", "compute_capability": "12.1"},
+            "sm_121",
+        )
+        conformance.validate_device_identity(
+            {
+                "device_name": "NVIDIA H100 80GB HBM3",
+                "compute_capability": "9.0",
+            },
+            "sm_90",
+        )
+        with self.assertRaisesRegex(RuntimeError, "does not match"):
+            conformance.validate_device_identity(
+                {"device_name": "NVIDIA GB10", "compute_capability": "12.1"},
+                "sm_90",
+            )
+        with self.assertRaisesRegex(RuntimeError, "unsupported"):
+            conformance.validate_device_identity({}, "sm_999")
+
     def test_curated_suite_covers_every_opcode(self) -> None:
         operations = {
             instruction.op

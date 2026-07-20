@@ -159,6 +159,12 @@ rejected. See [Run-bundle format](FORMAT.md#detached-dgx-operator-signatures).
 
 ## Real-integer zeta POC
 
+The same verifier supports the strict `dgx_spark_sm121` and `h100_sm90`
+profiles. In both cases it produces a `local_unattested` bundle and reports
+`hardware_evidence: false`.
+
+### DGX Spark
+
 If `build_dgx_spark.sh` has already completed, the required expression runner
 is available. Otherwise build it with one CMake job:
 
@@ -175,7 +181,10 @@ mkdir -p build/examples
 ZETA_PARENT="$(mktemp -d build/examples/zeta2.XXXXXX)"
 ZETA_DIR="$ZETA_PARENT/run"
 python3 tools/run_zeta_poc.py run \
-  --work-dir "$ZETA_DIR" --s 2 --terms 4096
+  --target-profile dgx_spark_sm121 \
+  --work-dir "$ZETA_DIR" \
+  --s 2 \
+  --terms 4096
 python3 tools/run_zeta_poc.py verify "$ZETA_DIR"
 ```
 
@@ -187,21 +196,123 @@ result is a rigorous enclosure of real `zeta(s)` for supported integer
 `s > 1`; it is not a critical-strip zero or Riemann-hypothesis verifier. See
 the [algorithm definition](algorithms/REAL_ZETA_POC.md).
 
-The generated zeta bundle can be signed by replacing the probe bundle root in
-the preceding signing commands with `$ZETA_DIR`.
+The generated DGX zeta bundle can be signed by replacing the probe bundle root
+in the preceding signing commands with `$ZETA_DIR`.
+
+### H100
+
+First build and validate the native H100 backend on a host with exactly one
+visible H100 at compute capability 9.0:
+
+```bash
+H100_BUILD_JOBS=1 ./tools/run_h100_native_validation.sh
+```
+
+The retained H100 target profile requires an `x86_64` host and device zero.
+Use a fresh destination and select the profile explicitly:
+
+```bash
+mkdir -p build/examples
+H100_ZETA_PARENT="$(mktemp -d build/examples/h100-zeta2.XXXXXX)"
+H100_ZETA_DIR="${H100_ZETA_PARENT}/run"
+python3 tools/run_zeta_poc.py run \
+  --target-profile h100_sm90 \
+  --work-dir "${H100_ZETA_DIR}" \
+  --s 2 \
+  --terms 4096 \
+  --device 0
+python3 tools/run_zeta_poc.py verify "${H100_ZETA_DIR}"
+```
+
+This selects
+`build/h100-native/sparkinterval-h100-expression-batch` by default, requires
+the H100-specific algorithm definition and `sm_90` audit, and rejects a
+mislabelled device or target profile. The detached operator-signature policy
+is intentionally DGX-specific and cannot be applied to this H100 bundle.
+H100 confidential-computing acceptance is a separate, currently fail-closed
+policy; this POC does not collect its evidence.
 
 At the Lean boundary, a future trusted importer would construct one
 `RunCertificate` from the exact verified statement and private evidence
 capability. If `RunCertificate.check` accepts it, the sole project axiom states
 that this particular named run returned its statement's exact result and
 supplies fixed `Runs` semantics for any matching closed registered invocation.
-The current real-zeta tutorial is not registered. For a full result-certificate
-payload, `SignedResultCertificate.outcomeCheck_sound` proves exact payload/hash
-binding, and the upper-bound or sum checkers add independently checked
-mathematics. No current command imports the signed wire bundle into that
-private Lean capability.
+The current real-zeta tutorial is not registered for either target. For a full
+result-certificate payload, `SignedResultCertificate.outcomeCheck_sound`
+proves exact payload/hash binding, and the upper-bound or sum checkers add
+independently checked mathematics. No current command imports a zeta bundle
+into that private Lean capability.
 
-## H100 offline work
+## H100 native local validation
+
+To build the strict native CLIs and check their `sm_90` images and pre-CUDA
+fail-closed behavior without executing on an H100:
+
+```bash
+cmake -S . -B build/h100-native \
+  -DSPARKINTERVAL_BUILD_H100_NATIVE=ON \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build/h100-native \
+  --target sparkinterval-h100-native \
+  --parallel 1
+ctest --test-dir build/h100-native \
+  -R '^h100_native_cli_offline$' \
+  --output-on-failure
+```
+
+The fixed generated probe cubin is
+`build/h100-native/h100/h100_rounding_probe.sm_90.cubin`; the same build
+produces the strict probe, primitive, and expression host runners under
+`build/h100-native/`.
+
+On a host with exactly one visible H100 at compute capability 9.0, run the
+complete local suite instead:
+
+```bash
+H100_BUILD_JOBS=1 ./tools/run_h100_native_validation.sh \
+  --build-dir build/h100-native \
+  --output-dir build/h100-native-validation \
+  --primitive-count 10000 \
+  --expression-count 10000 \
+  --expression-program-count 8 \
+  --device 0
+```
+
+It builds, runs the offline CTest, audits PTX/SASS, executes the rounding
+probe, and performs exact primitive and expression conformance. The retained
+results are `local_unattested`; success is not confidential-computing
+attestation. Use fresh directories for evidence that will be archived. See
+the [H100 guide](H100.md) and
+[reproducibility runbook](REPRODUCIBILITY.md#h100-native-local-validation).
+
+## H100 generated `sm_90` polynomial conformance
+
+The separate typed polynomial path now accepts an explicit `sm_90` target.
+After configuring `build/h100-native` as above, run:
+
+```bash
+./tools/safe_lake_build.py --target sparkinterval-gen
+cmake --build build/h100-native \
+  --target sparkinterval-generated-driver \
+  --parallel 1
+mkdir -p build/examples
+GENERATED_H100_DIR="$(mktemp -d build/examples/generated-sm90.XXXXXX)"
+python3 tools/run_generated_ptx_conformance.py \
+  --generator .lake/build/bin/sparkinterval-gen \
+  --driver build/h100-native/sparkinterval-generated-driver \
+  --target sm_90 \
+  --count 4096 \
+  --work-dir "${GENERATED_H100_DIR}" \
+  > "${GENERATED_H100_DIR}/summary.json"
+```
+
+The harness writes `kernel.sm_90.cubin`, its SASS and audits, exact results,
+and `report.json` into that directory. This is polynomial conformance, not the
+division-capable zeta program. The closure and generated-cubin bundle tools
+remain DGX/`sm_121` specific, so the H100 report is local conformance evidence
+and not a canonical CC-attested bundle.
+
+## H100 offline artifacts
 
 No H100 is needed to build and audit the device artifacts. Choose either the
 artifact-only commands:
@@ -226,8 +337,7 @@ attestation. Production confidential-computing acceptance remains fail-closed.
 Any future H100-positive importer uses the same `RunCertificate` checker and
 same sole execution axiom as DGX; `h100_attested_run_sound` is only a
 historical compatibility theorem, and `accepted_registered_run_sound` is the
-derived closed-registry projection.
-See the [H100 guide](H100.md).
+derived closed-registry projection. See the [H100 guide](H100.md).
 
 ## Interpreting results
 

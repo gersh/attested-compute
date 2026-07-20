@@ -54,6 +54,12 @@ def check_report(report_fixture: Path) -> None:
             raise AssertionError(f"{field} is not the expected JSON integer")
     if report["device_name"] != 'DGX "Spark"\nGPU\\0':
         raise AssertionError("JSON string escaping did not round-trip")
+    if report["target"] != "sm_121":
+        raise AssertionError("generated-driver report lost its selected target")
+    if report["target_device_policy"] != (
+        "exact-NVIDIA-GB10-compute-capability-12.1"
+    ):
+        raise AssertionError("generated-driver report lost its target policy")
 
 
 def check_pre_cuda_rejections(driver: Path) -> None:
@@ -67,7 +73,7 @@ def check_pre_cuda_rejections(driver: Path) -> None:
         rows_bytes = b"SIG64I01" + struct.pack("<IIQ", 1, 1, 1) + row_payload
         cubin.write_bytes(cubin_bytes)
         rows.write_bytes(rows_bytes)
-        base = [
+        base_without_target = [
             "--cubin",
             str(cubin),
             "--input",
@@ -75,6 +81,28 @@ def check_pre_cuda_rejections(driver: Path) -> None:
             "--output",
             str(output),
         ]
+        base = [*base_without_target, "--target", "sm_121"]
+
+        run_rejection(
+            driver,
+            base_without_target,
+            "--target must explicitly select sm_121 or sm_90",
+        )
+        run_rejection(
+            driver,
+            [*base_without_target, "--target", "sm_999"],
+            "--target must be exactly sm_121 or sm_90",
+        )
+        run_rejection(
+            driver,
+            [
+                *base_without_target,
+                "--target",
+                "sm_90",
+                "--allow-other-device",
+            ],
+            "--allow-other-device is disabled for target sm_90",
+        )
 
         run_rejection(
             driver,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""End-to-end conformance for Lean-generated sm_121 polynomial PTX.
+"""End-to-end conformance for target-selected Lean-generated polynomial PTX.
 
 The harness writes one canonical Phase 3 reference batch, invokes the Lean
 generator, audits and assembles the PTX, audits the resulting cubin SASS, runs
@@ -41,6 +41,16 @@ OUTPUT_MAGIC = b"SIG64O01"
 FORMAT_VERSION = 1
 VARIABLE_COUNT = 3
 WHOLE = exact.Binary64Interval(exact.NEGATIVE_INFINITY, exact.POSITIVE_INFINITY)
+TARGET_PROFILES: dict[str, dict[str, str]] = {
+    "sm_121": {
+        "compute_capability": "12.1",
+        "device_policy": "exact-NVIDIA-GB10-compute-capability-12.1",
+    },
+    "sm_90": {
+        "compute_capability": "9.0",
+        "device_policy": "NVIDIA-H100-name-and-compute-capability-9.0",
+    },
+}
 
 
 def endpoint(value: exact.Binary64Interval) -> dict[str, str]:
@@ -267,7 +277,7 @@ def run_checked(command: list[str], cwd: Path = ROOT) -> float:
 
 def run_driver(
     command: list[str], report_path: Path, *, row_count: int,
-    allow_other_device: bool, module_path: Path, input_path: Path,
+    target: str, allow_other_device: bool, module_path: Path, input_path: Path,
     output_path: Path,
 ) -> tuple[float, dict[str, Any]]:
     module_digest = sha256(module_path)
@@ -305,15 +315,27 @@ def run_driver(
         "module_size_bytes": module_path.stat().st_size,
         "input_payload_sha256": input_digest,
         "input_payload_size_bytes": input_size,
+        "target": target,
+        "target_device_policy": TARGET_PROFILES[target]["device_policy"],
     }
     for key, value in expected.items():
         if metadata.get(key) != value:
             raise RuntimeError(f"driver metadata mismatch for {key}")
-    if not allow_other_device and (
-        metadata.get("device_name") != "NVIDIA GB10"
-        or metadata.get("compute_capability") != "12.1"
-    ):
-        raise RuntimeError("driver metadata does not identify the required DGX Spark GPU")
+    if not allow_other_device:
+        if metadata.get("compute_capability") != TARGET_PROFILES[target][
+            "compute_capability"
+        ]:
+            raise RuntimeError(
+                f"driver metadata does not identify the required {target} "
+                "compute capability"
+            )
+        device_name = metadata.get("device_name")
+        if target == "sm_121" and device_name != "NVIDIA GB10":
+            raise RuntimeError("sm_121 execution requires exact device name NVIDIA GB10")
+        if target == "sm_90" and (
+            not isinstance(device_name, str) or "H100" not in device_name
+        ):
+            raise RuntimeError("sm_90 execution requires an NVIDIA H100 device name")
     if metadata.get("output_file_sha256") != sha256(output_path):
         raise RuntimeError("driver metadata is not bound to the exact output file bytes")
     if metadata.get("output_file_size_bytes") != output_path.stat().st_size:
@@ -363,10 +385,18 @@ def main() -> int:
     parser.add_argument("--count", type=int, default=4096)
     parser.add_argument("--seed", type=int, default=0x51A5E005)
     parser.add_argument("--work-dir", type=Path)
+    parser.add_argument(
+        "--target",
+        choices=tuple(TARGET_PROFILES),
+        default="sm_121",
+        help="generated PTX, cubin, audit, and device target (default: sm_121)",
+    )
     parser.add_argument("--allow-other-device", action="store_true")
     args = parser.parse_args()
     if not 1 <= args.count <= wire.MAX_BATCH_ROWS:
         parser.error(f"--count must be in [1, {wire.MAX_BATCH_ROWS}]")
+    if args.target == "sm_90" and args.allow_other_device:
+        parser.error("--allow-other-device is disabled for target sm_90")
     generator = args.generator.resolve()
     driver = args.driver.resolve()
     if not generator.is_file() or not driver.is_file():
@@ -388,9 +418,9 @@ def main() -> int:
     batch_path = work_dir / "batch.json"
     input_path = work_dir / "rows.bin"
     ptx_path = work_dir / "kernel.ptx"
-    cubin_path = work_dir / "kernel.sm_121.cubin"
+    cubin_path = work_dir / f"kernel.{args.target}.cubin"
     audit_path = work_dir / "ptx-audit.json"
-    sass_path = work_dir / "kernel.sm_121.sass.txt"
+    sass_path = work_dir / f"kernel.{args.target}.sass.txt"
     sass_audit_path = work_dir / "sass-audit.json"
     output_path = work_dir / "results.bin"
     driver_report_path = work_dir / "driver-run.json"
@@ -400,7 +430,15 @@ def main() -> int:
     wire.write_canonical_json(batch_path, batch)
     write_driver_input(input_path, values, VARIABLE_COUNT)
     generation_seconds = run_checked(
-        [str(generator), "--input", str(batch_path), "--output", str(ptx_path)]
+        [
+            str(generator),
+            "--target",
+            args.target,
+            "--input",
+            str(batch_path),
+            "--output",
+            str(ptx_path),
+        ]
     )
     audit_seconds = run_checked(
         [
@@ -408,10 +446,12 @@ def main() -> int:
             str(ROOT / "tools/inspect_generated_ptx.py"),
             str(ptx_path),
             str(audit_path),
+            "--target",
+            args.target,
         ]
     )
     assembly_seconds = run_checked(
-        [ptxas, "-arch=sm_121", str(ptx_path), "-o", str(cubin_path)]
+        [ptxas, f"-arch={args.target}", str(ptx_path), "-o", str(cubin_path)]
     )
     sass_extraction_seconds, sass_audit_seconds = extract_and_audit_sass(
         cubin_path, audit_path, sass_path, sass_audit_path
@@ -424,6 +464,8 @@ def main() -> int:
         str(input_path),
         "--output",
         str(output_path),
+        "--target",
+        args.target,
     ]
     if args.allow_other_device:
         driver_command.append("--allow-other-device")
@@ -431,6 +473,7 @@ def main() -> int:
         driver_command,
         driver_report_path,
         row_count=len(values),
+        target=args.target,
         allow_other_device=args.allow_other_device,
         module_path=cubin_path,
         input_path=input_path,
@@ -497,9 +540,9 @@ def main() -> int:
     zero_batch_path = work_dir / "signed-zero-batch.json"
     zero_input_path = work_dir / "signed-zero-rows.bin"
     zero_ptx_path = work_dir / "signed-zero-kernel.ptx"
-    zero_cubin_path = work_dir / "signed-zero-kernel.sm_121.cubin"
+    zero_cubin_path = work_dir / f"signed-zero-kernel.{args.target}.cubin"
     zero_audit_path = work_dir / "signed-zero-ptx-audit.json"
-    zero_sass_path = work_dir / "signed-zero-kernel.sm_121.sass.txt"
+    zero_sass_path = work_dir / f"signed-zero-kernel.{args.target}.sass.txt"
     zero_sass_audit_path = work_dir / "signed-zero-sass-audit.json"
     zero_output_path = work_dir / "signed-zero-results.bin"
     zero_driver_report_path = work_dir / "signed-zero-driver-run.json"
@@ -508,6 +551,8 @@ def main() -> int:
     signed_zero_generation_seconds = run_checked(
         [
             str(generator),
+            "--target",
+            args.target,
             "--input",
             str(zero_batch_path),
             "--output",
@@ -520,12 +565,14 @@ def main() -> int:
             str(ROOT / "tools/inspect_generated_ptx.py"),
             str(zero_ptx_path),
             str(zero_audit_path),
+            "--target",
+            args.target,
         ]
     )
     signed_zero_assembly_seconds = run_checked(
         [
             ptxas,
-            "-arch=sm_121",
+            f"-arch={args.target}",
             str(zero_ptx_path),
             "-o",
             str(zero_cubin_path),
@@ -548,6 +595,8 @@ def main() -> int:
         str(zero_input_path),
         "--output",
         str(zero_output_path),
+        "--target",
+        args.target,
     ]
     if args.allow_other_device:
         zero_driver_command.append("--allow-other-device")
@@ -555,6 +604,7 @@ def main() -> int:
         zero_driver_command,
         zero_driver_report_path,
         row_count=len(zero_values),
+        target=args.target,
         allow_other_device=args.allow_other_device,
         module_path=zero_cubin_path,
         input_path=zero_input_path,
@@ -583,10 +633,11 @@ def main() -> int:
         "schema_version": 1,
         "kind": "sparkinterval_generated_ptx_conformance",
         "accepted": not mismatches,
-        "target": "sm_121",
+        "target": args.target,
         "execution_module": {
             "kind": "offline_ptxas_cubin",
             "development_ptx_jit_used": False,
+            "target": args.target,
             "cubin_sha256": sha256(cubin_path),
             "sass_audit_passed_before_execution": True,
         },

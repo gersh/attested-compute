@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bind generated polynomial PTX directed sites to the assembled sm_121 SASS."""
+"""Bind target-selected generated polynomial PTX sites to assembled SASS."""
 
 from __future__ import annotations
 
@@ -56,6 +56,8 @@ def main() -> int:
     sass_text = sass_raw.decode("utf-8", errors="strict")
     ptx_audit_raw = args.ptx_audit.read_bytes()
     ptx_audit = json.loads(ptx_audit_raw)
+    expected_target = ptx_audit.get("target")
+    target_binding_valid = expected_target in {"sm_121", "sm_90"}
     ptx_counts = ptx_audit.get("instruction_counts", {})
     raw_directed_from_ptx = {
         "DADD.RM": ptx_counts.get("add.rm.f64", 0)
@@ -193,29 +195,32 @@ def main() -> int:
             and mnemonic not in expected_memory
         }
     )
-    reconvergence = {
-        "BSSY.RECONVERGENT": counts["BSSY.RECONVERGENT"],
-        "BSYNC.RECONVERGENT": counts["BSYNC.RECONVERGENT"],
-    }
+    reconvergence_names = (
+        ("BSSY", "BSYNC")
+        if expected_target == "sm_90"
+        else ("BSSY.RECONVERGENT", "BSYNC.RECONVERGENT")
+    )
+    reconvergence = {name: counts[name] for name in reconvergence_names}
     unexpected_reconvergence = sorted(
         {
             mnemonic
             for mnemonic in mnemonics
             if mnemonic.startswith(("BSSY", "BSYNC"))
-            and mnemonic not in reconvergence
+            and mnemonic not in reconvergence_names
         }
     )
     reconvergence_balanced = (
-        reconvergence["BSSY.RECONVERGENT"]
-        == reconvergence["BSYNC.RECONVERGENT"]
+        reconvergence[reconvergence_names[0]]
+        == reconvergence[reconvergence_names[1]]
     )
     targets = sorted(set(TARGET.findall(sass_text)))
     functions = sorted(set(FUNCTION.findall(sass_text)))
     passed = (
         ptx_audit.get("passed") is True
+        and target_binding_valid
         and lowering_model_valid
         and bool(mnemonics)
-        and targets == ["sm_121"]
+        and targets == [expected_target]
         and functions == ["sparkinterval_generated"]
         and not incorrect
         and not forbidden
@@ -234,6 +239,8 @@ def main() -> int:
         "sass_sha256": digest(sass_raw),
         "ptx_audit_sha256": digest(ptx_audit_raw),
         "ptx_sha256": ptx_audit.get("input_sha256"),
+        "target": expected_target,
+        "target_binding_valid": target_binding_valid,
         "targets": targets,
         "functions": functions,
         "instruction_count": len(mnemonics),
@@ -275,7 +282,7 @@ def main() -> int:
         "limitations": [
             "This is a lexical PTX-to-SASS site-count binding, not a semantics proof.",
             "It binds the current ptxas artifact and rejects fused or approximate lowering.",
-            "Balanced BSSY/BSYNC.RECONVERGENT are compiler warp control-flow machinery, not an application memory barrier.",
+            "Balanced target-specific BSSY/BSYNC controls are compiler warp control-flow machinery, not an application memory barrier.",
         ],
     }
     if args.cubin is not None:

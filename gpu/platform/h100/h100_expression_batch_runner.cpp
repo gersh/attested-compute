@@ -1,16 +1,12 @@
-// H100 device-policy wrapper around the target-neutral interval-batch runner.
-//
-// The included runner currently defaults to DGX Spark / GB10.  We perform a
-// stricter H100 check first and then pass its explicit cross-device switch only
-// within this translation unit.  This is a runtime device-selection guard, not
-// hardware attestation.
+// Strict H100 device-policy wrapper around the target-neutral postfix interval
+// runner. This guard establishes runtime device selection only; it is not
+// hardware attestation or a PTX-to-hardware refinement proof.
 
-#define main sparkinterval_target_neutral_interval_batch_main
-#include "../../src/interval_batch_runner.cpp"
+#define main sparkinterval_target_neutral_expression_batch_main
+#include "../../src/expression_batch_runner.cpp"
 #undef main
 
 #include <iostream>
-#include <string_view>
 #include <vector>
 
 #include "h100_runtime_policy.h"
@@ -18,8 +14,8 @@
 namespace {
 
 void usage() {
-  std::cout << "usage: sparkinterval-h100-interval-batch --op OP "
-               "--input FILE --output FILE [--device N]\n"
+  std::cout << "usage: sparkinterval-h100-expression-batch --input FILE "
+               "--output FILE [--device N]\n"
                "Requires exactly one visible NVIDIA H100 (compute capability "
                "9.0); cross-device overrides are disabled.\n";
 }
@@ -36,12 +32,12 @@ int main(int argc, char** argv) {
 
   std::vector<char*> forwarded;
   forwarded.reserve(static_cast<std::size_t>(argc) + 2);
-  for (int i = 0; i < argc; ++i) {
-    forwarded.push_back(argv[i]);
+  for (int index = 0; index < argc; ++index) {
+    forwarded.push_back(argv[index]);
   }
   char internal_override[] = "--allow-other-device";
   forwarded.push_back(internal_override);
   forwarded.push_back(nullptr);
-  return sparkinterval_target_neutral_interval_batch_main(
+  return sparkinterval_target_neutral_expression_batch_main(
       argc + 1, forwarded.data());
 }

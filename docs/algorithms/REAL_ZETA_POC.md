@@ -1,15 +1,21 @@
 # Real-integer zeta tutorial
 
 SparkInterval can compute a rigorous enclosure of the real value `ζ(s)` for
-an integer `2 ≤ s ≤ 64`. This is a small end-to-end example of the DGX Spark
-interval runner and independent verifier. It does not locate, count, or verify
-zeros of the Riemann zeta function.
+an integer `2 ≤ s ≤ 64`. This is a small end-to-end example of the strict DGX
+Spark or H100 interval runner and independent verifier. It does not locate,
+count, or verify zeros of the Riemann zeta function.
 
-The exact algorithm used in a run is
-[`sparkinterval.real_zeta_integer_dirichlet_integral_tail.v1`](../../specifications/REAL_ZETA_POC.md).
-That versioned file is immutable because its exact bytes are SHA-256-bound
-into every report and run bundle. This tutorial can evolve without changing
-the algorithm identity.
+Each target has a versioned, SHA-256-bound definition:
+
+- DGX Spark:
+  [`sparkinterval.real_zeta_integer_dirichlet_integral_tail.v1`](../../specifications/REAL_ZETA_POC.md);
+- H100:
+  [`sparkinterval.real_zeta_integer_dirichlet_integral_tail.h100.v1`](../../specifications/REAL_ZETA_POC_H100.md).
+
+The target-specific definition, target profile, executable, PTX/SASS, inputs,
+both outputs, and reports are retained in the bundle. The two definitions use
+the same mathematics but deliberately have distinct identities and strict
+hardware policies.
 
 ## Calculation
 
@@ -40,6 +46,7 @@ requires a new work directory and refuses to overwrite an existing one:
 
 ```bash
 python3 tools/run_zeta_poc.py run \
+  --target-profile dgx_spark_sm121 \
   --work-dir build/examples/zeta2-4096 \
   --s 2 \
   --terms 4096
@@ -50,21 +57,55 @@ Choose a different unused directory for another run, for example:
 
 ```bash
 python3 tools/run_zeta_poc.py run \
+  --target-profile dgx_spark_sm121 \
   --work-dir build/examples/zeta3-2048 \
   --s 3 \
   --terms 2048
 python3 tools/run_zeta_poc.py verify build/examples/zeta3-2048
 ```
 
-The output is a canonical `local_unattested` bundle. It intentionally reports
-`hardware_evidence: false`. A verifier-provided 32-byte nonce may be supplied
-with `--nonce`; otherwise the runner creates a local nonce.
+## Run on H100
+
+The H100 target requires an `x86_64` host and exactly one visible NVIDIA H100
+at compute capability 9.0. Build and exercise the native backend first:
+
+```bash
+H100_BUILD_JOBS=1 ./tools/run_h100_native_validation.sh
+```
+
+Then run the POC in a different unused directory with the target selected
+explicitly:
+
+```bash
+mkdir -p build/examples
+H100_ZETA_PARENT="$(mktemp -d build/examples/h100-zeta2.XXXXXX)"
+H100_ZETA_DIR="${H100_ZETA_PARENT}/run"
+python3 tools/run_zeta_poc.py run \
+  --target-profile h100_sm90 \
+  --work-dir "${H100_ZETA_DIR}" \
+  --s 2 \
+  --terms 4096 \
+  --device 0
+python3 tools/run_zeta_poc.py verify "${H100_ZETA_DIR}"
+```
+
+The default executable for this profile is
+`build/h100-native/sparkinterval-h100-expression-batch`. If it was built into
+another directory, pass its path with `--executable`.
+
+Both target routes output canonical `local_unattested` bundles and
+intentionally report `hardware_evidence: false`. A verifier-provided 32-byte
+nonce may be supplied with `--nonce`; otherwise the runner creates a local
+nonce, which provides uniqueness but not an external freshness claim.
 
 ## What verification checks
 
 `verify` does not trust the report's `accepted` field. It:
 
 - verifies every artifact path, size, and SHA-256 binding;
+- selects the target from the retained bundle and requires the corresponding
+  host architecture, device identity, compute capability, target profile, and
+  algorithm definition;
 - reparses the exact postfix program, input rows, and both GPU outputs;
 - requires the replay output to be byte-identical;
 - recomputes every term with exact rational binary64 arithmetic;
@@ -93,4 +134,10 @@ tail to Mathlib's `riemannZeta`.
 Verifying zeros up to a height would additionally require complex interval
 arithmetic, certified transcendental functions and argument reduction,
 adaptive precision, zero isolation, and a complete zero-count argument such
-as a proved Turing-method layer. None of those claims is made here.
+as a proved Turing-method layer. This tutorial is therefore not high-bound
+zeta-zero verification.
+
+For H100, a device-name/capability check, target-specific device image,
+repeated execution, and local artifact bundle still do not constitute NVIDIA
+confidential-computing attestation. This workflow does not collect or verify
+CC evidence, and it cannot satisfy the production H100 policy.

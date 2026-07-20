@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -29,13 +30,13 @@ FIXED_END = "2026-07-19T12:00:01Z"
 FIXED_NONCE = "ab" * 32
 
 
-def valid_expression_ptx() -> bytes:
+def valid_expression_ptx(target: str = "sm_121") -> bytes:
     instructions: list[str] = []
     for name, count in zeta.inspect_expression_ptx.EXPECTED_DIRECTED_COUNTS.items():
         instructions.extend(f"  {name} %fd1, %fd2, %fd3;" for _ in range(count))
     return (
         ".version 9.0\n"
-        ".target sm_121\n"
+        f".target {target}\n"
         ".address_size 64\n"
         ".entry expression_batch_kernel()\n"
         "{\n"
@@ -45,7 +46,12 @@ def valid_expression_ptx() -> bytes:
     ).encode("ascii")
 
 
-def write_runner_report(path: Path, *, terms: int) -> None:
+def write_runner_report(
+    path: Path,
+    *,
+    terms: int,
+    target: zeta.TargetConfig = zeta.DGX_TARGET,
+) -> None:
     value = {
         "schema_version": 1,
         "kind": "sparkinterval_cuda_expression_batch",
@@ -57,8 +63,12 @@ def write_runner_report(path: Path, *, terms: int) -> None:
         "zero_divisor_row_count": 0,
         "nonfinite_widening_row_count": 0,
         "all_rows_valid": True,
-        "device_name": "NVIDIA GB10",
-        "compute_capability": "12.1",
+        "device_name": (
+            target.device_name_exact
+            if target.device_name_exact is not None
+            else "NVIDIA H100 80GB HBM3"
+        ),
+        "compute_capability": target.compute_capability,
         "cuda_driver_api_version": 13000,
         "cuda_runtime_version": 13000,
         "kernel_milliseconds": 0.125,
@@ -99,15 +109,20 @@ def contains_float(value: object) -> bool:
 class OfflineFixture:
     """Build a semantically complete retained run without invoking CUDA."""
 
-    def __init__(self, root: Path, *, s: int, terms: int) -> None:
+    def __init__(
+        self,
+        root: Path,
+        *,
+        s: int,
+        terms: int,
+        target: zeta.TargetConfig = zeta.DGX_TARGET,
+    ) -> None:
         self.root = root
         self.s = s
         self.terms = terms
+        self.target = target
         root.mkdir()
-        for role, source in zeta.STAGED_SOURCES.items():
-            destination = root / zeta.STAGED_PATHS[role]
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, destination)
+        zeta._stage_sources(root, target)
 
         executable = root / zeta.STAGED_PATHS["host_executable"]
         executable.parent.mkdir(parents=True, exist_ok=True)
@@ -119,16 +134,16 @@ class OfflineFixture:
 
         ptx = root / zeta.STAGED_PATHS["gpu_ptx"]
         sass = root / zeta.STAGED_PATHS["gpu_sass"]
-        ptx.write_bytes(valid_expression_ptx())
+        ptx.write_bytes(valid_expression_ptx(target.ptx_target))
         sass.write_bytes(
-            b".target sm_121\nFunction : expression_batch_kernel\n"
-            b"/*0000*/ DADD.RM R2, R4, R6 ; /* encoding */\n"
-            b"/*0010*/ EXIT ; /* encoding */\n"
+            f".target {target.ptx_target}\nFunction : expression_batch_kernel\n".encode()
+            + b"/*0000*/ DADD.RM R2, R4, R6 ; /* encoding */\n"
+            + b"/*0010*/ EXIT ; /* encoding */\n"
         )
         zeta._write_canonical(
             root / zeta.STAGED_PATHS["ptx_audit"],
             zeta.inspect_expression_ptx.audit_ptx(
-                ptx.read_bytes(), expected_target="sm_121"
+                ptx.read_bytes(), expected_target=target.ptx_target
             ),
         )
         sass_audit_path = root / zeta.STAGED_PATHS["sass_audit"]
@@ -153,10 +168,12 @@ class OfflineFixture:
         write_exact_output(root / zeta.OUTPUT_NAME, s=s, terms=terms)
         shutil.copy2(root / zeta.OUTPUT_NAME, root / zeta.REPLAY_OUTPUT_NAME)
         write_runner_report(
-            root / zeta.STAGED_PATHS["runner_report"], terms=terms
+            root / zeta.STAGED_PATHS["runner_report"], terms=terms, target=target
         )
         write_runner_report(
-            root / zeta.STAGED_PATHS["replay_runner_report"], terms=terms
+            root / zeta.STAGED_PATHS["replay_runner_report"],
+            terms=terms,
+            target=target,
         )
         self.rebuild_report()
         self.rebuild_bundle()
@@ -167,18 +184,26 @@ class OfflineFixture:
         )
         zeta._write_canonical(
             self.root / zeta.REPORT_NAME,
-            zeta.make_report(self.root, self.s, self.terms, derived),
+            zeta.make_report(
+                self.root, self.s, self.terms, derived, self.target
+            ),
         )
 
     def rebuild_bundle(self) -> None:
-        zeta.create_local_bundle(
-            self.root,
-            s=self.s,
-            terms=self.terms,
-            nonce=FIXED_NONCE,
-            start_time_utc=FIXED_START,
-            end_time_utc=FIXED_END,
-        )
+        with mock.patch.object(
+            zeta.platform,
+            "machine",
+            return_value=self.target.host_architecture,
+        ):
+            zeta.create_local_bundle(
+                self.root,
+                target=self.target,
+                s=self.s,
+                terms=self.terms,
+                nonce=FIXED_NONCE,
+                start_time_utc=FIXED_START,
+                end_time_utc=FIXED_END,
+            )
 
 
 class ZetaPocTests(unittest.TestCase):
@@ -197,6 +222,16 @@ class ZetaPocTests(unittest.TestCase):
         self.assertEqual(
             hashlib.sha256(zeta.ALGORITHM_DEFINITION.read_bytes()).hexdigest(),
             "9a3bd6af5548d2c8c882f30787e4fe1170babca78143a24d40523fbf72ec6cb9",
+        )
+
+    def test_h100_v1_algorithm_definition_is_immutable_and_pinned(self) -> None:
+        self.assertEqual(
+            zeta.H100_ALGORITHM_DEFINITION,
+            REPOSITORY_ROOT / "specifications/REAL_ZETA_POC_H100.md",
+        )
+        self.assertEqual(
+            hashlib.sha256(zeta.H100_ALGORITHM_DEFINITION.read_bytes()).hexdigest(),
+            "f94df65743838fefdc7f6f004168f59379bd760df0efa63daac59540ab21c400",
         )
 
     def test_integral_tail_formula_for_zeta_two(self) -> None:
@@ -237,6 +272,37 @@ class ZetaPocTests(unittest.TestCase):
             report["tail"]["upper_rational"],
             {"numerator": "1", "denominator": str(2 * 24**2)},
         )
+
+    def test_exact_synthetic_h100_run_is_target_bound(self) -> None:
+        fixture = OfflineFixture(
+            self.base / "h100-zeta2",
+            s=2,
+            terms=32,
+            target=zeta.H100_TARGET,
+        )
+        receipt = zeta.verify_work_dir(fixture.root)
+        self.assertTrue(receipt["accepted"])
+        self.assertEqual(receipt["target_profile"], "h100_sm90")
+        report = bundle_format.load_canonical_json(fixture.root / zeta.REPORT_NAME)
+        self.assertEqual(
+            report["algorithm"]["algorithm_id"], zeta.H100_ALGORITHM_ID
+        )
+        self.assertEqual(report["device"]["compute_capability"], "9.0")
+        self.assertIn("H100", report["device"]["device_name"])
+
+    def test_h100_device_mislabel_is_rejected(self) -> None:
+        fixture = OfflineFixture(
+            self.base / "h100-device-tamper",
+            s=2,
+            terms=12,
+            target=zeta.H100_TARGET,
+        )
+        runner = fixture.root / zeta.STAGED_PATHS["runner_report"]
+        value = json.loads(runner.read_text(encoding="utf-8"))
+        value["device_name"] = "NVIDIA GB10"
+        runner.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
+        with self.assertRaisesRegex(zeta.ZetaPocError, "device_name"):
+            fixture.rebuild_report()
 
     def test_semantic_gpu_output_tamper_rejected_after_rebinding_bundle(self) -> None:
         fixture = OfflineFixture(self.base / "output-tamper", s=2, terms=12)

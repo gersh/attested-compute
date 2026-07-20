@@ -390,6 +390,8 @@ def _validate_hardware(
         "cuda_driver_version",
         "allow_other_device",
         "row_count",
+        "target",
+        "target_device_policy",
     }
     if set(hardware) != expected_keys:
         raise _error(f"{what} has unexpected or missing fields")
@@ -399,6 +401,12 @@ def _validate_hardware(
         raise _error(f"{what} did not execute the offline cubin")
     if hardware["allow_other_device"] is not False:
         raise _error(f"{what} used the development device override")
+    if (
+        hardware["target"] != "sm_121"
+        or hardware["target_device_policy"]
+        != "exact-NVIDIA-GB10-compute-capability-12.1"
+    ):
+        raise _error(f"{what} is not bound to the strict sm_121 device policy")
     if (
         hardware["device_count"] != 1
         or hardware["device_index"] != 0
@@ -466,6 +474,8 @@ def _same_device(left: dict[str, Any], right: dict[str, Any]) -> bool:
         "device_uuid",
         "compute_capability",
         "cuda_driver_version",
+        "target",
+        "target_device_policy",
     )
     return all(left.get(key) == right.get(key) for key in identity_fields)
 
@@ -518,6 +528,8 @@ def _validate_sass_audit(
     if (
         value.get("passed") is not True
         or value.get("schema_version") != 1
+        or value.get("target") != "sm_121"
+        or value.get("target_binding_valid") is not True
         or value.get("targets") != ["sm_121"]
         or value.get("ptx_sha256") != _sha256(ptx)
         or value.get("cubin_sha256") != _sha256(cubin)
@@ -679,6 +691,7 @@ def validate_retained_run(
     execution_module = _dict(report.get("execution_module"), "execution_module")
     if (
         execution_module.get("kind") != "offline_ptxas_cubin"
+        or execution_module.get("target") != "sm_121"
         or execution_module.get("development_ptx_jit_used") is not False
         or execution_module.get("sass_audit_passed_before_execution") is not True
         or execution_module.get("cubin_sha256") != _sha256(files["cubin"])
@@ -987,6 +1000,8 @@ def package_retained_run(
             "cuda_driver_version": run.hardware["cuda_driver_version"],
             "module_kind": run.hardware["module_kind"],
             "allow_other_device": False,
+            "target": run.hardware["target"],
+            "target_device_policy": run.hardware["target_device_policy"],
             "executed_cubin_sha256": run.digests[run.files["cubin"]],
             "source_ptx_sha256": run.digests[run.files["ptx"]],
             "ptxas_sha256": toolchain["ptxas"]["sha256"],

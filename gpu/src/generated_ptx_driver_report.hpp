@@ -24,6 +24,8 @@ struct GeneratedDriverReport {
   std::string_view output_file_sha256;
   std::size_t output_file_size_bytes;
   std::size_t row_count;
+  std::string_view target;
+  std::string_view target_device_policy;
 };
 
 inline void write_json_string(std::ostream& output, std::string_view value) {
@@ -81,7 +83,11 @@ inline void write_generated_driver_report(
   write_json_string(output, report.output_file_sha256);
   output << ",\"output_file_size_bytes\":"
          << report.output_file_size_bytes << ",\"row_count\":"
-         << report.row_count << ",\"schema_version\":1}\n";
+         << report.row_count << ",\"schema_version\":1,\"target\":";
+  write_json_string(output, report.target);
+  output << ",\"target_device_policy\":";
+  write_json_string(output, report.target_device_policy);
+  output << "}\n";
 }
 
 }  // namespace sparkinterval

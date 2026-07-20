@@ -425,8 +425,12 @@ def main() -> int:
     report = json.loads(report_path.read_text(encoding="utf-8"))
     if report.get("accepted") is not True:
         raise ValueError("base conformance report is not accepted")
+    if report.get("target") != "sm_121":
+        raise ValueError("DGX closure requires an explicit sm_121 base target")
     if report.get("execution_module", {}).get("kind") != "offline_ptxas_cubin":
         raise ValueError("base report did not execute the offline-audited cubin")
+    if report["execution_module"].get("target") != "sm_121":
+        raise ValueError("base execution module is not bound to sm_121")
     if report["execution_module"].get("cubin_sha256") != sha256(cubin_path):
         raise ValueError("base execution-module binding does not match retained cubin")
     hardware = report.get("hardware_execution", {})
@@ -435,6 +439,9 @@ def main() -> int:
     )
     if (
         hardware.get("module_kind") != "offline_cubin"
+        or hardware.get("target") != "sm_121"
+        or hardware.get("target_device_policy")
+        != "exact-NVIDIA-GB10-compute-capability-12.1"
         or hardware.get("allow_other_device") != args.allow_other_device
         or hardware.get("byte_binding_schema_version") != 1
         or hardware.get("module_sha256") != sha256(cubin_path)
@@ -461,6 +468,9 @@ def main() -> int:
     )
     if (
         zero_hardware.get("module_kind") != "offline_cubin"
+        or zero_hardware.get("target") != "sm_121"
+        or zero_hardware.get("target_device_policy")
+        != "exact-NVIDIA-GB10-compute-capability-12.1"
         or zero_hardware.get("allow_other_device") != args.allow_other_device
         or zero_hardware.get("row_count") != 9
         or zero_hardware.get("byte_binding_schema_version") != 1
@@ -537,6 +547,7 @@ def main() -> int:
     retained_ptx_audit = json.loads(ptx_audit_path.read_text(encoding="utf-8"))
     if (
         retained_ptx_audit.get("passed") is not True
+        or retained_ptx_audit.get("target") != "sm_121"
         or retained_ptx_audit.get("input_sha256") != sha256(ptx_path)
     ):
         raise ValueError("retained PTX audit is not bound to retained PTX")
@@ -564,6 +575,7 @@ def main() -> int:
     zero_sass_audit = json.loads(zero_sass_audit_path.read_text(encoding="utf-8"))
     if (
         zero_ptx_audit.get("passed") is not True
+        or zero_ptx_audit.get("target") != "sm_121"
         or zero_ptx_audit.get("input_sha256") != sha256(zero_ptx)
         or zero_sass_audit.get("passed") is not True
         or zero_sass_audit.get("ptx_sha256") != sha256(zero_ptx)
@@ -589,6 +601,8 @@ def main() -> int:
     generation_replay_seconds = run(
         [
             str(args.generator.resolve()),
+            "--target",
+            "sm_121",
             "--input",
             str(batch_path),
             "--output",
@@ -603,6 +617,8 @@ def main() -> int:
             str(ROOT / "tools/inspect_generated_ptx.py"),
             str(replay_ptx),
             str(closure_ptx_audit),
+            "--target",
+            "sm_121",
         ]
     )
     ptxas = shutil.which("ptxas")
@@ -618,6 +634,8 @@ def main() -> int:
     zero_generation_replay_seconds = run(
         [
             str(args.generator.resolve()),
+            "--target",
+            "sm_121",
             "--input",
             str(zero_batch_path),
             "--output",
@@ -634,6 +652,8 @@ def main() -> int:
             str(ROOT / "tools/inspect_generated_ptx.py"),
             str(zero_replay_ptx),
             str(zero_closure_ptx_audit),
+            "--target",
+            "sm_121",
         ]
     )
     zero_reassembled_cubin = work / "signed-zero-kernel.reassembled.sm_121.cubin"
@@ -659,6 +679,8 @@ def main() -> int:
         str(rows_path),
         "--output",
         str(replay_results),
+        "--target",
+        "sm_121",
         "--expected-module-sha256",
         sha256(cubin_path),
         "--expected-input-sha256",
@@ -681,6 +703,8 @@ def main() -> int:
         str(zero_rows_path),
         "--output",
         str(zero_replay_results),
+        "--target",
+        "sm_121",
         "--expected-module-sha256",
         sha256(zero_cubin),
         "--expected-input-sha256",

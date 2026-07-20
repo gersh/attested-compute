@@ -114,6 +114,8 @@ class GeneratedCubinBundleTests(unittest.TestCase):
             "cuda_driver_version": 13000,
             "allow_other_device": False,
             "row_count": row_count,
+            "target": "sm_121",
+            "target_device_policy": "exact-NVIDIA-GB10-compute-capability-12.1",
         }
 
     @staticmethod
@@ -198,6 +200,8 @@ class GeneratedCubinBundleTests(unittest.TestCase):
             {
                 "schema_version": 1,
                 "passed": True,
+                "target": "sm_121",
+                "target_binding_valid": True,
                 "targets": ["sm_121"],
                 "ptx_sha256": sha256(ptx),
                 "cubin_sha256": sha256(cubin),
@@ -410,6 +414,7 @@ class GeneratedCubinBundleTests(unittest.TestCase):
             "execution_module": {
                 "kind": "offline_ptxas_cubin",
                 "development_ptx_jit_used": False,
+                "target": "sm_121",
                 "cubin_sha256": sha256(main_cubin),
                 "sass_audit_passed_before_execution": True,
             },

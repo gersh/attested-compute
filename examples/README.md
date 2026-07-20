@@ -79,12 +79,44 @@ construct production evidence, connect that machine to GPU opcodes, prove a
 universal backend refinement, or prove that all future executions are
 deterministic.
 
+## H100 native and real-zeta POC
+
+On an `x86_64` host with exactly one visible NVIDIA H100 at compute capability
+9.0, build, audit, and exercise the strict native runners:
+
+```bash
+H100_BUILD_JOBS=1 ./tools/run_h100_native_validation.sh
+```
+
+Then create and verify a fresh H100-targeted real-zeta tutorial bundle:
+
+```bash
+mkdir -p build/examples
+H100_ZETA_PARENT="$(mktemp -d build/examples/h100-zeta2.XXXXXX)"
+H100_ZETA_DIR="${H100_ZETA_PARENT}/run"
+python3 tools/run_zeta_poc.py run \
+  --target-profile h100_sm90 \
+  --work-dir "${H100_ZETA_DIR}" \
+  --s 2 \
+  --terms 4096 \
+  --device 0
+python3 tools/run_zeta_poc.py verify "${H100_ZETA_DIR}"
+```
+
+The bundle is `local_unattested` and reports `hardware_evidence: false`. It
+encloses the positive real value `zeta(2)`; it is not H100
+confidential-computing attestation or verification of zeta zeros to any
+height. See the [H100 guide](../docs/H100.md) for offline build checks and the
+separate Lean-generated polynomial `sm_90` conformance command.
+
 ## GPU workflows
 
 - [DGX local execution and operator signing](../docs/USING.md#dgx-spark-local-bundle-and-operator-signature)
 - [Real-integer zeta POC](../docs/USING.md#real-integer-zeta-poc)
-- [H100 offline work](../docs/USING.md#h100-offline-work)
+- [H100 native local validation](../docs/USING.md#h100-native-local-validation)
+- [H100 generated `sm_90` polynomial conformance](../docs/USING.md#h100-generated-sm_90-polynomial-conformance)
+- [H100 offline artifacts](../docs/USING.md#h100-offline-artifacts)
 
-The DGX signature is operator provenance, not hardware evidence. The zeta POC
-encloses positive real values and does not verify critical-strip zeros. The
-H100 workflow builds device artifacts but does not execute or attest a run.
+The DGX signature is operator provenance, not hardware evidence. Both zeta
+targets enclose positive real values and do not verify critical-strip zeros.
+H100 native or generated-code execution still does not attest a run.
