@@ -50,6 +50,17 @@ wire-to-Lean importer is implemented.
 
 ## Full Lean result certificate
 
+This workflow produces a Lean source module, not merely a command-line
+acceptance result. The module materializes the certificate's formula, inputs,
+and interval results and exports theorems that another Lean package can import.
+The original CPU/GPU producer calculation need not run in the consuming
+project. A clean build still checks the certificate module, while later imports
+of its current `.olean` reuse the elaborated theorem environment.
+
+For the producer/publisher/consumer model, an import example, and comparison
+with `decide`, `native_decide`, and other proof-certificate systems, see
+[Using computation certificates from Lean](LEAN_INTEGRATION.md).
+
 The generator refuses to overwrite its Lean output. Always select a fresh
 destination:
 

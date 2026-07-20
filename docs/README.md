@@ -35,6 +35,7 @@ certificate axiom alone supplies the per-run physical-to-formal connection.
 ## Users
 
 - [Project overview and quick start](../README.md)
+- [Using computation certificates from Lean](LEAN_INTEGRATION.md)
 - [Project vision and target architecture](VISION.md)
 - [Collaboration roadmap](ROADMAP.md)
 - [User workflows](USING.md)

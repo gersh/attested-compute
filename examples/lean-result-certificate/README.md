@@ -5,6 +5,13 @@ Lean independently parses and hash-checks the canonical JSON, decodes every
 binary64 endpoint into an exact rational, reevaluates each row, and derives
 row-wise and finite-sum upper bounds.
 
+The generated file is also a reusable Lean module. In a real certificate
+library it can live at a normal module path, be built into an `.olean`, and be
+imported by application proofs. Those consumers use its exported theorem; they
+do not rerun the calculation that produced the interval rows. See
+[Using computation certificates from Lean](../../docs/LEAN_INTEGRATION.md) for
+an import wrapper and the clean-build verification caveat.
+
 ## Reproduce the proof
 
 The generator refuses to overwrite its Lean output. From the repository root,

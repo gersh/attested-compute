@@ -1,24 +1,25 @@
 # SparkInterval
 
 > **Work in progress:** SparkInterval is an early research prototype seeking
-> collaborators. Its current proofs and tools are real, but the complete
-> enclave-to-certificate-library workflow described here is not yet built or
-> independently validated end to end. Do not treat it as a production proof or
-> attestation service.
+> collaborators. Full result certificates can already be generated, checked,
+> imported, and used as Lean theorems. Production enclave-backed certificate
+> issuance and a shared certificate registry are still future work. Do not
+> treat the current local-run tooling as a production attestation service.
 
-SparkInterval is an open project for making finite numerical computation a
-usable input to formal proof. The goal is to run explicitly bounded arithmetic
-on CPUs and GPUs, produce durable certificates for those computations, and
-reference accepted certificates through a small, visible axiom boundary in
-Lean.
+SparkInterval is an open project built around a simple idea: **calculate once,
+verify once, use the result as a theorem**. The expensive bounded calculation
+can run outside Lean on CPUs or GPUs. Its formula, inputs, numeric semantics,
+coverage, result, and hashes remain available in a certificate. A proved Lean
+checker turns that certificate into an ordinary theorem that later Lean code
+can import and compose without rerunning the original calculation.
 
-For high-throughput computations, the intended production path uses measured
-code inside a secure execution environment (a CPU TEE together with GPU
-confidential-computing support where available). An external verifier checks
-the resulting hardware evidence and binds the exact program, inputs, bounds,
-output, and completion status into a computation certificate. Certificates can
-then be stored by digest in a shared library and reused by later Lean proofs
-without rerunning the original computation.
+For provenance-sensitive computations, the intended production path uses
+measured code inside a secure execution environment (a CPU TEE together with
+GPU confidential-computing support where available). An external verifier
+checks the resulting hardware evidence and binds the exact program, inputs,
+bounds, output, and completion status into a computation certificate.
+Certificates can then be stored by digest in a shared library and reused by
+later Lean proofs.
 
 In this project, **bounded arithmetic** means a finite computation whose input
 domain, numeric representation, resource/coverage bounds, and claimed result
@@ -27,40 +28,115 @@ being signed. Lean still checks the certificate mathematics or a registered
 algorithm-soundness theorem; the axiom is reserved for the irreducibly external
 fact that a particular accepted execution occurred.
 
-## The idea
+## From calculation to a Lean theorem
 
-The intended flow is:
+The full-certificate path works today:
 
-1. Define a finite computation and its bounds precisely.
-2. Prove its arithmetic model and result checker in Lean.
-3. Execute it on a CPU or GPU and bind the run to measured artifacts and fresh
-   attestation evidence.
-4. Verify that evidence, issue a content-addressed certificate, and preserve it
-   in a reusable library.
-5. In Lean, identify the exact registered computation and certificate digest;
-   cross the explicit execution axiom once, then derive application theorems
-   with ordinary proofs.
+1. **Specify the calculation.** The certificate carries an expression AST,
+   canonical input rows, binary64 interval results, algorithm identity, and
+   hashes. The formula is inspectable and independently reproducible.
+2. **Calculate outside Lean.** A CPU reference evaluator or GPU implementation
+   performs the finite sweep. GPU acceleration changes how quickly the witness
+   is found; it does not change the theorem statement.
+3. **Check the witness in Lean.** The generated module materializes the typed
+   certificate. SparkInterval's proved checker reevaluates its interval
+   arithmetic with exact rational semantics and derives row-wise or finite-sum
+   bounds.
+4. **Import the result.** Put that generated module in a Lean library and give
+   the exported theorem a friendly application-level name. Downstream modules
+   import the compiled `.olean`; they do not rerun the GPU job or re-execute the
+   certificate module's commands on every import.
 
-This separates three questions that are easy to conflate:
+For example, after placing the generated module at an importable path, a small
+wrapper can consume the checked-in example certificate like this:
+
+```lean
+import MyProject.Certificates.IntervalSweep
+
+open SparkInterval.GeneratedCertificate.C_b4ba4bc319743cf65a486c216897268e0a98107ea635404fa3f7825305755ba9_B_4010000000000001_M_kernel
+
+theorem certifiedApplicationBound
+    {i : Nat} (hi : i < certificate.rows.size)
+    {x : ℝ} (hx : certificate.RowRealizes i x) :
+    x ≤ (applicationUpperBound : ℝ) :=
+  application_upper_bound_sound hi hx
+```
+
+The long namespace deliberately binds the certificate digest, requested bound,
+and checking mode. An application library can hide it behind a stable theorem
+name. The checked-in
+[`GeneratedFullCertificate.lean`](examples/lean-result-certificate/GeneratedFullCertificate.lean)
+shows the exact declarations produced today.
+
+Lean does perform work when the certificate module is first built or rebuilt.
+It checks the supplied witness rather than repeating the potentially much more
+expensive search or numerical sweep that produced it. Once the resulting
+`.olean` is current, Lean imports the serialized environment without
+re-executing all of the source module's commands. This makes the certificate a
+reusable library artifact rather than a computation embedded in every
+downstream proof.
+
+See [Using certificates from Lean](docs/LEAN_INTEGRATION.md) for the complete
+producer, publisher, and consumer model.
+
+## Why not put the whole computation in `native_decide`?
+
+`native_decide` is valuable when a decidable proposition can be evaluated
+quickly enough during elaboration. Lean evaluates it as compiled native code
+and records an axiom dependency for that native result. Large computations can
+still make clean builds expensive, require substantial local resources, and
+tie every rebuild of that module to the calculation.
+
+SparkInterval offers a different tradeoff:
+
+- the expensive calculation can use parallel CPU/GPU infrastructure outside
+  the Lean build;
+- the formula, bounded domain, and independently replayable witness remain
+  explicit;
+- a smaller, proved checker validates the resulting witness;
+- the default direct typed-certificate theorems use kernel reduction and do not
+  depend on `native_decide`; and
+- the compiled certificate theorem can be cached, distributed, imported, and
+  reused by many proofs.
+
+This is not yet a universal zero-cost replacement. A clean build still checks a
+full certificate, so verification time and certificate size matter. The
+current theorem that additionally binds the exact serialized JSON parser/hash
+calculation uses `native_decide`; policies that forbid it should use the direct
+typed-data theorem and understand that narrower binding. Compact
+enclave-backed certificates are intended to reduce local checking further, but
+their production evidence importer is not implemented yet.
+
+This design follows a broader proof-certificate pattern already used for SAT,
+pseudo-Boolean, and computer-algebra results: let a specialized external engine
+do the expensive discovery, then use a much smaller verified checker to turn
+the witness into a composable theorem. The
+[Lean integration guide](docs/LEAN_INTEGRATION.md#relationship-to-existing-lean-approaches)
+compares the approaches and links to the relevant Lean documentation and
+research.
+
+## Trust questions
+
+SparkInterval keeps three questions separate:
 
 1. Does the interval algorithm enclose the exact real result?
 2. Did a particular program produce the recorded bytes?
 3. What evidence identifies the measured machine and software behind that run?
 
-See [Project vision](docs/VISION.md) for the proposed architecture and
+See [Project vision](docs/VISION.md) for the proposed secure architecture and
 [Contributing](docs/CONTRIBUTING.md) for concrete ways to help.
 
 ## Current support
 
-SparkInterval is a research prototype. CPU/Lean certificate checking, formal
-interval arithmetic, modeled generated GPU code, and local DGX Spark/H100
-validation are implemented. Production enclave-backed acceptance and the
-shared certificate library are not. The table below is the precise status,
-including the boundary of every claim.
+SparkInterval is a research prototype. Lean-consumable full certificates,
+CPU/Lean certificate checking, formal interval arithmetic, modeled generated
+GPU code, and local DGX Spark/H100 validation are implemented. Production
+enclave-backed acceptance and a public shared certificate registry are not.
+The table below is the precise status, including the boundary of every claim.
 
 | Route | Current result | Important boundary |
 | --- | --- | --- |
-| CPU + Lean full certificate | Lean independently checks every supplied row and proves row or finite-sum bounds | Proves mathematics, not that a GPU ran |
+| Generated Lean full certificate | A deterministic generated module materializes the formula and complete witness; Lean independently checks every row and exports reusable row or finite-sum bound theorems | Importable today; a clean build checks the full witness, and the direct kernel theorem does not by itself bind the typed data to the original JSON bytes |
 | Generated polynomial model | Lean proves whole-module typed-AST execution and exact-real containment; a pinned PTX 9.0 slice adds opcode citations and finite/non-NaN arithmetic refinement | No full emitted-instruction-text, `ptxas`, SASS, driver, or hardware refinement |
 | DGX Spark (`aarch64`, `sm_121`) | Native CUDA runs, exact CPU replay, artifact audits, and canonical local bundles | GB10 has no supported hardware attestation; evidence is `local_unattested` |
 | DGX operator signature | A pinned Ed25519 key endorses the exact local bundle | Proves the pinned key signed; operator attribution is out of band, and neither truth nor GPU execution follows |
@@ -257,6 +333,7 @@ offline CLI checks and the separate generated-`sm_90` polynomial path.
 
 ## Documentation
 
+- [Using computation certificates from Lean](docs/LEAN_INTEGRATION.md)
 - [Project vision and target architecture](docs/VISION.md)
 - [Contributing](docs/CONTRIBUTING.md)
 - [Collaboration roadmap](docs/ROADMAP.md)
