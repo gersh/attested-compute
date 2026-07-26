@@ -432,15 +432,16 @@ for all 10 physical campaigns, and `cloud_launch_ready_campaigns: 0`. The
 blocker is `usable_as_production_site_configuration`, which requires that a
 site example contain no redaction marker at all.
 
-Across the 15 site examples there are 59 marker instances. By path, 15 are
-confidential-computing specific: the four `managed_hsm` fields, the three
-`policies` entries (composite appraisal, evidence verifier, measured runner),
-`worker.maa_attestation_url`, `nvidia_policy`, `azure.image` (a private
-confidential-compute gallery image), and four predecessor trusted-receipt
-pins. The remaining 44 are not: workload artifact digests, `nvcc`/`host_cxx`/
-`python` toolchain digests, python-flint wheels, build-admission status,
-`base_site` and `base_campaign` pins, PT21 runtime pins, and child-identity
-commitments.
+Across the 15 site examples there are 59 marker instances. Exactly 15 of those
+instances, each at a distinct path, are confidential-computing specific: the
+four `managed_hsm` fields, the three `policies` entries (composite appraisal,
+evidence verifier, measured runner), `worker.maa_attestation_url`,
+`nvidia_policy`, `azure.image` (a private confidential-compute gallery image),
+and four predecessor trusted-receipt pins. The remaining 44 instances, spread
+over 30 distinct paths, are not: workload artifact digests,
+`nvcc`/`host_cxx`/`python` toolchain digests, python-flint wheels,
+build-admission status, `base_site` and `base_campaign` pins, PT21 runtime
+pins, and child-identity commitments.
 
 Every one of the 10 campaigns is blocked by at least one non-confidential
 marker — in most cases `base_site.sha256` or `base_campaign.sha256`. So while
