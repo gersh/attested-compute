@@ -210,4 +210,83 @@ QualificationRequiredSampleView device_qualification_required_samples(
 // Exact persistent device allocation, useful for Azure capacity checks.
 std::uint64_t workspace_device_bytes(const Workspace* workspace);
 
+// ---------------------------------------------------------------------------
+// Batched, multi-stream execution.
+//
+// A BatchWorkspace holds `slots` independent transform workspaces, one
+// nonblocking CUDA stream per slot, and one device staging pair per slot.  It
+// exists to amortize the two fixed costs that dominate a single-window
+// invocation on fast hardware:
+//
+//   * the immutable 32,768-entry MPFR root/constant tables, which cost far
+//     more host time to build than one window costs to transform, are built
+//     once by slot 0 and borrowed by every other slot;
+//   * the per-window kernel sequence of one slot overlaps the sequence of the
+//     others, so the low-parallelism stages (the 23-row Gamma ladder and the
+//     Taylor accumulation, which occupy only a fraction of the device on
+//     their own) run concurrently with another window's transform stages.
+//
+// Nothing that affects a value is shared.  Each slot owns every scratch
+// buffer, its own input-validation word and its own sample array, and runs the
+// unmodified run_source_window kernel sequence on its own stream.  A batched
+// run is therefore required to be byte-identical to the same windows executed
+// one at a time; a consumer that observes any difference must fail the shard.
+//
+// A slot is single-window at a time: after batch_run_window returns slot s,
+// the caller must consume or copy that slot's samples, and establish a CUDA
+// happens-before edge on the slot stream, before the round robin returns to s.
+// ---------------------------------------------------------------------------
+
+struct BatchWorkspace;
+
+inline constexpr std::uint32_t kMaximumBatchSlots = 64U;
+
+// Allocate `slots` window slots.  Throws std::invalid_argument unless
+// 1 <= slots <= kMaximumBatchSlots, and std::runtime_error on CUDA failure.
+BatchWorkspace* create_source_batch_workspace(std::uint32_t slots);
+
+// Quiesce every slot stream, then free every device allocation.  Passing null
+// is a no-op.
+void destroy_batch_workspace(BatchWorkspace* batch);
+
+std::uint32_t batch_slot_count(const BatchWorkspace* batch);
+std::uint64_t batch_workspace_device_bytes(const BatchWorkspace* batch);
+
+// Borrowed handles with the batch lifetime.  `slot` must be less than
+// batch_slot_count or std::out_of_range is thrown.
+cudaStream_t batch_slot_stream(const BatchWorkspace* batch,
+                               std::uint32_t slot);
+Workspace* batch_slot_workspace(BatchWorkspace* batch, std::uint32_t slot);
+platt_windowed::ComplexDisk106* batch_slot_device_gamma(
+    BatchWorkspace* batch, std::uint32_t slot);
+platt_windowed::ComplexDisk106* batch_slot_device_skn(
+    BatchWorkspace* batch, std::uint32_t slot);
+const platt_windowed::RealDisk106* batch_slot_device_samples(
+    const BatchWorkspace* batch, std::uint32_t slot);
+const platt_windowed::RealDisk106* batch_slot_device_required_samples(
+    const BatchWorkspace* batch, std::uint32_t slot);
+const std::uint32_t* batch_slot_device_input_failure_flags_qualification(
+    const BatchWorkspace* batch, std::uint32_t slot);
+
+// Enqueue one window on the next slot in round-robin order and return that
+// slot.  Both inputs are device pointers with the layout run_source_window
+// documents; they are not owned or retained past the enqueued work.
+std::uint32_t batch_run_window(
+    BatchWorkspace* batch,
+    const platt_windowed::ComplexDisk106* deviceGamma0,
+    const platt_windowed::ComplexDisk106* deviceSknRows);
+
+// As above, but first uploads both host arrays into the slot's own device
+// staging buffers on the slot stream, so the transfer of one window overlaps
+// the transform of the others.  Host memory should be page-locked for the copy
+// to be asynchronous.  The host arrays must remain valid until the slot
+// stream reaches the copy.
+std::uint32_t batch_upload_and_run_window(
+    BatchWorkspace* batch,
+    const platt_windowed::ComplexDisk106* hostGamma0,
+    const platt_windowed::ComplexDisk106* hostSknRows);
+
+void batch_synchronize_slot(BatchWorkspace* batch, std::uint32_t slot);
+void batch_synchronize(BatchWorkspace* batch);
+
 }  // namespace sparkinterval::tg::platt_dd_transform
