@@ -113,6 +113,7 @@ certificate axiom alone supplies the per-run physical-to-formal connection.
 - [Bounded PT21 CUDA/FLINT Turing-to-native block chain](algorithms/PLATT_PT21_BOUNDED_BLOCK_CHAIN.md)
 - [Bounded PT21 persistent CUDA/FLINT/Arb worker](algorithms/PLATT_PT21_PERSISTENT_WORKER.md)
 - [Qualification-only PT21 native packet-scan fast path](algorithms/PLATT_PT21_NATIVE_SCAN_FASTPATH.md)
+- [PT21 native v2 artifact builder (byte-identical to the Python reference)](algorithms/PLATT_PT21_NATIVE_ARTIFACT_BUILDER.md)
 - [Qualification-only PT21 DD FFT stages-1..9 shared tile](algorithms/PLATT_PT21_DD_TILE9_QUALIFICATION.md)
 - [Qualification-only PT21 bounded sloppy-DD root multiplication](algorithms/PLATT_PT21_DD_SLOPPY_MUL_QUALIFICATION.md)
 - [Qualification-only live V2 block-0 transform-candidate bridge](algorithms/PLATT_PT21_LIVE_TRANSFORM_CANDIDATE_QUALIFICATION.md)

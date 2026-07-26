@@ -2748,6 +2748,26 @@ if(SPARKINTERVAL_PT21_FASTPATH_GMPXX_LIBRARY
     sparkinterval-tg-platt-pt21-native-scan-fastpath PRIVATE
     $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-O3;-ffp-contract=off;-Wall;-Wextra;-Wpedantic;-Werror>
   )
+
+  # Explicitly selected native streaming checker for the canonical v2 block
+  # artifact.  It recomputes the whole exact-rational document the Python
+  # reference finalizer produces and must stay byte-identical to it; the
+  # Python builder remains the independent implementation and the default.
+  add_executable(sparkinterval-tg-platt-pt21-native-artifact-builder
+    reference/tg_platt_pt21_native_artifact_builder.cpp
+  )
+  target_include_directories(
+    sparkinterval-tg-platt-pt21-native-artifact-builder PRIVATE gpu/include
+  )
+  target_link_libraries(
+    sparkinterval-tg-platt-pt21-native-artifact-builder PRIVATE
+    "${SPARKINTERVAL_PT21_FASTPATH_GMPXX_LIBRARY}"
+    "${SPARKINTERVAL_PT21_FASTPATH_GMP_LIBRARY}"
+  )
+  target_compile_options(
+    sparkinterval-tg-platt-pt21-native-artifact-builder PRIVATE
+    $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-O3;-ffp-contract=off;-Wall;-Wextra;-Wpedantic;-Werror>
+  )
 endif()
 
 if(SPARKINTERVAL_BUILD_TG_CDEM)
@@ -3617,6 +3637,21 @@ if(TARGET sparkinterval-tg-platt-pt21-native-scan-fastpath)
     tg_platt_pt21_native_scan_fastpath_known_answers PROPERTIES
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     LABELS "tg;platt;pt21;qualification-only;native-scan;gmp;tamper;known-answer"
+  )
+endif()
+if(TARGET sparkinterval-tg-platt-pt21-native-artifact-builder)
+  add_test(
+    NAME tg_platt_pt21_native_artifact_builder_known_answers
+    COMMAND ${CMAKE_COMMAND} -E env
+            PYTHONPATH=${CMAKE_SOURCE_DIR}
+            TG_PLATT_PT21_NATIVE_ARTIFACT_BUILDER=$<TARGET_FILE:sparkinterval-tg-platt-pt21-native-artifact-builder>
+            ${Python3_EXECUTABLE} -m unittest -v
+            tests.test_tg_platt_pt21_native_artifact_builder
+  )
+  set_tests_properties(
+    tg_platt_pt21_native_artifact_builder_known_answers PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    LABELS "tg;platt;pt21;qualification-only;native-artifact;gmp;byte-identity;known-answer"
   )
 endif()
 if(SPARKINTERVAL_BUILD_H100_NATIVE)

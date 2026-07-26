@@ -167,12 +167,34 @@ median exact Python adapter remained `0.1785 s`, so the source-scale design
 still must overlap the CPU replay with the GPU and replace the Python
 artifact builder rather than extrapolate this bounded fixture.
 
-The remaining measured bottleneck is the Python exact-rational artifact
-construction and validation, not FLINT or Arb.  A source worker should next
-move that replay into a compact native streaming checker or compute the same
-canonical digest incrementally.  That change must preserve byte identity and
-retain an independent implementation; the bounded numbers above do not
-justify a full-campaign ETA.
+The remaining measured bottleneck was the Python exact-rational artifact
+construction and validation, not FLINT or Arb.  That replay now has a compact
+native streaming checker, documented in
+[PT21 native v2 artifact builder](PLATT_PT21_NATIVE_ARTIFACT_BUILDER.md).  It
+preserves byte identity, and the Python reference finalizer remains the
+independent implementation the differential known answers compare against.
+
+A 2026-07-26 DGX Spark measurement on the same repeated block-zero fixture,
+timing whole `PT21BLK1` adaptations, gave:
+
+| stage | median | runs |
+|---|---:|---:|
+| Python reference `build_block_artifact` | 0.16435 s | 15 |
+| Python reference `adapt_block` | 0.16699 s | 15 |
+| native fast-path adapter, pinned one-shot | 0.06495 s | 15 |
+| native fast-path adapter, pinned session | 0.06780 s | 15 |
+
+That is `2.46x` on the whole record adapter for byte-identical `PT21BLK1`,
+source-trace, and block-artifact output.  The exact-rational replay is no
+longer the largest component: the two remaining costs are the native build
+itself (median warm framed response `0.02649 s`, which includes its own
+SHA-256 over the 2.24 MiB document) and the Python side's independent
+canonical/identity revalidation of the returned bytes (median `0.03141 s`).
+
+This bounded persistent worker still calls the Python reference
+`adapt_block`; the fast path is explicitly selected and is not wired into any
+production entry point.  These remain bounded component timings on one
+repeated synthetic fixture and do not justify a full-campaign ETA.
 
 ## Run and verify
 

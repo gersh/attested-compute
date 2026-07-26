@@ -178,6 +178,13 @@ The optional, explicitly selected packet-scan accelerator is documented in
 It preserves byte-for-byte `PT21BLK1` output in differential tests but is not
 used by the manifest or production entry points.
 
+The step-3 exact-rational rebuild also has an explicitly selected native
+streaming checker, documented in
+[PT21 native v2 artifact builder](PLATT_PT21_NATIVE_ARTIFACT_BUILDER.md).  It
+must be byte-identical to the Python reference finalizer, which remains the
+independent implementation, and it is likewise absent from the manifest and
+production entry points.
+
 The `shard-archive` interface removes that intermediate record file. It opens
 and hashes the native finalizer through one retained executable descriptor,
 requires both its pinned SHA-256 and the manifest SHA-256, validates each
