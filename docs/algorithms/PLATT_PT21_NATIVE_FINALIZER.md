@@ -243,13 +243,19 @@ implementation.
 validated `PT21BLK1` adapter, and its independent retained-export replay are
 implemented. The adapter-to-native-shard channel is now authenticated and
 bounded-memory and needs no intermediate record spool. The optimized PT21
-execution contract remains disabled because the measured fused H100 worker
-now reaches complete three-stream event emission and an authenticated
-nonterminal `PT21EVT1` stream without retaining required-sign packets. It
-still stops before Gaussian-sinc stationary resolution, sparse refinement,
-and one-sided Turing closure, so it cannot supply the adapter's complete
-per-window inputs or emit `PT21BLK1` directly. The event Merkle root also must
-be bound into the future stationary/Turing composite record. The Python
+execution contract remains disabled, but for a narrower reason than before.
+The fused worker's block stage now reaches Gaussian-sinc stationary resolution
+and one-sided Arb Turing-input production inside the same ordered fail-closed
+loop, rebuilds the required-sign packet from the replay-owned disks, and
+streams all three complete per-window adapter inputs as authenticated
+`PT21WBF1` frames that carry the event Merkle root forward through `PT21STJ1`.
+An independent Python driver consumes that stream straight into this adapter
+and the pinned native finalizer, so the manifest and per-block artifact channel
+is gone. What is still missing is direct `PT21BLK1` emission by the worker:
+the records come from the out-of-process Python adapter, measured at about
+`3.97` accepted blocks/s on the local GB10 for real source blocks. Sparse
+refinement remains unexercised. See
+[`PLATT_PT21_BLOCK_INPUT_STREAM.md`](PLATT_PT21_BLOCK_INPUT_STREAM.md). The Python
 correctness adapter's measured 3.5287 blocks/s is also not a source-scale
 worker. Hardy-Z endpoint realization, multiplicity
 realization, analytic Turing realization, Lean source realization, prefix
