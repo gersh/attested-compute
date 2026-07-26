@@ -252,6 +252,83 @@ precision-hull traces. This is bounded finite evidence, not a Turing input or
 `PT21BLK1`, and the compact stream does not retain enough resolver input to
 recompute candidate completeness independently.
 
+## Standard 64-block regression fixture and its exact invocation
+
+The 64-block run is the standard regression fixture for this stage.  Its
+invocation is recorded here so it never has to be recovered from a transcript.
+
+The Gamma Taylor V2 stream is **regenerated, not retained**.  It is a
+deterministic function of the pinned FLINT 3.6 build and the requested block
+range; two regenerations on the same host produced the same 20,504 bytes.
+
+```bash
+LD_LIBRARY_PATH=/path/to/flint-3.6/lib \
+build/<tree>/sparkinterval-tg-platt-gamma-taylor-v2 \
+  --stream-first-block 0 --stream-blocks 64 --stream-chunk-records 64 \
+  --stream-output gamma-v2-64.bin
+```
+
+| fixture identity | value |
+|---|---|
+| artifact bytes | `20504` |
+| **raw file SHA-256** | `da7529c9707c3dfdcd3f3e90ebed783b7a5808663339fc4265e5e008c83cfbee` |
+| **`stream_sha256` (the worker's pin)** | `4bc01e6614314407cfb27eb475196a0dfe223c6bfefbacfa328cad54d6c5b534` |
+| `header_sha256` | `d0a3f25ddeb13e765dda866fca9f1917bde0dcb2464350fd64ad1cf96df01286` |
+
+`--expected-stream-sha256` is **not** the raw file hash.  It is the
+`stream_sha256` field the producer prints, which covers the chunk headers and
+record payloads but not the 336-byte stream header or the trailing footer.
+Passing the file hash fails closed with `Gamma Taylor V2 stream digest
+differs`, which is the intended behaviour, not a bug.
+
+The reproducing run:
+
+```bash
+build/<tree>/sparkinterval-tg-platt-fused-source-worker-v2 \
+  gamma-v2-64.bin 0 64 \
+  --expected-stream-sha256=4bc01e6614314407cfb27eb475196a0dfe223c6bfefbacfa328cad54d6c5b534 \
+  --event-stream-output=events-64.bin \
+  --producer-sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+```
+
+No ring or lane flag is needed; the host-scaled default is used.  Adding
+`--event-ring-blocks=N --event-replay-threads=N` pins the pool explicitly and
+does not change any output byte.
+
+`--producer-sha256` binds into the stream header, so the whole-stream digest
+depends on it.  The published
+`94d3b2d0a71df3c2251bddce62a70ea8d48c2e96b30ca17e53c5de5f6a2d28ed` is the
+value for the canonical `aa`-repeated test pin above; a run that pins the
+real producer image instead will publish a different whole-stream digest for
+the same records.  The pin-independent identities are the footer's
+`record_stream_sha256` =
+`65a07e8db84125a37b041b5938b11ef57cd29b395fa8987df2aa4f799380a3ec`, the
+`226,264` direct events, and the `172` unresolved stationary candidates.
+Compare those when the producer pin is not the canonical test value.
+
+Add `--stage-profile` for the per-window attribution below.  It is
+byte-neutral: the same run with and without it publishes the identical
+12,672-byte artifact.
+
+```bash
+build/<tree>/sparkinterval-tg-platt-fused-source-worker-v2 \
+  gamma-v2-64.bin 0 64 --stage-profile \
+  --expected-stream-sha256=4bc01e6614314407cfb27eb475196a0dfe223c6bfefbacfa328cad54d6c5b534 \
+  --event-stream-output=events-64.bin \
+  --producer-sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+```
+
+The profiled lane wait uses a bounded sleep-poll so the lane's device wait can
+be separated from its exact replay.  That is a diagnostic path only; with many
+lanes it contends on `cudaEventQuery` and can itself depress the measured
+rate, so take the throughput number from a run **without** `--stage-profile`
+and the attribution from a run with it.
+
+The 256-block variant uses `--stream-blocks 256 --stream-chunk-records 256`,
+pin `b19ec33bc1c53c30084592f7b9d2b28a66e4969ee0cfbeeaa4260ff329eada8c`, and
+publishes `895edf07ab38...` with `905,122` direct events and `656`
+stationary candidates.
+
 ## Measured per-window cost attribution
 
 Until this measurement the split between device and host cost in one fused
