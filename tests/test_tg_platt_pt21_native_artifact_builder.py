@@ -29,12 +29,15 @@ from tg_verifier.platt_pt21_bounded_block_chain import (
 from tg_verifier.platt_pt21_fused_artifact import (
     INTERPOLATION_PATCH_SHA256,
     PT21FusedArtifactError,
+    SOURCE_HEIGHT,
     TRACE_SCHEMA,
     _directed_sample_interval,
     _is_stationary_candidate_exact,
+    _source_height_count,
     build_block_artifact,
 )
 from tg_verifier.platt_pt21_lean_artifact import (
+    SOURCE_BLOCK_COUNT,
     STREAM_RANGES,
     UPSTREAM_COMMIT,
 )
@@ -568,6 +571,22 @@ class PT21NativeArtifactBuilderTest(unittest.TestCase):
                     self.assertEqual(produced.raw, reference)
                     self.assertEqual(produced.block, 0)
                     self.assertEqual(produced.window_center, 10_000_000_504)
+
+    def test_terminal_block_bytes_are_identical(self) -> None:
+        """The last campaign block, which carries the exact PT21 height."""
+
+        terminal = SOURCE_BLOCK_COUNT - 1
+        with tempfile.TemporaryDirectory() as name:
+            directory = Path(name)
+            packet, trace = self._flat_case(directory, terminal)
+            reference = self._reference(packet, trace)
+            self.assertEqual(self._native(packet, trace), reference)
+            value = json.loads(reference)
+            self.assertEqual(value["block"], terminal)
+            self.assertLessEqual(value["height_lower"], SOURCE_HEIGHT)
+            self.assertLessEqual(SOURCE_HEIGHT, value["height_upper"])
+            # The source-height binding the retained record commits to.
+            self.assertEqual(_source_height_count(value), 32_130_158_317)
 
     def test_randomised_packets_agree_byte_for_byte(self) -> None:
         """Differential agreement over varied DD disks and near ties.

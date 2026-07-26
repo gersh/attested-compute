@@ -182,8 +182,10 @@ ctest --test-dir build -R tg_platt_pt21_native_artifact_builder
 ```
 
 The known answers cover byte identity against the Python reference on a flat
-packet, on the block-zero packet with synthetic dyadic resolutions, and on the
-block-zero packet with the retained measured FLINT/Arb source trace; three
+packet, on the terminal campaign block `2966443782` whose window contains the
+exact PT21 source height, on the block-zero packet with synthetic dyadic
+resolutions, and on the block-zero packet with the retained measured
+FLINT/Arb source trace; three
 randomised packets containing subnormal magnitudes, `1e300` magnitudes,
 nonzero DD low words, and one-ulp separations that force the exact fallback;
 persistent-session repetition; `PT21BLK1` equality through the record adapter
