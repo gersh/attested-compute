@@ -1,7 +1,7 @@
 /- Copyright (c) 2026 Gershon Bialer. All rights reserved.
 SPDX-License-Identifier: MIT -/
 
-import SparkInterval.Execution.SignedResultCertificateComposition
+import SparkInterval.Execution.RegisteredCampaignCertificate
 import SparkInterval.TernaryGoldbach.Sqrt218SourceSemantics
 
 /-!
@@ -22,6 +22,12 @@ then requires:
 No certificate bytes, digest, deployment, or receipt are installed here.  The
 optional reviewed pin is `none`, so the application check is fail-closed and
 ordinary builds perform no production replay.
+
+This campaign is an instantiation of the generic layer in
+`SparkInterval.Execution.RegisteredCampaignCertificate`.  It uses the
+non-failure shape (`nonFailureProductionCheck` / `certifyNonFailureRun`)
+rather than the exact-output shape, because the accepted result envelope is
+described by a decidable predicate instead of a single literal.
 -/
 
 set_option autoImplicit false
@@ -72,11 +78,9 @@ namespace SignedResultCertificate
 envelope bound to the distinct closed invocation. -/
 def helfgottSqrt218FixedV2ProductionCheck
     (certificate : SignedResultCertificate) : Bool :=
-  certificate.outcomeCheckForRegisteredInvocation
-      helfgottSqrt218FixedV2ProductionInvocation &&
-    (certificate.resultCertificate != "false" &&
-      RegisteredInvocation.sqrt218FixedV2AcceptedResultCheck
-        certificate.resultCertificate)
+  certificate.nonFailureProductionCheck
+    helfgottSqrt218FixedV2ProductionInvocation
+    RegisteredInvocation.sqrt218FixedV2AcceptedResultCheck
 
 end SignedResultCertificate
 
@@ -104,27 +108,20 @@ certificate semantics, and the source reduction are explicit in `Runs`. -/
 theorem certifyHelfgottSqrt218FixedV2
     {certificate : SignedResultCertificate}
     (hcheck : certificate.helfgottSqrt218FixedV2ProductionCheck = true) :
-    CertifiedHelfgottSqrt218FixedV2 certificate := by
-  simp only [helfgottSqrt218FixedV2ProductionCheck, Bool.and_eq_true] at hcheck
-  have certified := outcomeCheckForRegisteredInvocation_sound hcheck.1
-  have hnonFailure : certificate.resultCertificate ≠ "false" := by
-    simpa using hcheck.2.1
-  have _haccepted :
-      RegisteredInvocation.sqrt218FixedV2AcceptedResultCheck
-        certificate.resultCertificate = true :=
-    hcheck.2.2
-  have hsuccess :=
-    RegisteredInvocation.helfgottSqrt218FixedProductionV2_success
-      certified.run hnonFailure
-  exact {
-    certified
-    nonFailure := hnonFailure
-    successfulRun := hsuccess
-    execution := certified.outcome.execution
+    CertifiedHelfgottSqrt218FixedV2 certificate :=
+  let run : CertifiedNonFailureRun certificate
+      helfgottSqrt218FixedV2ProductionInvocation
+      RegisteredInvocation.sqrt218FixedV2AcceptedResultCheck :=
+    certifyNonFailureRun hcheck
+  { certified := run.certified
+    nonFailure := run.nonFailure
+    successfulRun :=
+      RegisteredInvocation.helfgottSqrt218FixedProductionV2_success
+        run.certified.run run.nonFailure
+    execution := run.execution
     sourceClaim :=
-      RegisteredInvocation.helfgottSqrt218FixedProductionV2_sourceClaim
-        certified.run hnonFailure
-  }
+      run.claim
+        RegisteredInvocation.helfgottSqrt218FixedProductionV2_sourceClaim }
 
 end SignedResultCertificate
 

@@ -1,7 +1,7 @@
 /- Copyright (c) 2026 Gershon Bialer. All rights reserved.
 SPDX-License-Identifier: MIT -/
 
-import SparkInterval.Execution.SignedResultCertificateComposition
+import SparkInterval.Execution.RegisteredCampaignCertificate
 import SparkInterval.Dirichlet.PlattTheorem71Contract
 
 /-!
@@ -15,6 +15,12 @@ the complete universal even- and odd-conductor source evidence explicit.
 No production source-evidence artifact or successful campaign receipt is
 admitted here. The Azure semantic binding remains disabled until the full
 physical campaign and its source realization have been independently reviewed.
+
+This campaign is an instantiation of the generic layer in
+`SparkInterval.Execution.RegisteredCampaignCertificate`: the check is
+`productionCheck` at this invocation and output, and the shared conclusions
+come from `certifyRun`.  Only the campaign-specific `sourceClaim` field is
+named here.
 -/
 
 set_option autoImplicit false
@@ -32,9 +38,8 @@ namespace SignedResultCertificate
 Theorem 7.1 finalizer. -/
 def plattDirichletTheorem71ProductionCheck
     (certificate : SignedResultCertificate) : Bool :=
-  certificate.outcomeCheckForRegisteredInvocation
-      plattDirichletTheorem71ProductionInvocation &&
-    certificate.resultCertificate == plattDirichletTheorem71SuccessOutput
+  certificate.productionCheck plattDirichletTheorem71ProductionInvocation
+    plattDirichletTheorem71SuccessOutput
 
 end SignedResultCertificate
 
@@ -59,24 +64,14 @@ specialization is an ordinary Lean theorem. -/
 theorem certifyPlattDirichletTheorem71
     {certificate : SignedResultCertificate}
     (hcheck : certificate.plattDirichletTheorem71ProductionCheck = true) :
-    CertifiedPlattDirichletTheorem71 certificate := by
-  simp only [plattDirichletTheorem71ProductionCheck, Bool.and_eq_true] at hcheck
-  have certified := outcomeCheckForRegisteredInvocation_sound hcheck.1
-  have houtput :
-      certificate.resultCertificate = plattDirichletTheorem71SuccessOutput := by
-    simpa using hcheck.2
-  have hsource :=
-    RegisteredInvocation.plattDirichletTheorem71ProductionV1_sourceClaim
-      certified.run houtput
-  have hexecution := certified.outcome.execution
-  rw [houtput] at hexecution
-  exact {
-    certified := certified
-    resultCertificate_eq := houtput
-    statementResult_eq := certified.outcome.binding.1.trans houtput
-    execution := hexecution
-    sourceClaim := hsource
-  }
+    CertifiedPlattDirichletTheorem71 certificate :=
+  let run : CertifiedRun certificate plattDirichletTheorem71ProductionInvocation
+      plattDirichletTheorem71SuccessOutput := certifyRun hcheck
+  { certified := run.certified
+    resultCertificate_eq := run.resultCertificate_eq
+    statementResult_eq := run.statementResult_eq
+    execution := run.execution
+    sourceClaim := run.claim RegisteredInvocation.plattDirichletTheorem71ProductionV1_sourceClaim }
 
 end SignedResultCertificate
 

@@ -1,7 +1,7 @@
 /- Copyright (c) 2026 Gershon Bialer. All rights reserved.
 SPDX-License-Identifier: MIT -/
 
-import SparkInterval.Execution.SignedResultCertificateComposition
+import SparkInterval.Execution.RegisteredCampaignCertificate
 import SparkInterval.TernaryGoldbach.Goldbach10Pow27SourceSemantics
 
 /-!
@@ -15,6 +15,12 @@ Azure CPU finalizer and exact result `true` exposes
 No successful receipt is included here. The physical finalizer must replay and
 bind the exact 65,536-leaf H100 aggregate and exact 7,106-range n=45 ladder
 aggregate before returning `true`.
+
+This campaign is an instantiation of the generic layer in
+`SparkInterval.Execution.RegisteredCampaignCertificate`: the check is
+`productionCheck` at this invocation and output, and the shared conclusions
+come from `certifyRun`.  Only the campaign-specific `sourceClaim` field is
+named here.
 -/
 
 set_option autoImplicit false
@@ -33,9 +39,8 @@ namespace SignedResultCertificate
 /-- Fail-closed application check for the exact successful lowered finalizer. -/
 def goldbach10Pow27ProductionCheck
     (certificate : SignedResultCertificate) : Bool :=
-  certificate.outcomeCheckForRegisteredInvocation
-      goldbach10Pow27ProductionInvocation &&
-    certificate.resultCertificate == goldbach10Pow27SuccessOutput
+  certificate.productionCheck goldbach10Pow27ProductionInvocation
+    goldbach10Pow27SuccessOutput
 
 end SignedResultCertificate
 
@@ -60,24 +65,14 @@ is ordinary Lean. -/
 theorem certifyGoldbach10Pow27
     {certificate : SignedResultCertificate}
     (hcheck : certificate.goldbach10Pow27ProductionCheck = true) :
-    CertifiedGoldbach10Pow27 certificate := by
-  simp only [goldbach10Pow27ProductionCheck, Bool.and_eq_true] at hcheck
-  have certified := outcomeCheckForRegisteredInvocation_sound hcheck.1
-  have houtput :
-      certificate.resultCertificate = goldbach10Pow27SuccessOutput := by
-    simpa using hcheck.2
-  have hsource :=
-    RegisteredInvocation.goldbach10Pow27ProductionV1_sourceClaim
-      certified.run houtput
-  have hexecution := certified.outcome.execution
-  rw [houtput] at hexecution
-  exact {
-    certified := certified
-    resultCertificate_eq := houtput
-    statementResult_eq := certified.outcome.binding.1.trans houtput
-    execution := hexecution
-    sourceClaim := hsource
-  }
+    CertifiedGoldbach10Pow27 certificate :=
+  let run : CertifiedRun certificate goldbach10Pow27ProductionInvocation
+      goldbach10Pow27SuccessOutput := certifyRun hcheck
+  { certified := run.certified
+    resultCertificate_eq := run.resultCertificate_eq
+    statementResult_eq := run.statementResult_eq
+    execution := run.execution
+    sourceClaim := run.claim RegisteredInvocation.goldbach10Pow27ProductionV1_sourceClaim }
 
 end SignedResultCertificate
 
