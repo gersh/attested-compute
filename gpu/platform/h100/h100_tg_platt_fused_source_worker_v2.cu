@@ -22,6 +22,11 @@
 #include "sparkinterval/tg_platt_inline_stationary_stream.hpp"
 #include "sparkinterval/tg_platt_stationary_junction.hpp"
 #endif
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+#include "sparkinterval/tg_platt_pt21_block_input_stream.hpp"
+#include "sparkinterval/tg_platt_pt21_required_sign_packet.hpp"
+#include "sparkinterval/tg_platt_pt21_turing_inputs.hpp"
+#endif
 
 #include <cuda_runtime.h>
 
@@ -67,6 +72,11 @@ namespace pis = sparkinterval::tg::platt_inline_stationary_stream;
 namespace psj = sparkinterval::tg::platt_stationary_junction;
 namespace psr = sparkinterval::tg::platt_stationary_resolver;
 #endif
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+namespace pbi = sparkinterval::tg::platt_pt21_block_input_stream;
+namespace prs = sparkinterval::tg::platt_pt21_required_sign_packet;
+namespace pti = sparkinterval::tg::platt_pt21_turing_inputs;
+#endif
 
 namespace {
 
@@ -108,6 +118,9 @@ struct Options {
   std::optional<std::string> inline_stationary_output;
   std::optional<sparkinterval::Sha256Digest> resolver_sha256;
   std::optional<sparkinterval::Sha256Digest> flint_sha256;
+#endif
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+  std::optional<std::string> block_input_output;
 #endif
 };
 
@@ -172,6 +185,9 @@ Options parse_options(int argc, char** argv) {
 #ifdef SPARKINTERVAL_PT21_INLINE_STATIONARY_QUALIFICATION
         " --inline-stationary-output=PATH --resolver-sha256=HEX "
         "--flint-sha256=HEX"
+#endif
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+        " --block-input-output=PATH"
 #endif
     );
   }
@@ -241,6 +257,14 @@ Options parse_options(int argc, char** argv) {
       }
       result.flint_sha256 = parse_sha256(*value);
 #endif
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+    } else if (const auto value = after("--block-input-output=")) {
+      if (value->empty() || result.block_input_output.has_value()) {
+        throw std::runtime_error(
+            "block input output is empty or duplicated");
+      }
+      result.block_input_output = std::string(*value);
+#endif
     } else {
       throw std::runtime_error("unknown option: " + std::string(argument));
     }
@@ -284,6 +308,18 @@ Options parse_options(int argc, char** argv) {
       *result.event_stream_output == *result.inline_stationary_output) {
     throw std::runtime_error(
         "event and inline stationary outputs must be different paths");
+  }
+#endif
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+  if (!result.block_input_output.has_value()) {
+    throw std::runtime_error(
+        "block stage qualification requires --block-input-output");
+  }
+  if (*result.block_input_output == *result.inline_stationary_output ||
+      (result.event_stream_output.has_value() &&
+       *result.event_stream_output == *result.block_input_output)) {
+    throw std::runtime_error(
+        "block input output must differ from every other output path");
   }
 #endif
   return result;
@@ -737,6 +773,245 @@ class InlineStationaryStreamOutput {
 };
 #endif
 
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+// Ordered, create-only publication of the complete per-block adapter inputs.
+// Failure anywhere -- an invalid packet, a rejected junction, an Arb Turing
+// failure, an out-of-order block, or a missing terminal footer -- leaves no
+// published artifact and therefore no PT21BLK1 downstream.
+class BlockInputStreamOutput {
+ public:
+  BlockInputStreamOutput(const std::string& output_path,
+                         const pbi::HeaderValues& values)
+      : output_path_(output_path), header_(pbi::encode_header(values)),
+        values_(values) {
+    if (output_path_.empty() || output_path_ == "-") {
+      throw std::runtime_error(
+          "block input output must be a named regular file or FIFO");
+    }
+    struct stat metadata {};
+    if (::lstat(output_path_.c_str(), &metadata) == 0) {
+      if (!S_ISFIFO(metadata.st_mode)) {
+        throw std::runtime_error(
+            "block input output already exists and is not a FIFO");
+      }
+      descriptor_ =
+          ::open(output_path_.c_str(), O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
+      if (descriptor_ < 0) {
+        throw std::runtime_error(
+            "cannot open block input FIFO without following links: " +
+            std::string(std::strerror(errno)));
+      }
+      struct stat opened {};
+      if (::fstat(descriptor_, &opened) != 0 || !S_ISFIFO(opened.st_mode)) {
+        close_noexcept();
+        throw std::runtime_error(
+            "block input output changed before FIFO open");
+      }
+      fifo_ = true;
+    } else {
+      if (errno != ENOENT) {
+        throw std::runtime_error(
+            "cannot inspect block input output: " +
+            std::string(std::strerror(errno)));
+      }
+      temporary_path_ =
+          output_path_ + ".partial." + std::to_string(::getpid());
+      descriptor_ =
+          ::open(temporary_path_.c_str(),
+                 O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
+                 S_IRUSR | S_IWUSR);
+      if (descriptor_ < 0) {
+        throw std::runtime_error(
+            "cannot create exclusive block input temporary file: " +
+            std::string(std::strerror(errno)));
+      }
+    }
+    write_raw(header_.data(), header_.size());
+    whole_stream_hasher_.update(header_.data(), header_.size());
+    bytes_written_ = header_.size();
+  }
+
+  BlockInputStreamOutput(const BlockInputStreamOutput&) = delete;
+  BlockInputStreamOutput& operator=(const BlockInputStreamOutput&) = delete;
+
+  ~BlockInputStreamOutput() {
+    close_noexcept();
+    if (!published_ && !temporary_path_.empty()) {
+      ::unlink(temporary_path_.c_str());
+    }
+  }
+
+  void write(std::uint64_t block,
+             std::span<const unsigned char> required_sign_packet,
+             const per::RawRecord& event_record,
+             const psj::Result& junction,
+             const std::string& turing_inputs) {
+    if (finished_ || records_written_ >= values_.block_count ||
+        block != values_.first_block + records_written_ ||
+        !junction.accepted || junction.failure_flags != 0U ||
+        junction.resolver_report.canonical_trace_json.empty()) {
+      throw std::runtime_error(
+          "block input record order, lifecycle, or acceptance differs");
+    }
+    const std::string& trace =
+        junction.resolver_report.canonical_trace_json;
+    const pbi::FramePayload payload{
+        .block = block,
+        .required_sign_packet = required_sign_packet,
+        .event_record = event_record,
+        .junction_record = junction.record,
+        .stationary_trace = trace,
+        .turing_inputs = turing_inputs,
+    };
+    const std::vector<unsigned char> frame = pbi::encode_frame(payload);
+    // Fail closed inside the producer too: the bytes about to be written must
+    // survive the same canonical parser used by the independent decoder.
+    const pbi::DecodedFrame decoded = pbi::decode_frame(frame, block);
+    if (decoded.event_record != event_record ||
+        decoded.junction_record != junction.record ||
+        decoded.stationary_trace != trace ||
+        decoded.turing_inputs != turing_inputs ||
+        decoded.required_sign_packet.size() !=
+            required_sign_packet.size() ||
+        !std::equal(decoded.required_sign_packet.begin(),
+                    decoded.required_sign_packet.end(),
+                    required_sign_packet.begin())) {
+      throw std::runtime_error(
+          "block input frame changed during canonical replay");
+    }
+    if (trace.size() >
+            std::numeric_limits<std::uint64_t>::max() - total_trace_bytes_ ||
+        turing_inputs.size() >
+            std::numeric_limits<std::uint64_t>::max() -
+                total_turing_bytes_) {
+      throw std::runtime_error("block input byte total overflows");
+    }
+    write_raw(frame.data(), frame.size());
+    frame_stream_hasher_.update(frame.data(), frame.size());
+    whole_stream_hasher_.update(frame.data(), frame.size());
+    total_packet_bytes_ += required_sign_packet.size();
+    total_trace_bytes_ += trace.size();
+    total_turing_bytes_ += turing_inputs.size();
+    bytes_written_ += frame.size();
+    ++records_written_;
+  }
+
+  void finish() {
+    if (finished_ || records_written_ != values_.block_count) {
+      throw std::runtime_error(
+          "block input stream cannot finalize an incomplete range");
+    }
+    const pbi::FooterValues footer_values{
+        .first_block = values_.first_block,
+        .block_count = values_.block_count,
+        .total_frames = records_written_,
+        .total_packet_bytes = total_packet_bytes_,
+        .total_trace_bytes = total_trace_bytes_,
+        .total_turing_bytes = total_turing_bytes_,
+        .frame_stream_sha256 = frame_stream_hasher_.finish(),
+        .header_sha256 =
+            per::digest_at(header_.data() + pbi::kHeaderDigestOffset),
+        .gamma_stream_sha256 = values_.gamma_stream_sha256,
+    };
+    const pbi::RawFooter footer = pbi::encode_footer(footer_values);
+    pbi::decode_footer(footer, &footer_values);
+    write_raw(footer.data(), footer.size());
+    whole_stream_hasher_.update(footer.data(), footer.size());
+    stream_sha256_ = whole_stream_hasher_.finish();
+    footer_sha256_ =
+        per::digest_at(footer.data() + pbi::kFooterDigestOffset);
+    bytes_written_ += footer.size();
+
+    if (!fifo_ && ::fsync(descriptor_) != 0) {
+      throw std::runtime_error("cannot fsync block input output");
+    }
+    if (::close(descriptor_) != 0) {
+      descriptor_ = -1;
+      throw std::runtime_error("cannot close block input output");
+    }
+    descriptor_ = -1;
+    if (!fifo_) {
+      if (::link(temporary_path_.c_str(), output_path_.c_str()) != 0) {
+        throw std::runtime_error(
+            "cannot publish block input stream without replacement: " +
+            std::string(std::strerror(errno)));
+      }
+      published_ = true;
+      if (::unlink(temporary_path_.c_str()) != 0) {
+        throw std::runtime_error(
+            "cannot remove published block input temporary link");
+      }
+      temporary_path_.clear();
+    } else {
+      published_ = true;
+    }
+    finished_ = true;
+  }
+
+  const sparkinterval::Sha256Digest& stream_sha256() const {
+    if (!finished_) {
+      throw std::runtime_error(
+          "block input stream digest requested before finish");
+    }
+    return stream_sha256_;
+  }
+
+  const sparkinterval::Sha256Digest& footer_sha256() const {
+    if (!finished_) {
+      throw std::runtime_error(
+          "block input footer digest requested before finish");
+    }
+    return footer_sha256_;
+  }
+
+  bool is_fifo() const { return fifo_; }
+  std::uint64_t bytes_written() const { return bytes_written_; }
+  std::uint64_t total_packet_bytes() const { return total_packet_bytes_; }
+  std::uint64_t total_turing_bytes() const { return total_turing_bytes_; }
+
+ private:
+  void write_raw(const unsigned char* data, std::size_t size) {
+    std::size_t offset = 0U;
+    while (offset < size) {
+      const ssize_t wrote =
+          ::write(descriptor_, data + offset, size - offset);
+      if (wrote < 0 && errno == EINTR) continue;
+      if (wrote <= 0) {
+        throw std::runtime_error(
+            "cannot write block input stream: " +
+            std::string(std::strerror(errno)));
+      }
+      offset += static_cast<std::size_t>(wrote);
+    }
+  }
+
+  void close_noexcept() noexcept {
+    if (descriptor_ >= 0) {
+      ::close(descriptor_);
+      descriptor_ = -1;
+    }
+  }
+
+  std::string output_path_;
+  std::string temporary_path_;
+  int descriptor_ = -1;
+  bool fifo_ = false;
+  bool published_ = false;
+  bool finished_ = false;
+  pbi::RawHeader header_{};
+  pbi::HeaderValues values_{};
+  sparkinterval::detail::Sha256 frame_stream_hasher_;
+  sparkinterval::detail::Sha256 whole_stream_hasher_;
+  sparkinterval::Sha256Digest stream_sha256_{};
+  sparkinterval::Sha256Digest footer_sha256_{};
+  std::uint64_t records_written_ = 0U;
+  std::uint64_t total_packet_bytes_ = 0U;
+  std::uint64_t total_trace_bytes_ = 0U;
+  std::uint64_t total_turing_bytes_ = 0U;
+  std::uint64_t bytes_written_ = 0U;
+};
+#endif
+
 bool finite_disk(const pw::RealDisk106& disk) {
   return std::isfinite(disk.center.hi) &&
          std::isfinite(disk.center.lo) &&
@@ -807,6 +1082,11 @@ per::BlockValues event_block_values(
 struct ReplayRingSlot {
   pes::ReplayCapture* capture = nullptr;
   std::uint64_t logical_block = 0U;
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+  // Exact authenticated Gamma V2 input record for the same logical block.  It
+  // is the honest `source_packet` identity bound by the emitted PT21SGN1.
+  std::array<unsigned char, sizeof(pg2::Record)> gamma_record{};
+#endif
 };
 
 int run(const Options& options) {
@@ -826,6 +1106,9 @@ int run(const Options& options) {
   std::unique_ptr<EventStreamOutput> event_output;
 #ifdef SPARKINTERVAL_PT21_INLINE_STATIONARY_QUALIFICATION
   std::unique_ptr<InlineStationaryStreamOutput> inline_stationary_output;
+#endif
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+  std::unique_ptr<BlockInputStreamOutput> block_input_output;
 #endif
   pg2::Record* device_record = nullptr;
   pw::ComplexDisk106* device_gamma = nullptr;
@@ -901,6 +1184,18 @@ int run(const Options& options) {
     psr::Options inline_resolver_options;
     inline_resolver_options.retain_precision_hull_audit = true;
 #endif
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+    block_input_output = std::make_unique<BlockInputStreamOutput>(
+        *options.block_input_output,
+        pbi::HeaderValues{
+            .first_block = options.first_block,
+            .block_count = options.block_count,
+            .gamma_stream_sha256 = *options.expected_stream_sha256,
+            .producer_sha256 = *options.producer_sha256,
+            .resolver_sha256 = *options.resolver_sha256,
+            .flint_sha256 = *options.flint_sha256,
+        });
+#endif
     const auto submission_started = std::chrono::steady_clock::now();
     CUDA_CHECK(cudaEventRecord(started, stream));
 
@@ -914,6 +1209,11 @@ int run(const Options& options) {
     double inline_scanner_replay_seconds = 0.0;
     double inline_stationary_seconds = 0.0;
     double inline_serialization_seconds = 0.0;
+#endif
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+    double block_packet_seconds = 0.0;
+    double block_turing_seconds = 0.0;
+    double block_serialization_seconds = 0.0;
 #endif
     auto add_total = [](std::uint64_t* accumulator,
                         std::uint32_t value, const char* label) {
@@ -987,6 +1287,32 @@ int run(const Options& options) {
                 inline_junction.resolver_report.error);
           }
 #endif
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+          // Same ordered loop, same replay-owned disks: build the two
+          // remaining adapter inputs here rather than in a standalone
+          // assembly process.  Both stages fail closed, so an unresolved
+          // finite predicate cannot reach the record adapter.
+          const auto block_packet_started = std::chrono::steady_clock::now();
+          const std::vector<unsigned char> block_required_packet =
+              prs::encode_packet(slot.logical_block,
+                                 replay.required_samples,
+                                 slot.gamma_record);
+          const double block_packet_elapsed =
+              std::chrono::duration<double>(
+                  std::chrono::steady_clock::now() -
+                  block_packet_started).count();
+          const auto block_turing_started =
+              std::chrono::steady_clock::now();
+          const std::string block_turing_inputs = pti::artifact_json(
+              slot.logical_block,
+              sparkinterval::lowercase_hex(
+                  sparkinterval::sha256(block_required_packet.data(),
+                                        block_required_packet.size())));
+          const double block_turing_elapsed =
+              std::chrono::duration<double>(
+                  std::chrono::steady_clock::now() -
+                  block_turing_started).count();
+#endif
           {
             std::unique_lock lock(replay_mutex);
             replay_condition.wait(lock, [&]() {
@@ -1046,6 +1372,18 @@ int run(const Options& options) {
             inline_scanner_replay_seconds += inline_replay_seconds;
             inline_stationary_seconds += inline_seconds;
             inline_serialization_seconds += inline_serialization;
+#endif
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+            const auto block_serialization_started =
+                std::chrono::steady_clock::now();
+            block_input_output->write(
+                slot.logical_block, block_required_packet,
+                inline_event_record, inline_junction, block_turing_inputs);
+            block_serialization_seconds += std::chrono::duration<double>(
+                std::chrono::steady_clock::now() -
+                block_serialization_started).count();
+            block_packet_seconds += block_packet_elapsed;
+            block_turing_seconds += block_turing_elapsed;
 #endif
             ++records;
             free_replay_slots.push_back(slot_index);
@@ -1116,6 +1454,11 @@ int run(const Options& options) {
             event_scanner, pdt::device_required_samples(transform), stream);
         ReplayRingSlot& replay_slot = replay_ring[replay_slot_index];
         replay_slot.logical_block = logical_block;
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+        std::memcpy(replay_slot.gamma_record.data(),
+                    &chunk.records[offset],
+                    replay_slot.gamma_record.size());
+#endif
         try {
           pes::enqueue_replay_capture(
               event_scanner, pdt::device_required_samples(transform),
@@ -1160,6 +1503,9 @@ int run(const Options& options) {
     if (event_output != nullptr) event_output->finish();
 #ifdef SPARKINTERVAL_PT21_INLINE_STATIONARY_QUALIFICATION
     inline_stationary_output->finish();
+#endif
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+    block_input_output->finish();
 #endif
     CUDA_CHECK(cudaEventSynchronize(stopped));
     float milliseconds = 0.0F;
@@ -1211,7 +1557,9 @@ int run(const Options& options) {
     }
     std::cout << std::setprecision(17)
               << "{\"schema\":\""
-#ifdef SPARKINTERVAL_PT21_INLINE_STATIONARY_QUALIFICATION
+#if defined(SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION)
+              << "sparkinterval.tg.platt-pt21-block-stage-qualification.v1"
+#elif defined(SPARKINTERVAL_PT21_INLINE_STATIONARY_QUALIFICATION)
               << "sparkinterval.tg.platt-inline-stationary-qualification.v1"
 #else
               << "sparkinterval.tg.platt-fused-source-worker.v2"
@@ -1224,7 +1572,9 @@ int run(const Options& options) {
               << (kReleasePerformanceBuild ? "true" : "false") << '}'
               << ",\"accepted\":true"
               << ",\"claim_scope\":\""
-#ifdef SPARKINTERVAL_PT21_INLINE_STATIONARY_QUALIFICATION
+#if defined(SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION)
+              << "bounded_authenticated_three_adapter_inputs_streamed_from_one_ordered_worker_loop"
+#elif defined(SPARKINTERVAL_PT21_INLINE_STATIONARY_QUALIFICATION)
               << "bounded_authenticated_dd_gamma_events_and_finite_stationary_junction"
 #else
               << "authenticated_dd_gamma_accumulator_transform_three_stream_finite_events"
@@ -1325,6 +1675,44 @@ int run(const Options& options) {
               << ",\"stationary_junction_finite_replay_complete\":true"
               << ",\"stationary_junction_second_process_used\":false"
               << ",\"stationary_junction_second_scanner_replay_used\":false"
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+              << ",\"block_input_stream_algorithm\":\""
+              << pbi::kAlgorithmDomain << "\""
+              << ",\"block_input_stream_algorithm_sha256\":\""
+              << sparkinterval::lowercase_hex(pbi::algorithm_sha256())
+              << "\""
+              << ",\"block_input_wire_magic\":\"PT21WBH1\""
+              << ",\"block_input_frame_magic\":\"PT21WBF1\""
+              << ",\"block_input_footer_magic\":\"PT21WBT1\""
+              << ",\"block_input_frames_emitted\":" << records
+              << ",\"block_input_stream_bytes\":"
+              << block_input_output->bytes_written()
+              << ",\"block_input_required_sign_packet_bytes\":"
+              << block_input_output->total_packet_bytes()
+              << ",\"block_input_turing_artifact_bytes\":"
+              << block_input_output->total_turing_bytes()
+              << ",\"block_input_stream_fifo\":"
+              << (block_input_output->is_fifo() ? "true" : "false")
+              << ",\"block_input_stream_sha256\":\""
+              << sparkinterval::lowercase_hex(
+                     block_input_output->stream_sha256())
+              << "\""
+              << ",\"block_input_footer_sha256\":\""
+              << sparkinterval::lowercase_hex(
+                     block_input_output->footer_sha256())
+              << "\""
+              << ",\"required_sign_packet_seconds\":"
+              << block_packet_seconds
+              << ",\"turing_input_seconds\":" << block_turing_seconds
+              << ",\"block_input_serialization_seconds\":"
+              << block_serialization_seconds
+              << ",\"required_sign_packet_streamed_not_retained\":true"
+              << ",\"turing_inputs_computed_in_worker\":true"
+              << ",\"three_adapter_inputs_streamed\":true"
+              << ",\"standalone_assembly_channel_used\":false"
+              << ",\"record_adapter_run_in_worker_process\":false"
+              << ",\"pt21blk1_emitted_by_worker\":false"
+#endif
 #else
               << ",\"qualification_only\":false"
 #endif
@@ -1382,6 +1770,9 @@ int run(const Options& options) {
 #ifdef SPARKINTERVAL_PT21_INLINE_STATIONARY_QUALIFICATION
     inline_stationary_output.reset();
 #endif
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+    block_input_output.reset();
+#endif
     cudaEventDestroy(stopped);
     stopped = nullptr;
     cudaEventDestroy(started);
@@ -1425,6 +1816,9 @@ int run(const Options& options) {
     event_output.reset();
 #ifdef SPARKINTERVAL_PT21_INLINE_STATIONARY_QUALIFICATION
     inline_stationary_output.reset();
+#endif
+#ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
+    block_input_output.reset();
 #endif
     if (stopped != nullptr) cudaEventDestroy(stopped);
     if (started != nullptr) cudaEventDestroy(started);

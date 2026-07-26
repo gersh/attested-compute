@@ -3302,6 +3302,33 @@ if(SPARKINTERVAL_FLINT_PLATT_ROOT)
   # This target emits only rigorous Arb enclosures for the elementary and
   # log-Gamma terms; the analytic Turing realization remains a separate
   # theorem/receipt boundary.
+  #
+  # The exact-rational construction is a reusable archive so that the fused
+  # source worker and this standalone reference producer emit byte-identical
+  # canonical artifacts by construction.
+  add_library(sparkinterval-tg-platt-pt21-turing-inputs-core STATIC
+    reference/tg_platt_pt21_turing_inputs_core.cpp
+  )
+  target_include_directories(
+    sparkinterval-tg-platt-pt21-turing-inputs-core PUBLIC
+    gpu/include
+    PRIVATE
+    "${SPARKINTERVAL_FLINT_PLATT_INCLUDE_DIR}"
+  )
+  target_compile_features(
+    sparkinterval-tg-platt-pt21-turing-inputs-core PUBLIC cxx_std_20
+  )
+  target_link_libraries(
+    sparkinterval-tg-platt-pt21-turing-inputs-core PUBLIC
+    "${SPARKINTERVAL_FLINT_PLATT_LIBRARY}"
+    "${SPARKINTERVAL_FLINT_PLATT_GMP_LIBRARY}"
+    m
+  )
+  target_compile_options(
+    sparkinterval-tg-platt-pt21-turing-inputs-core PRIVATE
+    $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-O3;-Wall;-Wextra;-Wpedantic;-Werror>
+  )
+
   add_executable(sparkinterval-tg-platt-pt21-turing-inputs
     reference/tg_platt_pt21_turing_inputs.cpp
   )
@@ -3311,14 +3338,103 @@ if(SPARKINTERVAL_FLINT_PLATT_ROOT)
   )
   target_link_libraries(
     sparkinterval-tg-platt-pt21-turing-inputs PRIVATE
-    "${SPARKINTERVAL_FLINT_PLATT_LIBRARY}"
-    "${SPARKINTERVAL_FLINT_PLATT_GMP_LIBRARY}"
-    m
+    sparkinterval-tg-platt-pt21-turing-inputs-core
   )
   target_compile_options(
     sparkinterval-tg-platt-pt21-turing-inputs PRIVATE
     $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-O3;-Wall;-Wextra;-Wpedantic;-Werror>
   )
+
+  # Qualification-only PT21 block stage.  One ordered fail-closed worker loop
+  # now produces all three record-adapter inputs -- the required-sign packet
+  # rebuilt from the replay-owned disks, the independently replayed stationary
+  # trace, and the block-bound directed-Arb Turing inputs -- and streams them
+  # as authenticated PT21WBH1/PT21WBF1/PT21WBT1 frames.  It emits no PT21BLK1
+  # and no analytic or source claim.
+  if(TARGET sparkinterval-tg-platt-stationary-junction)
+    add_executable(
+      sparkinterval-tg-platt-block-stage-qualification
+      gpu/platform/h100/h100_tg_platt_fused_source_worker_v2.cu
+      gpu/platform/h100/tg_platt_gamma_dd_gpu.cu
+    )
+    target_include_directories(
+      sparkinterval-tg-platt-block-stage-qualification PRIVATE gpu/include
+    )
+    set_target_properties(
+      sparkinterval-tg-platt-block-stage-qualification PROPERTIES
+      CUDA_STANDARD 20
+      CUDA_STANDARD_REQUIRED ON
+    )
+    target_compile_definitions(
+      sparkinterval-tg-platt-block-stage-qualification PRIVATE
+      SPARKINTERVAL_CMAKE_BUILD_CONFIG="$<CONFIG>"
+      SPARKINTERVAL_PT21_INLINE_STATIONARY_QUALIFICATION=1
+      SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION=1
+    )
+    target_compile_options(
+      sparkinterval-tg-platt-block-stage-qualification PRIVATE
+      $<$<COMPILE_LANGUAGE:CUDA>:--fmad=false;--ftz=false;--prec-div=true;--prec-sqrt=true;-lineinfo>
+    )
+    target_link_libraries(
+      sparkinterval-tg-platt-block-stage-qualification PRIVATE
+      sparkinterval-tg-platt-dd-accumulator
+      sparkinterval-tg-platt-dd-transform
+      sparkinterval-tg-platt-event-scan
+      sparkinterval-tg-platt-stationary-junction
+      sparkinterval-tg-platt-pt21-turing-inputs-core
+      Threads::Threads
+    )
+  endif()
+
+  if(TARGET sparkinterval-tg-platt-stationary-junction)
+    add_executable(sparkinterval-tg-platt-pt21-block-input-stream-kat
+      reference/tg_platt_pt21_block_input_stream_kat.cpp
+    )
+    target_include_directories(
+      sparkinterval-tg-platt-pt21-block-input-stream-kat PRIVATE gpu/include
+    )
+    target_link_libraries(
+      sparkinterval-tg-platt-pt21-block-input-stream-kat PRIVATE
+      sparkinterval-tg-platt-stationary-junction
+      sparkinterval-tg-platt-pt21-turing-inputs-core
+    )
+    target_compile_options(
+      sparkinterval-tg-platt-pt21-block-input-stream-kat PRIVATE
+      $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-O2;-Wall;-Wextra;-Wpedantic;-Werror>
+    )
+  endif()
+
+  if(TARGET sparkinterval-h100-tg-platt-stationary-junction)
+    add_executable(
+      sparkinterval-h100-tg-platt-block-stage-qualification
+      gpu/platform/h100/h100_tg_platt_fused_source_worker_v2.cu
+      gpu/platform/h100/tg_platt_gamma_dd_gpu.cu
+    )
+    sparkinterval_configure_h100_kernel(
+      sparkinterval-h100-tg-platt-block-stage-qualification
+    )
+    set_target_properties(
+      sparkinterval-h100-tg-platt-block-stage-qualification PROPERTIES
+      CUDA_STANDARD 20
+      CUDA_STANDARD_REQUIRED ON
+    )
+    target_compile_definitions(
+      sparkinterval-h100-tg-platt-block-stage-qualification PRIVATE
+      SPARKINTERVAL_CMAKE_BUILD_CONFIG="$<CONFIG>"
+      SPARKINTERVAL_REQUIRE_H100_SM90=1
+      SPARKINTERVAL_PT21_INLINE_STATIONARY_QUALIFICATION=1
+      SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION=1
+    )
+    target_link_libraries(
+      sparkinterval-h100-tg-platt-block-stage-qualification PRIVATE
+      sparkinterval-h100-tg-platt-dd-accumulator
+      sparkinterval-h100-tg-platt-dd-transform
+      sparkinterval-h100-tg-platt-event-scan
+      sparkinterval-h100-tg-platt-stationary-junction
+      sparkinterval-tg-platt-pt21-turing-inputs-core
+      Threads::Threads
+    )
+  endif()
 endif()
 target_include_directories(sparkinterval-tg-workload-benchmark PRIVATE gpu/include)
 target_link_libraries(sparkinterval-tg-workload-benchmark PRIVATE

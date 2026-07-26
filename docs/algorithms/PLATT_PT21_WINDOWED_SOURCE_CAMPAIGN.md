@@ -620,10 +620,21 @@ straight into the pinned native finalizer, releases a terminal `PT21END1`
 manifest commitment only after the exact gap-free input manifest succeeds,
 and retains the records inside the canonical shard archive without a second
 884.07 GiB campaign-wide record spool.  This closes the standalone record
-assembly-to-native-shard channel and retained replay, but not worker
-integration: the current fused H100 worker does not produce or stream all
-three complete inputs through the adapter, and it does not emit those records
-directly.
+assembly-to-native-shard channel and retained replay.
+
+Worker integration is now partly closed as well.  The fused worker's block
+stage runs the stationary Gaussian-sinc resolver and the directed-Arb one-sided
+Turing producer inside the same ordered fail-closed loop that already emits
+`PT21EVT1`, rebuilds the `PT21SGN1` required-sign packet from the same
+replay-owned disks, and streams all three complete adapter inputs as
+authenticated `PT21WBF1` frames; an independent Python driver consumes that
+stream directly into the exact-rational adapter and the pinned native shard
+finalizer, so no per-block artifact and no operator manifest remain.  See
+[`PLATT_PT21_BLOCK_INPUT_STREAM.md`](PLATT_PT21_BLOCK_INPUT_STREAM.md).  What
+is still not closed is the last clause: the worker does not emit `PT21BLK1`
+itself.  The records are produced by the out-of-process Python adapter, which
+measured about `3.97` accepted blocks/s on the local GB10 and is therefore the
+binding local bottleneck.
 
 The source trace is canonical JSON under
 `schemas/platt-pt21-fused-source-trace.schema.json`.  It binds the pinned
@@ -717,9 +728,13 @@ three-stream scanner in one ordered loop.  It emits a terminally authenticated
 unresolved-stationary count, and scanner Merkle root, without retaining the
 621,202-byte required-sign packet.  See
 [`PLATT_PT21_FUSED_EVENT_STREAM.md`](PLATT_PT21_FUSED_EVENT_STREAM.md).
-The readiness flag `all_window_fused_stream` nevertheless remains false until
-a source-wide run establishes useful widths and the stationary
-interpolation/Turing stages are joined to the same fail-closed worker.
+The stationary interpolation and one-sided Turing stages are now joined to the
+same fail-closed worker, and a bounded 64-block GB10 run streamed all three
+adapter inputs and closed the exact Turing equation for every block.  The
+readiness flag `all_window_fused_stream` nevertheless remains false: its
+blocker is now exactly that no source-wide run has established useful widths,
+and that `PT21BLK1` still comes from the out-of-process exact-rational Python
+adapter rather than from the worker.
 
 The V1 `sparkinterval-tg-platt-fused-source-worker` remains a useful negative
 regression: its two-window real FLINT-input smoke run processed 51,482

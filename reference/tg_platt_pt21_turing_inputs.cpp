@@ -11,15 +11,15 @@
 //   turing_min: [10^10 + 1008j - 21, 10^10 + 1008j]
 //   turing_max: [10^10 + 1008(j+1), 10^10 + 1008(j+1) + 21].
 //
-// Every emitted endpoint is an exact reduced dyadic rational obtained from an
-// outward Arb interval.  A second 256-bit evaluation must be contained in the
-// retained 128-bit interval before any output is released.
+// The exact-rational construction now lives in
+// `reference/tg_platt_pt21_turing_inputs_core.cpp` so that the fused source
+// worker can call the identical code in process.  This translation unit keeps
+// the one-shot and persistent request framing and remains the independent
+// reference producer.
 
-#include <flint/arb.h>
-#include <flint/arf.h>
+#include "sparkinterval/tg_platt_pt21_turing_inputs.hpp"
+
 #include <flint/flint.h>
-#include <flint/fmpq.h>
-#include <flint/fmpz.h>
 
 #include <algorithm>
 #include <array>
@@ -27,77 +27,13 @@
 #include <cstdint>
 #include <iostream>
 #include <limits>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 
+namespace pti = sparkinterval::tg::platt_pt21_turing_inputs;
+
 namespace {
-
-constexpr std::uint64_t kSourceLower = 10'000'000'000ULL;
-constexpr std::uint64_t kSourceStep = 1'008ULL;
-constexpr std::uint64_t kSourceBlockCount = 2'966'443'783ULL;
-constexpr std::uint64_t kTuringWidth = 21ULL;
-constexpr slong kRetainedPrecision = 128;
-constexpr slong kReplayPrecision = 256;
-
-constexpr std::string_view kSchema =
-    "sparkinterval.tg.platt-pt21-turing-inputs.v1";
-constexpr std::string_view kAlgorithm =
-    "pinned-platt-pt21-one-sided-turing-inputs-flint-3.6-v1";
-constexpr std::string_view kUpstreamCommit =
-    "42b21426718e542daa2b006dc05ea2d7f26426e6";
-constexpr std::string_view kTuringSourceSha256 =
-    "07305e04e85477749ced09325c9e78388dd55d6107aa526d3becde345a430c27";
-constexpr std::string_view kFlintCommit =
-    "8d5454b96761fafe4d5a9da76a369a602f500f49";
-constexpr std::string_view kInterpolationPatchSha256 =
-    "2bc33d3d4f6163ba5af8982f1272e9544154ed95bc6155a4ee215c4e425c85b3";
-
-class ArbValue {
- public:
-  ArbValue() { arb_init(value_); }
-  ~ArbValue() { arb_clear(value_); }
-  ArbValue(const ArbValue&) = delete;
-  ArbValue& operator=(const ArbValue&) = delete;
-  arb_ptr get() { return value_; }
-  arb_srcptr get() const { return value_; }
-
- private:
-  arb_t value_;
-};
-
-class ArfValue {
- public:
-  ArfValue() { arf_init(value_); }
-  ~ArfValue() { arf_clear(value_); }
-  ArfValue(const ArfValue&) = delete;
-  ArfValue& operator=(const ArfValue&) = delete;
-  arf_ptr get() { return value_; }
-  arf_srcptr get() const { return value_; }
-
- private:
-  arf_t value_;
-};
-
-class FmpqValue {
- public:
-  FmpqValue() { fmpq_init(value_); }
-  ~FmpqValue() { fmpq_clear(value_); }
-  FmpqValue(const FmpqValue&) = delete;
-  FmpqValue& operator=(const FmpqValue&) = delete;
-  fmpq* get() { return value_; }
-
- private:
-  fmpq_t value_;
-};
-
-struct SideValues {
-  ArbValue s_bound;
-  ArbValue log_pi;
-  ArbValue im_gamma_integral;
-  ArbValue pi;
-};
 
 struct Options {
   std::uint64_t block = 0;
@@ -109,182 +45,6 @@ struct Options {
 
 [[noreturn]] void fail(const std::string& message) {
   throw std::runtime_error(message);
-}
-
-std::string dump_fmpz(const fmpz* value) {
-  char* raw = fmpz_get_str(nullptr, 10, value);
-  if (raw == nullptr) fail("fmpz_get_str returned null");
-  std::string result(raw);
-  flint_free(raw);
-  return result;
-}
-
-std::string rational_json(arf_srcptr value) {
-  if (!arf_is_finite(value)) fail("an extracted endpoint is not finite");
-  FmpqValue rational;
-  arf_get_fmpq(rational.get(), value);
-  fmpq_canonicalise(rational.get());
-  return "{\"denominator\":" + dump_fmpz(fmpq_denref(rational.get())) +
-         ",\"numerator\":" + dump_fmpz(fmpq_numref(rational.get())) + "}";
-}
-
-std::string interval_json(arb_srcptr value) {
-  if (!arb_is_finite(value)) fail("an Arb result is not finite");
-  ArfValue lower;
-  ArfValue upper;
-  arb_get_interval_arf(lower.get(), upper.get(), value, kRetainedPrecision);
-  if (arf_cmp(lower.get(), upper.get()) > 0) {
-    fail("an extracted interval has reversed endpoints");
-  }
-  return "{\"hi\":" + rational_json(upper.get()) +
-         ",\"lo\":" + rational_json(lower.get()) + "}";
-}
-
-void set_u64(arb_t value, std::uint64_t input) {
-  // The campaign heights fit in an unsigned long on every supported
-  // production target, but using an fmpz keeps this source correct on a
-  // platform whose unsigned long is narrower.
-  fmpz_t integer;
-  fmpz_init(integer);
-  fmpz_set_ui(integer, static_cast<ulong>(input));
-  if constexpr (std::numeric_limits<ulong>::max() <
-                std::numeric_limits<std::uint64_t>::max()) {
-    if (input > std::numeric_limits<ulong>::max()) {
-      fmpz_clear(integer);
-      fail("campaign height does not fit the platform unsigned long");
-    }
-  }
-  arb_set_fmpz(value, integer);
-  fmpz_clear(integer);
-}
-
-void set_fraction(arb_t value, ulong numerator, ulong denominator, slong prec) {
-  arb_set_ui(value, numerator);
-  arb_div_ui(value, value, denominator, prec);
-}
-
-// Literal transcription of zeta_arb/turing.c::St_int, with its decimal
-// constants represented by the exact source rationals 59/1000 and 2067/1000.
-void st_int(arb_t result, arb_srcptr t, slong prec) {
-  ArbValue c1;
-  ArbValue c2;
-  set_fraction(c1.get(), 59, 1000, prec);
-  set_fraction(c2.get(), 2067, 1000, prec);
-  arb_log(result, t, prec);
-  arb_mul(result, result, c1.get(), prec);
-  arb_add(result, result, c2.get(), prec);
-}
-
-// Literal exact-rational version of zeta_arb/turing.c::im_int1.
-void im_int1(arb_t result, arb_srcptr t, slong prec) {
-  ArbValue temporary;
-  ArbValue work;
-
-  arb_mul_2exp_si(temporary.get(), t, 2);
-  arb_atan(result, temporary.get(), prec);
-  arb_mul(result, result, t, prec);
-  arb_div_ui(result, result, 4, prec);
-  arb_neg(result, result);
-
-  arb_mul(temporary.get(), t, t, prec);
-  arb_mul_ui(work.get(), temporary.get(), 3, prec);
-  arb_div_ui(work.get(), work.get(), 4, prec);
-  arb_neg(work.get(), work.get());
-  arb_add(result, result, work.get(), prec);
-
-  arb_mul_ui(work.get(), temporary.get(), 16, prec);
-  arb_add_ui(work.get(), work.get(), 1, prec);
-  arb_log(work.get(), work.get(), prec);
-  arb_div_ui(work.get(), work.get(), 32, prec);
-  arb_add(result, result, work.get(), prec);
-
-  arb_set_si(work.get(), -1);
-  arb_div_ui(work.get(), work.get(), 64, prec);
-  arb_add(result, result, work.get(), prec);
-
-  arb_set_ui(work.get(), 1);
-  arb_div_ui(work.get(), work.get(), 16, prec);
-  arb_add(temporary.get(), temporary.get(), work.get(), prec);
-  arb_log(work.get(), temporary.get(), prec);
-  arb_mul(temporary.get(), temporary.get(), work.get(), prec);
-  arb_div_ui(temporary.get(), temporary.get(), 4, prec);
-  arb_add(result, result, temporary.get(), prec);
-}
-
-// Literal exact-rational version of zeta_arb/turing.c::im_int.  The explicit
-// error radius (t1-t0)/(3*t0) encloses the omitted log-gamma remainder.
-void im_int(arb_t result, arb_srcptr t0, arb_srcptr t1, slong prec) {
-  ArbValue error;
-  ArbValue at_t0;
-  ArbValue at_t1;
-  ArbValue temporary;
-
-  arb_sub(temporary.get(), t1, t0, prec);
-  arb_div_ui(error.get(), temporary.get(), 3, prec);
-  arb_div(error.get(), error.get(), t0, prec);
-
-  arb_mul_2exp_si(at_t0.get(), t0, -1);
-  arb_mul_2exp_si(at_t1.get(), t1, -1);
-  im_int1(result, at_t1.get(), prec);
-  im_int1(temporary.get(), at_t0.get(), prec);
-  arb_sub(result, result, temporary.get(), prec);
-  arb_mul_ui(result, result, 2, prec);
-  arb_add_error(result, error.get());
-}
-
-void compute_side(SideValues* result, std::uint64_t t0_integer,
-                  std::uint64_t t1_integer, slong prec) {
-  if (result == nullptr || t0_integer == 0 || t0_integer >= t1_integer ||
-      t1_integer - t0_integer != kTuringWidth) {
-    fail("one-sided Turing interval geometry is invalid");
-  }
-  ArbValue t0;
-  ArbValue t1;
-  set_u64(t0.get(), t0_integer);
-  set_u64(t1.get(), t1_integer);
-
-  arb_const_pi(result->pi.get(), prec);
-  arb_log(result->log_pi.get(), result->pi.get(), prec);
-  st_int(result->s_bound.get(), t1.get(), prec);
-  im_int(result->im_gamma_integral.get(), t0.get(), t1.get(), prec);
-}
-
-void require_replay_contains(arb_srcptr retained, arb_srcptr replay,
-                             std::string_view label) {
-  if (!arb_is_finite(retained) || !arb_is_finite(replay) ||
-      !arb_contains(retained, replay)) {
-    fail(std::string(label) + " failed 256-bit containment replay");
-  }
-}
-
-void validate_side(const SideValues& retained, const SideValues& replay,
-                   std::string_view label) {
-  require_replay_contains(retained.s_bound.get(), replay.s_bound.get(),
-                          std::string(label) + ".s_bound");
-  require_replay_contains(retained.log_pi.get(), replay.log_pi.get(),
-                          std::string(label) + ".log_pi");
-  require_replay_contains(retained.im_gamma_integral.get(),
-                          replay.im_gamma_integral.get(),
-                          std::string(label) + ".im_gamma_integral");
-  require_replay_contains(retained.pi.get(), replay.pi.get(),
-                          std::string(label) + ".pi");
-  if (!arb_is_positive(retained.s_bound.get()) ||
-      !arb_is_positive(retained.log_pi.get()) ||
-      !arb_is_positive(retained.pi.get())) {
-    fail(std::string(label) +
-         " contains an ambiguous sign in a required positive input");
-  }
-}
-
-bool is_lower_sha256(std::string_view value) {
-  if (value.size() != 64) return false;
-  for (char character : value) {
-    if (!((character >= '0' && character <= '9') ||
-          (character >= 'a' && character <= 'f'))) {
-      return false;
-    }
-  }
-  return true;
 }
 
 std::uint64_t parse_u64(std::string_view value, std::string_view label) {
@@ -348,81 +108,19 @@ Options parse_options(int argc, char** argv) {
   if (!one_shot && !persistent) {
     fail("select exactly one one-shot or persistent request mode");
   }
-  if (one_shot && options.block >= kSourceBlockCount) {
+  if (one_shot && options.block >= pti::kSourceBlockCount) {
     fail("--block is outside the PT21 source campaign");
   }
   if (one_shot &&
-      !is_lower_sha256(options.required_sign_packet_sha256)) {
+      !pti::is_lower_sha256(options.required_sign_packet_sha256)) {
     fail("--required-sign-packet-sha256 is not lowercase SHA-256 hex");
   }
   return options;
 }
 
-std::string values_json(const SideValues& values) {
-  return "{\"im_gamma_integral\":" +
-         interval_json(values.im_gamma_integral.get()) +
-         ",\"log_pi\":" + interval_json(values.log_pi.get()) +
-         ",\"pi\":" + interval_json(values.pi.get()) +
-         ",\"s_bound\":" + interval_json(values.s_bound.get()) + "}";
-}
-
-std::string side_json(std::string_view function_name, std::uint64_t t0,
-                      std::uint64_t t1, const SideValues& values) {
-  std::ostringstream output;
-  output << "{\"function\":\"" << function_name << "\",\"interval\":{\"a\":"
-         << t0 << ",\"b\":" << t1 << "},\"values\":" << values_json(values)
-         << '}';
-  return output.str();
-}
-
 std::string artifact_json(const Options& options) {
-  const std::uint64_t height_lower =
-      kSourceLower + options.block * kSourceStep;
-  const std::uint64_t height_upper = height_lower + kSourceStep;
-  if (height_lower < kTuringWidth ||
-      height_upper > std::numeric_limits<std::uint64_t>::max() -
-                         kTuringWidth) {
-    fail("derived PT21 source geometry overflows");
-  }
-  const std::uint64_t lower_a = height_lower - kTuringWidth;
-  const std::uint64_t lower_b = height_lower;
-  const std::uint64_t upper_a = height_upper;
-  const std::uint64_t upper_b = height_upper + kTuringWidth;
-
-  SideValues lower;
-  SideValues upper;
-  SideValues lower_replay;
-  SideValues upper_replay;
-  compute_side(&lower, lower_a, lower_b, kRetainedPrecision);
-  compute_side(&upper, upper_a, upper_b, kRetainedPrecision);
-  compute_side(&lower_replay, lower_a, lower_b, kReplayPrecision);
-  compute_side(&upper_replay, upper_a, upper_b, kReplayPrecision);
-  validate_side(lower, lower_replay, "lower");
-  validate_side(upper, upper_replay, "upper");
-
-  // Field order is lexicographic so the output is byte-for-byte canonical
-  // under json.dumps(sort_keys=True, separators=(",", ":")).
-  std::ostringstream output;
-  output
-      << "{\"algorithm\":\"" << kAlgorithm << "\",\"block\":" << options.block
-      << ",\"flint_commit\":\"" << kFlintCommit << "\",\"inputs\":{\"lower\":"
-      << side_json("turing_min", lower_a, lower_b, lower)
-      << ",\"upper\":" << side_json("turing_max", upper_a, upper_b, upper)
-      << "},\"precision_bits\":" << kRetainedPrecision
-      << ",\"replay_precision_bits\":" << kReplayPrecision
-      << ",\"required_sign_packet_sha256\":\""
-      << options.required_sign_packet_sha256 << "\",\"schema\":\"" << kSchema
-      << "\",\"semantic_status\":{\"analytic_turing_realization_proved\":false,"
-         "\"arb_interval_arithmetic_executed\":true,"
-         "\"hardy_z_endpoint_realization_proved\":false},"
-         "\"source_identity\":{\"height_lower\":"
-      << height_lower
-      << ",\"height_upper\":" << height_upper
-      << ",\"interpolation_patch_sha256\":\"" << kInterpolationPatchSha256
-      << "\",\"source_turing_c_sha256\":\"" << kTuringSourceSha256
-      << "\",\"upstream_commit\":\"" << kUpstreamCommit
-      << "\"}}\n";
-  return output.str();
+  return pti::artifact_json(options.block,
+                            options.required_sign_packet_sha256);
 }
 
 constexpr std::array<unsigned char, 8> kPersistentRequestMagic{
@@ -502,7 +200,7 @@ Options read_persistent_request() {
   }
   Options result;
   result.block = load_u64(request.data() + 16);
-  if (result.block >= kSourceBlockCount) {
+  if (result.block >= pti::kSourceBlockCount) {
     fail("persistent Turing block leaves the PT21 campaign");
   }
   result.required_sign_packet_sha256 =
