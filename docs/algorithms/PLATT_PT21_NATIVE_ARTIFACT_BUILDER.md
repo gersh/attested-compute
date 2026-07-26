@@ -147,6 +147,14 @@ DGX Spark, aarch64 Cortex-X925, 2026-07-26, one repeated block-zero fixture
 That is `2.46x` on the whole record adapter, for byte-identical `PT21BLK1`,
 source-trace, and block-artifact output.
 
+End to end through the bounded persistent CUDA/FLINT/Arb worker on the same
+host and fixture, three runs per configuration of seven requests each,
+`persistent_seconds_per_request` improves from `0.32020 s` to `0.22055 s`
+(`1.45x`) with every retained digest unchanged.  The full table, the
+three-request figures, and the reproducibility caveat about the volatile
+pinned FLINT install are in
+[PT21 bounded persistent worker](PLATT_PT21_PERSISTENT_WORKER.md).
+
 What is still slow, and why:
 
 - the Python independent revalidation (`0.03141 s`) is now the single largest
