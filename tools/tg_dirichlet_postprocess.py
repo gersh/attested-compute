@@ -133,9 +133,14 @@ def verify(request: dict[str, object], retained: dict[str, object], precision: i
             "chi_staircase_integral",
             "conjugate_staircase_integral",
             "rumely_bound_per_character",
+            "paired_rumely_bound_over_h",
+            "phi_over_h_pi_interval",
+            "paired_staircase_over_h_interval",
             "source_two_over_pi_contribution",
             "source_normalized_model_interval",
             "completion_upper_bound",
+            "identity_residual_interval",
+            "platt_released_code_upper_bound",
             "literal_arxiv_v1_typeset_interval",
         ):
             _overlaps(retained, fresh, field)

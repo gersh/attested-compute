@@ -416,15 +416,25 @@ def _zero_staircase_integral(
 
 
 def paired_turing(request: dict[str, Any], *, precision: int = 192) -> dict[str, Any]:
-    """Execute the source-shaped paired Turing upper bound.
+    """Execute the corrected reflected paired Turing upper bound.
 
-    The target is the symmetric zero count for ``chi``.  Booker's upper
-    inequality is applied at ``+t0`` and his lower inequality at ``-t0``;
-    the latter is reflected to the positive window of ``conjugate(chi)``.
-    This cancels the arbitrary completed-function phase before integration.
-    Platt's displayed ``2h`` is retained as the positive contribution
-    ``2/pi``.  The Phi terms therefore scale by ``1/(h*pi)``, while the
-    already-normalized zero staircases and S integrals scale by ``1/h``.
+    The target is the symmetric zero count for ``chi``.  Booker's counting
+    function is evaluated at ``+t0`` and at ``-t0`` and subtracted; the
+    negative window is reflected to the positive window of ``conjugate(chi)``
+    through ``L_bar-chi(conj s)=conj(L_chi(s))``.  That cancels the arbitrary
+    completed-function phase ``arg(epsilon_chi)`` before integration.
+    Expanding ``N=Phi+S`` and averaging over ``[t0,t0+h]`` gives the exact
+    identity
+
+        N_chi(t0) = Phi_pair/(h*pi)
+                    - (int Ntilde_chi + int Ntilde_bar-chi)/h
+                    + (int S_chi + int S_bar-chi)/h,
+
+    so the elementary/log-gamma terms scale by ``1/(h*pi)`` while the
+    zero-count staircases and the already ``1/pi``-normalized ``S`` integrals
+    scale by ``1/h``.  See ``docs/algorithms/DIRICHLET_TURING_REFLECTED_BOUND.md``
+    for the derivation, the two independent literature confirmations, and the
+    refutation of the source's extra ``+2h`` bracket term.
     """
 
     require_flint()
@@ -465,6 +475,19 @@ def paired_turing(request: dict[str, Any], *, precision: int = 192) -> dict[str,
         or request.get("isolated_below_t0_certified") is not True
     ):
         _fail("certified isolated count below t0 is required")
+    # Optional, strictly stronger caller assertion.  It claims that the window
+    # bracket list is complete with exact multiplicities and that
+    # ``isolated_count_below_t0`` is exactly ``N_chi(t0)``, not merely a lower
+    # bound.  Under that assertion the corrected display is an equality, so the
+    # residual must be the paired S integral and must satisfy Theorem 3.3.
+    # The check is fail-closed in both directions: it also rejects a bracket
+    # list whose ordinate enclosures are simply too wide to resolve the
+    # residual, so a caller must bisect before setting the flag.
+    identity_residual_certified = request.get(
+        "window_complete_and_count_exact_certified", False
+    )
+    if identity_residual_certified not in (True, False):
+        _fail("window_complete_and_count_exact_certified must be boolean")
     stop_q = t0_q + h_q
     ctx.prec = precision
     t0 = _arb_fraction(t0_q)
@@ -511,21 +534,22 @@ def paired_turing(request: dict[str, Any], *, precision: int = 192) -> dict[str,
         _fail("Rumely bound did not resolve positive")
     s_pair_integral = arb(0, 2 * rumely_one.abs_upper())
 
-    # Apply Booker's upper inequality to [t0,t0+h], his lower inequality to
-    # [-t0-h,-t0], and subtract.  Reflection identifies the latter with the
-    # positive conjugate-character window.  The constant arg(epsilon) cancels
-    # between equal-length positive and negative integrals, so no caller-
-    # supplied phase anchor belongs in this formula.  Platt's displayed 2h is
-    # retained as +2/pi.  Expanding N=Phi+S fixes the remaining normalization:
-    # Phi's elementary/gamma terms carry 1/(h*pi), whereas N-tilde and S are
-    # already zero-count-normalized and carry 1/h.
+    # Evaluate Booker's counting function at +t0 and at -t0 and subtract.
+    # Reflection identifies the negative window with the positive
+    # conjugate-character window.  The constant arg(epsilon) cancels between
+    # the two endpoints, so no caller-supplied phase anchor belongs here.
+    # Expanding N=Phi+S fixes the normalization: Phi's elementary/gamma terms
+    # carry 1/(h*pi), whereas N-tilde is a plain zero count and S already
+    # carries its own 1/pi, so both carry 1/h.
+    phi_over_h_pi = phase_main / (h * pi)
+    paired_staircase_over_h = (chi_staircase + conjugate_staircase) / h
     source_normalized_interval = (
-        2 / pi
-        + phase_main / (h * pi)
-        - chi_staircase / h
-        - conjugate_staircase / h
-        + s_pair_integral / h
+        phi_over_h_pi - paired_staircase_over_h + s_pair_integral / h
     )
+    # Audit only.  The arXiv v1 Theorem 3.2 display puts the staircase and S
+    # integrals behind the same 1/(h*pi) as the elementary/gamma terms.  Those
+    # objects are not pi-normalized, so the display is dimensionally
+    # inconsistent and lands near 86 where the true q=3 count is 44.
     literal_typeset_interval = (
         2 * h
         + phase_main
@@ -539,13 +563,30 @@ def paired_turing(request: dict[str, Any], *, precision: int = 192) -> dict[str,
     # isolated zeros below t0 give N_chi(t0) >= isolated_below.  If this upper
     # bound is below the next integer, equality follows and all lower zeros are
     # complete.  This is the non-circular Turing decision used in production.
-    completion_upper = (
-        2 / pi
-        + phase_main / (h * pi)
-        - chi_staircase / h
-        - conjugate_staircase / h
-        + 2 * rumely_one / h
+    completion_upper = phi_over_h_pi - paired_staircase_over_h + 2 * rumely_one / h
+    # Audit only.  Platt's arXiv v1 bracket carries an extra "+2h", and his
+    # released find_zeros.cpp adds one h per character at the end of ln_term;
+    # both amount to +2/pi once the corrected scaling is applied.  The identity
+    # derived from Booker Theorem 3.1 -- and Trudgian's independent display
+    # (2.3) -- has no such constant, and the multi-conductor identity KAT
+    # refutes it: including it forces (int S_chi + int S_bar-chi)/h far outside
+    # Theorem 3.3's envelope.  Because it enters an upper bound with a positive
+    # sign it is conservative, so bounds computed with it stay valid; it is
+    # simply 2/pi of wasted margin in a decision whose whole budget is 1.
+    released_code_upper = completion_upper + 2 / pi
+    # Under the corrected normalization the display is an equality, so when the
+    # caller certifies a complete exact-multiplicity window and an exact count
+    # the residual must be the paired S integral.  Theorem 3.3 then bounds it.
+    identity_residual = (
+        _arb_fraction(Fraction(isolated_below)) - phi_over_h_pi + paired_staircase_over_h
     )
+    if identity_residual_certified:
+        bound = 2 * rumely_one / h
+        if not (identity_residual < bound and identity_residual > -bound):
+            _fail(
+                "certified-complete window residual escapes Rumely Theorem 3.3; "
+                "the reflected Turing identity does not hold as normalized"
+            )
     if not completion_upper < isolated_below + 1:
         _fail("paired Turing upper bound does not fall below the next integer")
     if completion_upper < isolated_below:
@@ -565,11 +606,24 @@ def paired_turing(request: dict[str, Any], *, precision: int = 192) -> dict[str,
                 "url": RELEASED_TURING_CODE_URL,
             },
             "conjugate_pairing": True,
+            "independent_identity_confirmation": (
+                "Trudgian, Math. Comp. 84 (2015), no. 293, 1439-1450 "
+                "(arXiv:1206.1844v4), display (2.3): N(T,chi) = "
+                "(T/pi)log(k/pi) + (2/pi) Im logGamma(1/4+a/2+iT/2) "
+                "+ (1/pi) Delta_C arg L(s,chi), with no additive constant."
+            ),
             "normalization_audit": (
-                "Booker upper(+t0) minus lower(-t0), reflected to bar-chi, "
-                "cancels arg(epsilon); Platt's 2h contributes +2/pi; Phi uses "
-                "1/(h*pi), while the zero staircases and S integrals use 1/h. "
-                "The display's common 1/(h*pi) remains a literal audit only."
+                "Booker N(+t0) minus N(-t0), reflected to bar-chi, cancels "
+                "arg(epsilon); Phi uses 1/(h*pi), while the zero staircases and "
+                "the already 1/pi-normalized S integrals use 1/h. The display's "
+                "common 1/(h*pi) and its extra +2h are retained as audit "
+                "quantities only; neither is used in the decision."
+            ),
+            "source_2h_term": (
+                "arXiv v1 Theorem 3.2 prints '+2h' inside the common bracket "
+                "and find_zeros.cpp ln_term adds one h per character; both give "
+                "+2/pi. The identity has no such constant. It is a positive "
+                "slack, hence conservative, but it is not part of the theorem."
             ),
             "negative_window_reflection": (
                 "L_bar-chi(conj(s))=conj(L_chi(s)) and S_chi(-t)=-S_bar-chi(t)"
@@ -587,16 +641,23 @@ def paired_turing(request: dict[str, Any], *, precision: int = 192) -> dict[str,
         "chi_window_multiplicity": chi_multiplicity,
         "conjugate_window_multiplicity": conjugate_multiplicity,
         "rumely_bound_per_character": arb_interval(rumely_one),
+        "paired_rumely_bound_over_h": arb_interval(2 * rumely_one / h),
+        "phi_over_h_pi_interval": arb_interval(phi_over_h_pi),
+        "paired_staircase_over_h_interval": arb_interval(paired_staircase_over_h),
         "source_two_over_pi_contribution": arb_interval(2 / pi),
         "source_normalized_model_interval": arb_interval(source_normalized_interval),
         "completion_upper_bound": arb_interval(completion_upper),
+        "identity_residual_interval": arb_interval(identity_residual),
+        "platt_released_code_upper_bound": arb_interval(released_code_upper),
         "literal_arxiv_v1_typeset_interval": arb_interval(literal_typeset_interval),
         "certified_multiplicity_count_below_t0": count,
         "next_integer_excluded_by_turing_upper_bound": count + 1,
         "future_window_completeness_assumed": False,
+        "window_complete_and_count_exact_certified": identity_residual_certified,
         "multiplicity_preserved": True,
         "source_normalized_reflected_turing_candidate_executed": True,
         "negative_window_reflected_to_conjugate_certified": True,
+        "source_2h_constant_included_in_bound": False,
         "literal_paper_theorem_3_2_accepted": False,
         "production_accept": False,
     }
@@ -639,7 +700,9 @@ def capability_report() -> dict[str, Any]:
             "rumely_bound": True,
             "literal_theorem_3_2_normalization_accepted": False,
             "source_normalized_reflection_candidate_only": True,
-            "source_two_over_pi_contribution_included": True,
+            "source_two_over_pi_contribution_included": False,
+            "source_2h_constant_refuted_by_identity_kat": True,
+            "identity_residual_check_available": True,
         },
         "accepted_manuscript_parameters": {
             "source": "https://research-information.bris.ac.uk/ws/portalfiles/portal/67056136/platt_grh3.0.pdf",
@@ -686,7 +749,7 @@ def capability_report() -> dict[str, Any]:
             "numeric threshold for Lemma 6.7's printed 'large enough t0' hypothesis",
             "source parameter selection and window-shift retry policy",
             "uniform proof of the accepted manuscript's <8.6e-8 claim over every source case",
-            "theorem-level review of the reflected Theorem 3.2 normalization",
+            "Lean realization of the corrected reflected Theorem 3.2 identity",
             "full-source production execution",
             "Lean analytic realization",
         ],

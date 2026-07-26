@@ -13,9 +13,11 @@ formed. It is deliberately split into two layers:
    sample, isolate strict sign changes, and use an argument-principle count.
 
 Neither layer closes the external theorem atom. No full-source campaign has
-run, and the persistent transform-to-completed-value composition, uniform
-interpolation proof, and theorem-level review of the reflected Turing
-normalization remain open.
+run, and the persistent transform-to-completed-value composition and the
+uniform interpolation proof remain open. The reflected Turing normalization now
+has a written derivation and a multi-conductor identity KAT
+([DIRICHLET_TURING_REFLECTED_BOUND.md](DIRICHLET_TURING_REFLECTED_BOUND.md)),
+but its Lean realization is still missing.
 
 ## Exact source mapping
 
@@ -31,7 +33,7 @@ which is cited separately because those details are absent from arXiv v1:
 | Finite sinc sum | Theorems 6.1--6.2 | `sum_n W(n/(2B)) sinc(2 B pi (t0-n/(2B)))` over consecutive retained samples with at least `N` on each side of `t0` |
 | Aliasing budget | Lemmas 6.4--6.5 | The printed `I_chi` bound with `M=5/2-a_chi` and the explicit upper bound for `P(t0,h)` |
 | Truncation budget | Lemmas 6.6--6.7 | The printed `G(0)/(1-G(1)/G(0))` geometric bound and final zeta/gamma constant |
-| Turing count | Theorems 3.1--3.3 | Booker's upper inequality at `+t0` minus his lower inequality at `-t0`, reflection of the negative window to the conjugate character, the source `+2/pi` contribution, multiplicity-weighted zero staircases, and Rumely's published `1.8397 + 0.1242 log(q(t0+h)/(2pi))` bound |
+| Turing count | Theorems 3.1--3.3 | Booker's counting function at `+t0` minus at `-t0`, reflection of the negative window to the conjugate character, `1/(h*pi)` on the elementary/log-gamma group and `1/h` on the multiplicity-weighted zero staircases and `S` integrals, and Rumely's published `1.8397 + 0.1242 log(q(t0+h)/(2pi))` bound. The display's `+2h` is refuted and excluded; see [DIRICHLET_TURING_REFLECTED_BOUND.md](DIRICHLET_TURING_REFLECTED_BOUND.md) |
 | Exceptions | Section 7 | Precision escalation, direct Arb recomputation, grid-point splitting, post-512 refinement, and fail-closed window retry boundary |
 | Production sinc parameters | Accepted manuscript Sections 8--9 | `A=64/5`, hence `B=32/5`; Gaussian `h=7/32`; 20 samples on each side; claimed error `<8.6e-8` |
 
@@ -102,41 +104,53 @@ observed future brackets lower-bound the true staircase and therefore
 upper-bound the zero count below `t0`; if that upper bound is below the next
 integer above the already certified isolated count, completeness follows.
 
-There is a normalization issue in the arXiv v1 Theorem 3.2 display. Literally
-putting the zero-staircase and already-normalized `S_chi` integrals behind the
-common `1/(h*pi)` and retaining the displayed `2h` fails the real primitive
-q=3 multiplicity KAT: it yields an interval near 86 instead of the independently
-counted 44 zeros through height 60. The executable candidate now derives the
-symmetric count by applying Booker's upper inequality on `[t0,t0+h]`, his lower
-inequality on `[-t0-h,-t0]`, and subtracting. The negative window is reflected
-to the positive window for `bar-chi` using
-`L_bar-chi(conj s)=conj(L_chi(s))`; equivalently
-`S_chi(-t)=-S_bar-chi(t)`. Equal-length subtraction cancels the arbitrary
-`arg(epsilon)` term, so no numerically fitted phase anchor is consumed.
+The arXiv v1 Theorem 3.2 display is wrong in two independent ways, and the
+derivation, the numbers, and the remaining Lean obligations are now written out
+in [DIRICHLET_TURING_REFLECTED_BOUND.md](DIRICHLET_TURING_REFLECTED_BOUND.md).
+In summary:
 
-Expanding `N=Phi+S` then puts the elementary/log-gamma terms behind
-`1/(h*pi)` and the zero-staircase/`S` terms behind `1/h`. The source's displayed
-`2h` is retained conservatively as the explicit positive contribution `2/pi`.
-With that contribution the q=3 upper interval is approximately
-`[44.6352,44.7337]`, still strictly below 45, and therefore proves the unique
-integer count 44 from the certified lower count. The result retains the
-literal common-denominator interval separately so a reviewer can see the
-typesetting/normalization discrepancy rather than having it silently erased.
+- **Common denominator (typesetting erratum).** Putting the zero-staircase and
+  the already `1/pi`-normalized `S_chi` integrals behind the same `1/(h*pi)` as
+  the elementary/log-gamma terms divides them by `pi` a second time. On the
+  real primitive q=3 window `t0=60`, `h=100` the literal display yields an
+  interval near 86 where two independent argument-principle winding counts give
+  exactly 44. The elementary/log-gamma group carries `1/(h*pi)`; the staircase
+  and `S` groups carry `1/h`. Platt's own released program agrees, so the
+  computation he ran used the correct scaling.
+- **The displayed `+2h` (spurious, but conservative).** Under the corrected
+  scaling it contributes a constant `2/pi = 0.63662`. The identity derived from
+  Booker Theorem 3.1, and Trudgian's independent display (2.3), have no such
+  constant. It is no longer included in the executable bound.
 
-The accepted manuscript repeats the common-denominator display and no erratum
-was found. Until the reflected derivation is reviewed and connected to the
-Lean multiplicity-count contract, `literal_paper_theorem_3_2_accepted` and
-`production_accept` stay false. The direct argument-principle fallback does not
-depend on this issue.
+The executable candidate derives the symmetric count by evaluating Booker's
+counting function at `+t0` and `-t0` and subtracting. The negative window is
+reflected to the positive window for `bar-chi` using
+`L_bar-chi(conj s)=conj(L_chi(s))`; equivalently `S_chi(-t)=-S_bar-chi(t)`.
+The subtraction cancels the arbitrary `arg(epsilon)` term, so no numerically
+fitted phase anchor is consumed.
 
-The normalization is also independently visible in Platt's released program,
-commit [`42b2142`](https://github.com/djplatt/code/blob/42b21426718e542daa2b006dc05ea2d7f26426e6/l-func-hi/find_zeros.cpp).
-There `ln_term` adds one `h` before division by `pi`, and `turing_max`
-forms `Rumely - Nright + ln_term/pi` before dividing the whole expression by
-`h`. Summing the two conjugate calls therefore gives exactly the executable
-`+2/pi`, `1/(h*pi)` elementary/gamma, and `1/h` staircase/Rumely scaling. This
-code evidence corroborates the formula but does not replace the missing
-theorem-level derivation.
+The `+2h` term is refuted, not merely unproved. With a complete
+exact-multiplicity bracket list and an exactly known `N_chi(t0)`, the corrected
+display is an equality whose residual must be `(int S_chi + int S_bar-chi)/h`,
+which Rumely's Theorem 3.3 bounds. The multi-conductor KAT certifies both
+endpoint counts by winding, certifies completeness by matching the bracket
+total against the winding difference, and finds residuals between `-0.0348` and
+`+0.0031` against envelopes between `0.0476` and `0.1213`. Shifting each
+residual by `-2/pi` breaks the envelope at every row by a factor of 5 to 13.
+The rows cover both parities, real characters and genuine complex conjugate
+pairs, and two window shapes.
+
+Two audit quantities are still emitted so a reviewer can see the discrepancy
+rather than have it silently erased: `literal_arxiv_v1_typeset_interval` (the
+printed display) and `platt_released_code_upper_bound` (the corrected bound
+plus the released program's `+2/pi`).
+
+The accepted manuscript repeats the common-denominator display and no published
+erratum was found. Until the derivation is connected to the Lean
+multiplicity-count contract, `literal_paper_theorem_3_2_accepted` and
+`production_accept` stay false; the analytic half alone does not authorize
+either flag. The direct argument-principle fallback does not depend on this
+issue.
 
 ## Commands
 
@@ -200,9 +214,11 @@ zero/Turing closure remain outside it.
 4. Supply a reviewed explicit hypothesis discharging Lemma 6.7's "large
    enough `t0`" condition, or replace that tail bound with a fully explicit
    proved bound.
-5. Formalize/review the reflected Theorem 3.2 upper bound, connect its
-   multiplicity count to the Lean distinct-zero upper bound, and implement the
-   exact source-approved window-shift/retry policy.
+5. Formalize the corrected reflected Theorem 3.2 identity in Lean (the
+   derivation and the itemized obligations are in
+   [DIRICHLET_TURING_REFLECTED_BOUND.md](DIRICHLET_TURING_REFLECTED_BOUND.md) §7),
+   connect its multiplicity count to the Lean distinct-zero upper bound, and
+   implement the exact source-approved window-shift/retry policy.
 6. Run all source characters and retain accepted, independently replayed
    receipts.
 7. Prove the Lean realization from completed-L signs and multiplicity counts to

@@ -3309,7 +3309,7 @@ def build_sizing_report(
                     "persistent completed-value input and compact cross-shard event integration for the routine factor-eight CUDA reducer",
                     "source-wide proof that certified small-q disk widths remain useful after the complete DFT and scaling",
                     "uniform proof of the accepted manuscript interpolation error over every source case",
-                    "theorem-level review and Lean realization of the corrected reflected Theorem 3.2 upper bound",
+                    "Lean realization of the corrected reflected Theorem 3.2 identity, whose analytic derivation and multi-conductor identity KAT are now recorded",
                     "source-wide exception/window-shift policy, execution, and independent replay",
                 ],
                 "historical_optimized_reference": {
@@ -3517,7 +3517,7 @@ def build_sizing_report(
                 "missing_conditions": [
                     "the persistent component graph, fully replayed finite-recovery seeds, and t-major lattice cache contract are wired as components, but no populated source cache or CUDA broadcast supervisor integrates them into one fail-closed campaign",
                     "the q-persistent small-q service and semantic time-tail/sign reducer are implemented, but CUDA fusion/source-scale timing for the 226.996-TB input pipe and source-wide interval-width usefulness are not closed",
-                    "the interpolation bound and theorem-level reflected Turing bridge remain unresolved",
+                    "the interpolation bound and the Lean reflected-Turing bridge remain unresolved",
                     "no Azure H100 component has been calibrated",
                 ],
                 "classification": "conditional_component_sensitivity_not_complete_portfolio_eta",

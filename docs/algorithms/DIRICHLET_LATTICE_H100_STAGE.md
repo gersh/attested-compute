@@ -169,8 +169,9 @@ practical replacement still needs:
    recovery, the all-character transform, and completed-value/zero consumers;
 2. a production batched small-`q` FFT and economical independent replay;
 3. a uniform Whittaker--Shannon error proof and source exception/window policy;
-4. theorem-level review and Lean realization of the corrected reflected
-   paired-Turing upper bound;
+4. Lean realization of the corrected reflected paired-Turing upper bound, whose
+   analytic derivation is now recorded in
+   [DIRICHLET_TURING_REFLECTED_BOUND.md](DIRICHLET_TURING_REFLECTED_BOUND.md);
 5. a completed authenticated run and independently auditable closure; and
 6. its Lean realization theorem.
 
