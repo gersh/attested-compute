@@ -252,6 +252,86 @@ precision-hull traces. This is bounded finite evidence, not a Turing input or
 `PT21BLK1`, and the compact stream does not retain enough resolver input to
 recompute candidate completeness independently.
 
+## Measured per-window cost attribution
+
+Until this measurement the split between device and host cost in one fused
+window was not known, only the difference between the fused rate and the
+transform-only rate.  The worker now accepts a diagnostic `--stage-profile`
+flag.  It records eight extra CUDA events on the worker's own stream, one
+before and one after each device stage, and separates the submission thread's
+`CLOCK_THREAD_CPUTIME_ID` from its wall clock.  It changes no launch, no copy,
+no artifact byte, and no fail-closed decision; the 64-block artifact digest is
+identical with and without it.
+
+GB10, `Release`/`NDEBUG`, blocks 0-63, eight ring slots and eight replay
+lanes, one representative run:
+
+| per window | device stream | submission-thread host CPU |
+|---|---:|---:|
+| Gamma record H2D | `0.005 ms` | `0.018 ms` |
+| Gamma synthesize | `2.693 ms` | `0.112 ms` |
+| DD accumulator (768000 terms, 23 stages) | `17.581 ms` | `0.013 ms` |
+| DD transform | `70.301 ms` | `0.169 ms` |
+| required-region audit | `0.017 ms` | `0.403 ms` |
+| three-stream device scan | `4.721 ms` | `0.030 ms` |
+| replay-capture D2H (`2,051,576` bytes) | `0.051 ms` | `0.027 ms` |
+| **device total** | **`95.369 ms`** | **`0.744 ms`** |
+
+The transform-only harness measures `69.25 ms` per window for
+`run_source_window` alone on the same GB10, which the `70.301 ms` transform
+stage reproduces.  So the whole `25.1 ms` gap between the fused rate and the
+transform-only rate is *other device stages* — dominated by the DD
+accumulator and the device scan — and not host software.
+
+Host cost per window, same run:
+
+| host stage | cost | where it runs |
+|---|---:|---|
+| exact independent replay | `39.4 ms` CPU | replay pool, N lanes in parallel |
+| — scanner Merkle artifact digest | `~36 ms` | inside the replay |
+| — stationary payload SHA-256 | `~3.0 ms` | inside the replay |
+| — 25,741 disk sign certifications | `~0.5 ms` | inside the replay |
+| — event reconstruction and byte compare | `~0.17 ms` | inside the replay |
+| ordered commit under the ring mutex | `0.031 ms` | serial |
+| submission thread, real work | `0.744 ms` | serial |
+| submission thread, spin absorbing GPU back pressure | `~1.39 ms` | serial |
+
+The `1.39 ms` term is not host work.  It is the CUDA driver spinning in
+whichever launch follows a full stream queue: removing the audit kernel moves
+the same `1.39 ms` intact onto the next launch instead of eliminating it.  The
+serial host ceiling on window rate is therefore about `1/0.744 ms`, not
+`1/2.13 ms`.
+
+The replay is dominated by SHA-256: about 90,000 portable SHA-256 calls per
+window build the scanner Merkle tree, at about `400 ns` each on this host.
+That is the one host term worth attacking further, and the only useful lever
+on it is a faster SHA-256, since the tree shape is fixed by the artifact
+commitment.
+
+## Host-scaled replay pool
+
+The ring depth and lane count were previously hardcoded at eight, which caps
+the host at `8 / 39.4 ms`, or about `203` windows/s, regardless of how fast
+the device becomes.  Both now default to the detected core count — one core
+reserved for the ordered submission thread, ring depth `lanes + lanes/2 + 2`
+— and are additionally bounded by `kMaximumReplayLanes`,
+`kMaximumReplayRingBlocks`, and a `768 MiB` pinned-memory ceiling applied to
+the measured slot size.  `--event-ring-blocks=N` and
+`--event-replay-threads=N` remain exact operator pins, and the resolved
+values plus `event_result_ring_auto_scaled` and `host_cores_detected` are
+reported.
+
+This is a scheduling change only.  The ordered commit still publishes each
+block in campaign order and every lane still runs the full independent
+fixed-2176-bit replay.  On the GB10 the 64-block artifact is unchanged at
+`94d3b2d0a71df3c2251bddce62a70ea8d48c2e96b30ca17e53c5de5f6a2d28ed` at
+1 slot/1 lane, 8/8, the auto-scaled 30/19, and 64/64; the 256-block artifact
+is unchanged at `895edf07ab38...` across three paired runs of 8/8 and the
+auto-scaled setting.  The GB10 rate does not move, because the GB10 is device
+bound at about `10.51` windows/s in every one of those configurations; the
+change exists so that a device 27x faster is not met by a host ceiling of
+`203` windows/s.
+
 Two format issues must be fixed rather than papered over:
 
 - V2 intentionally does not create a `PT21SGN1` packet, while the current
