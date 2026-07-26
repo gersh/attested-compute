@@ -4,8 +4,8 @@ Copyright (c) 2026 Gershon Bialer. All rights reserved.
 SPDX-License-Identifier: MIT
 
 [`tg_verifier/zeta_zero_campaign.py`](../../tg_verifier/zeta_zero_campaign.py)
-and [`tools/tg_zeta_campaign.py`](../../tools/tg_zeta_campaign.py) provide one
-bounded-memory FLINT/Arb workflow for these named external atoms:
+and [`tools/tg_zeta_campaign.py`](../../tools/tg_zeta_campaign.py) provide the
+original Python/FLINT workflow for these named external atoms:
 
 | profile | exact height | required `N(T)` |
 |---|---:|---:|
@@ -35,6 +35,12 @@ python3 -m venv .venv-tg-flint
 
 The required versions are `python-flint==0.9.0` and bundled `FLINT==3.6.0`
 (`FLINT_RELEASE=30600`).
+
+For the source-height atom, the native count-only implementation and fixed
+parallel plan in
+[`PLATT_ZETA_FLINT_CAMPAIGN.md`](PLATT_ZETA_FLINT_CAMPAIGN.md) supersede the
+literal Python loop below. The older workflow remains useful for the complete
+height-20,000 replay and independent spot checks.
 
 For an arbitrary positive integer height, compute the exact
 multiplicity-counted value `N(T)` directly:
@@ -67,6 +73,11 @@ OUT="$(mktemp -d build/tg/zeta-head-2e4.XXXXXX)"
   --profile platt-head-2e4 --batch-size 4096 --precision-bits 96
 .venv-tg-flint/bin/python tools/tg_zeta_campaign.py --pretty verify \
   "$OUT" --complete
+
+# Reconstruct the exact 22,491 Q128 rows used by the Lean consumer. This
+# fails unless both reviewed included-table and sentinel-inclusive digests match.
+.venv-tg-flint/bin/python tools/tg_zeta_campaign.py --pretty emit-lean-table \
+  "$OUT" build/generated/PlattHeadQ128.lean
 ```
 
 The profile additionally proves the strict reciprocal bound
@@ -106,9 +117,12 @@ process can lose only its currently uncommitted batch. Existing nonidentical
 artifacts are never overwritten.
 
 The source-height campaign contains more than twelve trillion zero records.
-The implementation is range-complete and bounded-memory, but a naive full
-recomputation remains computationally enormous. No source-height run is
-claimed merely because the profile and scheduler exist.
+The original implementation is range-complete and bounded-memory, but a naive
+full recomputation remains computationally enormous. The newer native FLINT
+Platt campaign removes per-zero artifact storage and supports fixed parallel
+shards, Merkle aggregation, and named-API audit replay. It is still a
+multi-year computation at available CPU throughput. No source-height run is
+claimed merely because either scheduler exists.
 
 ## Artifact and proof logic
 
@@ -123,6 +137,20 @@ cannot silently resume an old plan. Each `chunk-NNNNNNNNNNNN.json` contains:
 - positive/disjoint/critical-line results from the fresh FLINT call; and
 - an outward dyadic reciprocal-sum enclosure.
 
+For `platt-head-2e4`, every chunk additionally retains all of its indexed
+exact rational interval preimages. The structural verifier recomputes their
+digest, ordering, endpoints, and minimum-gap summary. `emit-lean-table` rounds
+the first 22,491 rows outward at scale `2^128`, checks every reciprocal
+cross-product, and refuses output unless the 22,491 included rows hash to
+`e7943dee86b5bf029e9159bd5e54e8726bac14ecaf9a5f42c9b254d98d15a6b7`
+and all 22,492 rows including the cutoff sentinel hash to
+`fc67e829c51adda0804b23b959db33d48e9e1a70076a9caf2ec4d6be96cf29ca`.
+Both are computed from the same table audited in `claude_math`; distinguishing
+them prevents the source-table commitment from accidentally naming the longer
+sentinel table. The generated module contains literal `Q128Cell` rows and no
+axiom. The source-height profile keeps this field null: retaining trillions of
+interval preimages is not viable.
+
 The final checker verifies contiguous index and hash coverage, strict
 disjointness across chunk boundaries, exactly one last-included and one
 first-excluded interval, `gamma_N <= T < gamma_(N+1)`, and the aggregate
@@ -131,10 +159,22 @@ multiplicity while there are `N(T)` disjoint critical-line isolations below
 the cutoff, equality forces every retained isolation to be simple and leaves
 no additional on-line or off-line zero below the height.
 
-The compact chunk does not retain all interval preimages. Structural
-`verify` checks the artifact chain but does not reevaluate zeta. Use
-`replay-chunk` for a fresh byte-for-byte FLINT replay of any retained batch:
+Structural `verify` checks retained arithmetic and the artifact chain but does
+not reevaluate zeta. Use `replay-chunk` for a fresh byte-for-byte FLINT replay
+of any retained batch:
 
 ```bash
 .venv-tg-flint/bin/python tools/tg_zeta_campaign.py replay-chunk "$OUT" 0
 ```
+
+## Closed measured Azure head job
+
+The `platt-head-2e4` profile is also wrapped as one challenge-bound Azure
+SEV-SNP CPU job. The wrapper runs the complete campaign, replays all six
+chunks, emits and retains the literal table, and then independently replays
+the retained archive in the external trace verifier. Its materializer pins
+the full FLINT/python-flint source trees and exact x86-64 runtime wheel and
+accepts no caller-selected command. See
+[`PLATT_HEAD_AZURE_MEASURED_WORKLOAD.md`](PLATT_HEAD_AZURE_MEASURED_WORKLOAD.md)
+for the exact closure and operator workflow. No Azure run or accepted receipt
+is currently claimed, and the semantic inventory row remains disabled.

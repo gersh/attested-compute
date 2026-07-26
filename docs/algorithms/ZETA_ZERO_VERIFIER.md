@@ -178,6 +178,19 @@ the ordered certificate. Thus sign and ordering decisions require neither
 `native_decide` nor trusted floating-point comparisons. This is linear in the
 number of bracket comparisons, although exact-rational operand sizes still
 govern individual comparison cost and the current family is held in memory.
+
+[`TouchingEndpointCertificate.lean`](../../SparkInterval/Zeta/TouchingEndpointCertificate.lean)
+provides the source-shaped variant needed by the Platt--Trudgian scan. Its
+linear exact-rational checker accepts `upper <= next.lower`, but continues to
+require strict nonzero endpoint signs. Continuity therefore places every
+selected root in an open bracket. Lean proves those open brackets contain
+distinct roots even when two closed brackets share an endpoint, and carries
+the result through the same exact-count and completeness argument. This does
+not assume simple zeta zeros: a resolved stationary cell may contribute two
+touching strict brackets. The remaining PT21 integration work is to decode
+the signed source sign/enclosure packet into this typed family and establish
+its Hardy-Z endpoint realization.
+
 The monolithic signed bridge below parses one canonical full certificate.
 `StreamingChunkVerifier.lean` additionally proves a resumable exact-rational
 chunk transition, cross-chunk ordering/contiguity, summed counts, conversion to
@@ -247,12 +260,16 @@ axiom returns both the historical bytes and a fail-closed registered projection.
 `accepted_registered_run_sound` is a proved projection that yields the
 invocation's fixed `Runs` relation, not another axiom.
 
-The only current invocation is the unrelated tutorial
-`cubicSumDivThree20000V1`. Its `Runs` relation uses an executable integer cube
+The current invocations are unrelated to zeta: the CPU tutorial
+`cubicSumDivThree20000V1` and the one-row
+`h100FormalPtxConstantOneV1` `sm_90` deployment pilot. The cubic `Runs`
+relation uses an executable integer cube
 accumulator followed by one division; separate axiom-free theorems prove the
 exact output `13334666700000000`, rational-specification agreement, and u64
 no-overflow for every loop step without `native_decide`. Those model-level
-proofs do not establish GPU opcode execution. There is no registered Hardy-Z,
+proofs do not establish GPU opcode execution. The H100 pilot only fixes a
+constant `[1,1]` batch, links its PTX source to the formal emitter, and checks
+the exact compact result shape. There is no registered Hardy-Z,
 endpoint, streaming, or total-count checker, so this mechanism does not advance
 the current zeta height by itself.
 
@@ -278,9 +295,10 @@ the accepted statement input digest and the exact formal program input digest.
 Its soundness result keeps the fields separate:
 `ProducedOutcome` uses `accepted_run_certificate_sound`; formal PTX identity,
 returned-text binding, canonical parsing, arithmetic, shape, and endpoint-
-family validity come from ordinary Lean checks. This path does not use the
-registered projection because no zeta invocation exists in the closed
-registry. `statementResult_parses` proves that the exact result named in the
+family validity come from ordinary Lean checks. This generic full-payload path
+does not use the registered projection. A separate exact PT21 finite-RH
+invocation is now in the closed registry and requires its chunked
+`SourceEvidence` directly. `statementResult_parses` proves that the exact result named in the
 accepted statement parses to the typed full certificate.
 
 Full-certificate arithmetic now supplies more than sign data.
@@ -339,8 +357,10 @@ The preferred `certifyRegisteredCompactFiniteHeightZeta` instead accepts a
 closed `RegisteredInvocation`. Its `Runs` relation is fixed by the library and
 the sole axiom supplies that relation for the accepted run, so there is no
 separate `ExecutionRefines` premise. A full `verifierSound` theorem must still
-derive the zeta claim from `Runs`. Since no zeta checker is registered and no
-such soundness theorem exists, this is also an interface rather than a
+derive the zeta claim from `Runs`. The exact PT21 invocation and its ordinary
+source-claim theorem now instantiate this pattern through a dedicated signed
+wrapper, but no external artifacts yet construct the required endpoint,
+Hardy-Z and count evidence. It remains a conditional interface rather than a
 completed compact verifier.
 
 ### `sm_90` emitter path
@@ -355,8 +375,9 @@ This is an H100-targeted PTX **emitter**, not a proved H100 backend. The existin
 pinned-NVIDIA partial refinement proves finite directed `add/sub/mul` and
 non-NaN `min/max` behavior in the typed model. It has no typed division opcode,
 no transcendental opcodes, and no PTX-to-cubin or hardware refinement theorem.
-There is not yet an operational H100 runner for this formal generated-module
-path.
+The operational measured H100 pilot covers one closed constant `[1,1]` batch
+on this generated-module path. It does not yet cover the zeta verifier or turn
+the PTX-to-cubin and physical-hardware steps into refinement theorems.
 
 ### Binary power schedule
 
@@ -415,10 +436,11 @@ accepted run certificate -> ProducedOutcome                     [one axiom]
 ```
 
 The current full-payload zeta branch does not use the registered projection to
-prove the analytic arrows. A future compact registered branch may derive the
-mathematical claim from `Runs`, but only through a proved checker-soundness
-theorem; no such zeta registry constructor exists. The finite-set theorem does
-not prove that a GPU ran. A Blueprint edge to a pinned NVIDIA clause is
+prove the analytic arrows. The separate PT21 compact branch derives the source
+claim from its fixed `Runs` relation through an ordinary Lean theorem, but its
+successful relation still requires the endpoint/Hardy-Z/count evidence that no
+current artifact materializes. The finite-set theorem does not prove that a
+CPU or GPU ran. A Blueprint edge to a pinned NVIDIA clause is
 reviewable source traceability, not a universal proof of `ptxas`, SASS, driver,
 or physical-H100 refinement.
 
@@ -525,7 +547,7 @@ nontrivial height.
 | Endpoint evaluator realization | The canonical full-payload parser, arithmetic, shape, and family checks exist, and checked rows derive enclosures. A production path must prove `EndpointRowsRealize` for its Hardy-Z expression and discharge domain membership. |
 | Analytic total zero count | Construct `PositiveZetaMultiplicityCountUpperBound` or the symmetric `ZetaMultiplicityCountUpperBound` from a fully explicit Turing or argument-principle theorem tied to executable interval evidence, including contour-boundary handling. |
 | Compiler coverage | Add every arithmetic operation used by the selected formula to the typed compiler and prove expression, instruction, module, and emitted-code refinement. Directed division remains absent today. |
-| Streaming byte integration | The logical previous-bracket transition is resumable across list chunks and proves global family validity. A high-bound format still needs a byte parser, rolling digest, resource-bounded allocation/work and I/O, plus a refinement theorem to that logical runner. |
+| Streaming byte integration | The logical previous-bracket transition is resumable across list chunks and proves global family validity. The separate PT21 checker now proves the source-permitted touching-bracket topology. A high-bound format still needs a byte parser, rolling digest, resource-bounded allocation/work and I/O, plus a refinement theorem from the signed source packet to the appropriate logical runner. |
 
 Mathlib currently provides analytic `riemannZeta`, its functional equation,
 trivial zeros, nonvanishing on `re(s) >= 1`, and discreteness/finiteness of its
@@ -622,8 +644,9 @@ and evidence root. This avoids a large download only if the verifier trusts
 attestation for that exact checker, its inputs, completion, and output. It is a
 different assurance mode from locally replaying the mathematical certificate.
 
-The current Lean model has no production CPU-TEE/H100 importer and no closed
-registered zeta checker. The generic theorem
+The repository now has a source-reviewed CPU-TEE/H100 receipt importer and
+closed CPU/H100 pilot invocations, but its admitted receipt registry is empty
+and it has no closed registered zeta checker. The generic theorem
 `certifyRegisteredCompactFiniteHeightZeta` shows how a small summary can be
 used once such an invocation and its full `Runs`-to-zeta soundness theorem
 exist; it does not provide either one. This mode must keep the extra CPU-TEE,
@@ -638,7 +661,8 @@ The repository has exactly one project execution/certificate axiom:
 ```lean
 axiom accepted_run_certificate_sound
     {certificate : RunCertificate}
-    (accepted : certificate.check = true) :
+    (accepted : checkTrustedCompute certificate.statement
+      certificate.attestation = true) :
     certificate.ProducedOutcome
 ```
 
@@ -646,28 +670,34 @@ For an accepted certificate this yields `ProducedOutcome.historical`, stating
 that the exact named computation returned the bound serialized result, and a
 fail-closed `.registered` field. The latter supplies a fixed
 `RegisteredInvocation.Runs` relation only when that closed invocation's full
-statement check succeeds. `accepted_registered_run_sound` and the H100/DGX
-entry points are proved projections of this same axiom, not additional axioms.
+statement check succeeds. `accepted_registered_run_sound` is a proved
+projection of this same axiom, not an additional axiom. The legacy H100/DGX
+structures cannot reach it.
 
-For H100, `checkH100Attestation` is only a structural policy. It requires the
+For H100, `checkH100Attestation` is only a structural diagnostic. It requires the
 H100 `sm_90` target, the confidential-computing trust profile, complete metadata,
 successful completion, and exact equality of the algorithm, inputs, parameters,
 domain, result, nonce, target, trust profile, and artifact hashes. Local, mock,
-and DGX-signature evidence are rejected.
+and DGX-signature evidence are rejected. `RunCertificate.check` also rejects
+the `.h100Hardware` constructor even if that diagnostic succeeds, so it cannot
+establish `AlgorithmReturned` or `Runs`.
 
-Lean does not verify NVIDIA evidence cryptography. `H100HardwareEvidence` has a
-private constructor so ordinary code cannot relabel local data as production
-evidence, but a future trusted importer must first verify certificate chains,
+Lean does not verify NVIDIA evidence cryptography. The Azure trusted-compute
+path first calls independently pinned Azure and NVIDIA appraisers, verifies and
+signs the normalized receipt, and source-pins an exact closed entry consumed by
+`checkTrustedCompute`. That external admission must verify certificate chains,
 TCB and measurement policy, debug state, freshness, CPU/GPU evidence binding,
-and the exact report data before constructing that capability. The repository
-currently has no such importer and no accepted H100 certificate instance.
+measured-runner causality, and exact report data. The tooling exists, but the
+tracked receipt registry is empty and there is no accepted H100 certificate
+instance.
 
 For a matching closed invocation, a future accepted instance also trusts the
 physical-to-formal relation for that particular run. It still does not prove:
 
 - that the zeta algorithm is mathematically sound;
 - that the result bytes satisfy `check_count_sound`;
-- that any zeta checker is registered;
+- that the registered PT21 checker has been run successfully or that its
+  required `SourceEvidence` has been materialized;
 - a universal theorem that emitted PTX was lowered faithfully to the measured
   cubin or that `ptxas`, SASS, the driver, or hardware refines the Lean PTX
   model; or

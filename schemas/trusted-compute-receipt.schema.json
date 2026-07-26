@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/trusted-compute-receipt.schema.json",
+  "title": "SparkInterval signed trusted-compute receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "receipt_kind", "backend", "claim", "bindings",
+    "evidence_hashes", "verifier", "signature", "receipt_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "receipt_kind": {"const": "sparkinterval_trusted_compute_receipt"},
+    "backend": {"enum": ["azure_sevsnp_cpu", "azure_ncc40ads_h100_v5"]},
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm_id", "algorithm_hash", "input_hash", "parameters_hash",
+        "domain_hash", "result", "output_hash", "nonce", "target",
+        "target_profile_hash", "trust", "trust_profile_hash", "artifacts",
+        "completion"
+      ],
+      "properties": {
+        "algorithm_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "algorithm_hash": {"$ref": "#/$defs/sha256"},
+        "input_hash": {"$ref": "#/$defs/sha256"},
+        "parameters_hash": {"$ref": "#/$defs/sha256"},
+        "domain_hash": {"$ref": "#/$defs/sha256"},
+        "result": {"type": "string"},
+        "output_hash": {"$ref": "#/$defs/sha256"},
+        "nonce": {"$ref": "#/$defs/sha256"},
+        "target": {"enum": ["azure_sevsnp_cpu", "nvidia_h100_sm90"]},
+        "target_profile_hash": {"$ref": "#/$defs/sha256"},
+        "trust": {"enum": ["azure_sevsnp_confidential_compute", "nvidia_h100_confidential_compute"]},
+        "trust_profile_hash": {"$ref": "#/$defs/sha256"},
+        "artifacts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_tree_hash", "host_executable_hash", "device_cubin_hash",
+            "kernel_manifest_hash"
+          ],
+          "properties": {
+            "source_tree_hash": {"$ref": "#/$defs/sha256"},
+            "host_executable_hash": {"$ref": "#/$defs/sha256"},
+            "device_cubin_hash": {"$ref": "#/$defs/sha256"},
+            "kernel_manifest_hash": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "completion": {"const": "successful"}
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_bundle_sha256", "wire_statement_sha256",
+        "start_challenge_sha256", "result_binding_sha256"
+      ],
+      "properties": {
+        "run_bundle_sha256": {"$ref": "#/$defs/sha256"},
+        "wire_statement_sha256": {"$ref": "#/$defs/sha256"},
+        "start_challenge_sha256": {"$ref": "#/$defs/sha256"},
+        "result_binding_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "evidence_hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform_evidence_sha256", "azure_maa_token_sha256",
+        "amd_snp_report_sha256", "tpm_quote_sha256",
+        "tpm_event_log_sha256", "nvidia_eat_sha256",
+        "nvidia_evidence_sha256"
+      ],
+      "properties": {
+        "platform_evidence_sha256": {"$ref": "#/$defs/sha256"},
+        "azure_maa_token_sha256": {"$ref": "#/$defs/sha256"},
+        "amd_snp_report_sha256": {"$ref": "#/$defs/sha256"},
+        "tpm_quote_sha256": {"$ref": "#/$defs/sha256"},
+        "tpm_event_log_sha256": {"$ref": "#/$defs/sha256"},
+        "nvidia_eat_sha256": {"$ref": "#/$defs/sha256"},
+        "nvidia_evidence_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "verifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_sha256", "artifact_sha256", "issued_at", "expires_at", "key_id"],
+      "properties": {
+        "policy_sha256": {"$ref": "#/$defs/sha256"},
+        "artifact_sha256": {"$ref": "#/$defs/sha256"},
+        "issued_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"},
+        "key_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "key_id", "value_hex"],
+      "properties": {
+        "algorithm": {"const": "rsassa_pkcs1_v1_5_sha256_rsa3072"},
+        "key_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+        "value_hex": {"type": "string", "pattern": "^[0-9a-f]{768}$"}
+      }
+    },
+    "receipt_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"backend": {"const": "azure_sevsnp_cpu"}},
+        "required": ["backend"]
+      },
+      "then": {
+        "properties": {
+          "claim": {
+            "properties": {
+              "target": {"const": "azure_sevsnp_cpu"},
+              "trust": {"const": "azure_sevsnp_confidential_compute"},
+              "artifacts": {
+                "properties": {
+                  "device_cubin_hash": {
+                    "const": "b272852e69f12bacf5fbb095bc43233bfd184f238a86f5bb66d85772b849d02b"
+                  }
+                }
+              }
+            }
+          },
+          "evidence_hashes": {
+            "properties": {
+              "nvidia_eat_sha256": {
+                "const": "b272852e69f12bacf5fbb095bc43233bfd184f238a86f5bb66d85772b849d02b"
+              },
+              "nvidia_evidence_sha256": {
+                "const": "b272852e69f12bacf5fbb095bc43233bfd184f238a86f5bb66d85772b849d02b"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"backend": {"const": "azure_ncc40ads_h100_v5"}},
+        "required": ["backend"]
+      },
+      "then": {
+        "properties": {
+          "claim": {
+            "properties": {
+              "target": {"const": "nvidia_h100_sm90"},
+              "trust": {"const": "nvidia_h100_confidential_compute"},
+              "artifacts": {
+                "properties": {
+                  "device_cubin_hash": {
+                    "not": {
+                      "const": "b272852e69f12bacf5fbb095bc43233bfd184f238a86f5bb66d85772b849d02b"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "evidence_hashes": {
+            "properties": {
+              "nvidia_eat_sha256": {
+                "not": {
+                  "const": "b272852e69f12bacf5fbb095bc43233bfd184f238a86f5bb66d85772b849d02b"
+                }
+              },
+              "nvidia_evidence_sha256": {
+                "not": {
+                  "const": "b272852e69f12bacf5fbb095bc43233bfd184f238a86f5bb66d85772b849d02b"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "not": {
+        "const": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  }
+}

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -61,8 +62,19 @@ class Sha256 {
       size -= buffer_.size();
     }
     while (size != 0) {
-      buffer_[buffer_size_++] = *data++;
-      --size;
+      // Express the tail as bounded range copies so optimized compilers do
+      // not have to rediscover the block-capacity invariant from a
+      // byte-at-a-time loop.
+      if (buffer_size_ == buffer_.size()) {
+        transform(buffer_.data());
+        buffer_size_ = 0;
+      }
+      const std::size_t available = buffer_.size() - buffer_size_;
+      const std::size_t copied = std::min(size, available);
+      std::copy_n(data, copied, buffer_.data() + buffer_size_);
+      buffer_size_ += copied;
+      data += copied;
+      size -= copied;
     }
   }
 

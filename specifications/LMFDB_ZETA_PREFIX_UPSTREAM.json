@@ -1,0 +1,86 @@
+{
+  "kind": "sparkinterval.pinned_lmfdb_zeta_prefix_source.v1",
+  "source": {
+    "base_url": "https://beta.lmfdb.org/riemann-zeta-zeros",
+    "knowl_url": "https://www.lmfdb.org/knowledge/show/rcs.source.zeros.zeta",
+    "data_url": "https://beta.lmfdb.org/riemann-zeta-zeros/data",
+    "readme": {
+      "url": "https://beta.lmfdb.org/riemann-zeta-zeros/README.dvi",
+      "size_bytes": 8636,
+      "sha256": "697f75be46faafcb9c39e482d16dd011be44c92ae96d6d24259413e5e0a29158"
+    },
+    "ordered_filelist": {
+      "url": "https://beta.lmfdb.org/riemann-zeta-zeros/build_index/filelist",
+      "size_bytes": 315441,
+      "line_count": 14580,
+      "sha256": "92da8bb7c28598bc0e20cc36820d80c20f788984bbad1f6bfaf4d9b0d842ebef"
+    },
+    "md5_manifest": {
+      "url": "https://beta.lmfdb.org/riemann-zeta-zeros/md5sum.log",
+      "size_bytes": 811161,
+      "line_count": 14580,
+      "sha256": "6ca3534a1e967f593a93428e6479eac0992c446a105da3eeb0b7a64121808521"
+    },
+    "reader": {
+      "repository": "https://github.com/LMFDB/lmfdb",
+      "commit": "d0ab659fdc4f3433ea4ce7f68fe5d82d3970056a",
+      "path": "lmfdb/zeros/zeta/platt_zeros.py",
+      "size_bytes": 6693,
+      "sha256": "fe44da14f1012476e6fba7fcff92500a99ed9bd3697ef9352dce2b5935cacdc3"
+    },
+    "review_status": "LMFDB knowl awaiting review",
+    "license": "NOASSERTION"
+  },
+  "encoding": {
+    "endianness": "little",
+    "file_header": "uint64 block_count",
+    "block_header": "binary64 t0, binary64 t1, uint64 N(t0), uint64 N(t1)",
+    "zero_delta": "uint64 low, uint32 middle, uint8 high",
+    "delta_scale_power_of_two": -101,
+    "stated_absolute_error_power_of_two": -102,
+    "multiplicity_policy": "one encoded slot per N-count increment; duplicate ordinates are retained"
+  },
+  "prefix": {
+    "target_height": 10000000000,
+    "target_multiplicity_count": 32130158315,
+    "inclusive_terminal_file_index_zero_based": 4765,
+    "file_count": 4766,
+    "terminal_file": {
+      "filename": "zeros_9998546000.dat",
+      "source_md5": "a1a886b1d1b1532e25afbc234ccee93d",
+      "sha256": "f6d3fbaad771da06fe8e6420fc74eb086d204a138863c4a2c2938d33ec9e497c",
+      "size_bytes": 92092112,
+      "block_count": 1001,
+      "first_height": 9998546000,
+      "first_multiplicity_count": 32125255196,
+      "last_height": 10000646000,
+      "last_multiplicity_count": 32132336740
+    },
+    "cut_block": {
+      "index_zero_based": 693,
+      "first_height": 9999999200,
+      "last_height": 10000001300,
+      "first_multiplicity_count": 32130155617,
+      "last_multiplicity_count": 32130162699,
+      "slots_strictly_below_target": 2698
+    }
+  },
+  "trust_boundary": {
+    "verified_by_importer": [
+      "pinned inventory identity",
+      "every selected file identity",
+      "binary framing",
+      "within-file and cross-file height/count continuity",
+      "ordered 104-bit multiplicity-slot stream",
+      "exact non-ambiguous 2^-102 boundary cut",
+      "ordered SHA-256 aggregate commitment"
+    ],
+    "not_verified_by_importer": [
+      "Hardy-Z realization of every stored ordinate",
+      "the source Turing completeness computation",
+      "the identification of source Hardy-Z with Mathlib riemannZeta"
+    ],
+    "receipt_eligible_without_realization": false,
+    "source_claim_ready": false
+  }
+}

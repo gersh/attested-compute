@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "registry_kind": "sparkinterval_ternary_goldbach_campaign_profiles",
-  "source_catalog_sha256": "ac25bba0ebfa5f8caa0c13c38b96bdd92af473cda524eee28e117be21d713d83",
+  "source_catalog_sha256": "204949b03f342024868667db7b87c4fed600ca2b3951e274e65f2f437dfc5373",
   "profiles": [
     {
       "atom_id": "ch25-a7-boundary",
@@ -85,7 +85,28 @@
           "kind": "repository_file",
           "locator": "tools/tg_psi_campaign.py",
           "immutable_sha256": null,
-          "purpose": "Atomic gap-free compact-event campaign supervisor and replay entry point."
+          "purpose": "Literal Python full-source fallback; exact but not the preferred source-scale route."
+        },
+        {
+          "id": "tg_psi_residual_campaign",
+          "kind": "repository_file",
+          "locator": "tools/tg_psi_residual_campaign.py",
+          "immutable_sha256": null,
+          "purpose": "Preferred 100000-leaf, two-pass source-scale supervisor; its phase DAG is exposed by tools/tg_h100_cluster.py."
+        },
+        {
+          "id": "tg_psi_residual_source",
+          "kind": "repository_file",
+          "locator": "reference/tg_psi_residual_shard.cpp",
+          "immutable_sha256": null,
+          "purpose": "Pinned primesieve/CRlibm exact Q64 source worker."
+        },
+        {
+          "id": "psi_upstreams",
+          "kind": "repository_file",
+          "locator": "specifications/PSI_UPSTREAMS.json",
+          "immutable_sha256": null,
+          "purpose": "Reviewed primesieve and CRlibm source closure."
         }
       ],
       "engines": [
@@ -100,7 +121,7 @@
           "required_input_ids": ["tg_verify"]
         },
         {
-          "id": "python_psi_campaign",
+          "id": "python_psi_campaign_fallback",
           "role": "producer_and_checker",
           "state": "ready",
           "invocation": ["{python}", "{repository}/tools/tg_psi_campaign.py", "run", "{workspace}/psi", "--chunk-span", "1000000", "--segment-size", "1000000"],
@@ -118,7 +139,7 @@
         "independent_replay_capable": true,
         "lean_realization_proved": false
       },
-      "remaining_requirements": ["Execute and retain the prohibitively large full source campaign or replace it with a faster exact producer.", "Add the Lean Chebyshev-psi realization theorem."]
+      "remaining_requirements": ["Bind every retained producer row, incoming Q64 state, and two-pass coverage commitment to the registered GapSourceScaleEvidence premise. Ordinary Lean now proves that the prime-power fold realizes Mathlib's Chebyshev.psi and that the two guards checked at each constant-state event gap control every source slab.", "Execute and independently audit the preferred source-scale C++ two-pass DAG, retain all 200000 leaf receipts and the exact registered true result, and import its production Azure receipt; the generic single-command Python engine remains only an unscaled fallback."]
     },
     {
       "atom_id": "platt-head-2e4",
@@ -184,6 +205,27 @@
       },
       "required_inputs": [
         {
+          "id": "tg_platt_zeta_native_campaign",
+          "kind": "repository_file",
+          "locator": "tools/tg_platt_zeta_campaign.py",
+          "immutable_sha256": null,
+          "purpose": "Formulaic fixed-index supervisor, compact receipts, Merkle finalization, and semantic replay."
+        },
+        {
+          "id": "tg_platt_zeta_native_runner",
+          "kind": "repository_file",
+          "locator": "reference/tg_platt_zeta_shard.cpp",
+          "immutable_sha256": null,
+          "purpose": "Pinned FLINT 3.6 Platt/Turing count-only shard and named-API audit runner."
+        },
+        {
+          "id": "flint_3_6_platt_upstream",
+          "kind": "repository_file",
+          "locator": "specifications/FLINT_3_6_PLATT_UPSTREAM.json",
+          "immutable_sha256": null,
+          "purpose": "Reviewed LGPL FLINT v3.6.0 implementation and API closure at commit 8d5454b96761fafe4d5a9da76a369a602f500f49."
+        },
+        {
           "id": "tg_zeta_campaign",
           "kind": "repository_file",
           "locator": "tools/tg_zeta_campaign.py",
@@ -199,6 +241,16 @@
         }
       ],
       "engines": [
+        {
+          "id": "flint_platt_native_parallel",
+          "role": "producer_and_checker",
+          "state": "ready",
+          "invocation": ["{python}", "{repository}/tools/tg_platt_zeta_campaign.py", "run-shard", "{workspace}", "{fixed_shard_index}"],
+          "supports_full_source": true,
+          "supports_resume": true,
+          "sample_only": false,
+          "required_input_ids": ["tg_platt_zeta_native_campaign", "tg_platt_zeta_native_runner", "flint_3_6_platt_upstream"]
+        },
         {
           "id": "flint_zeta_full",
           "role": "producer_and_checker",
@@ -218,7 +270,7 @@
         "independent_replay_capable": true,
         "lean_realization_proved": false
       },
-      "remaining_requirements": ["Execute and retain the more-than-12-trillion-record source campaign, which is computationally enormous in the present FLINT implementation.", "Prove the FLINT zeta and count realization in Lean."]
+      "remaining_requirements": ["Use the closed five-phase Azure CPU materializer to execute and retain the complete signed 1236316-shard reference campaign, import independently reviewed PT21 artifacts, or finish and measure the optimized all-window path. The exact materializer authenticates each predecessor export and preserves count, prefix, full shard coverage, and Merkle finalization, but its measured native FLINT backend still projects to about 13.4 ideal years on 320 NCC CPU processes and explicitly fails the one-week/USD-10000 gate. The optimized adapter can stream authenticated PT21BLK1 records directly into the native shard finalizer without a second record spool. The measured H100 worker now fuses the exact three-stream event scan and emits authenticated 192-byte PT21EVT1 records without retaining the 621202-byte source packet, but those nonterminal records explicitly leave stationary candidates unresolved and are not bound to Gaussian-sinc resolution or one-sided Turing closure. The optimized route therefore remains production-incomplete and refused.", "Prove the FLINT endpoint, Hardy-Z/Turing isolation, and multiplicity-count realization in Lean, admit a successful reviewed receipt, and enable the currently disabled semantic binding."]
     },
     {
       "atom_id": "helfgott-prop-12-2-4",
@@ -245,7 +297,21 @@
           "kind": "repository_file",
           "locator": "tools/tg_prop1224_campaign.py",
           "immutable_sha256": null,
-          "purpose": "Atomic full-source supervisor with bounded-memory q=1 streaming and independent replay."
+          "purpose": "Literal Python full-source fallback; exact but not the preferred source-scale route."
+        },
+        {
+          "id": "tg_prop1224_mpfr_campaign",
+          "kind": "repository_file",
+          "locator": "tools/tg_prop1224_mpfr_campaign.py",
+          "immutable_sha256": null,
+          "purpose": "Preferred 12930-leaf fixed-plan MPFR/GMP supervisor and merger."
+        },
+        {
+          "id": "tg_prop1224_mpfr_source",
+          "kind": "repository_file",
+          "locator": "reference/tg_prop1224_mpfr_shard.cpp",
+          "immutable_sha256": null,
+          "purpose": "Source-scale outward-rounded MPFR/GMP q-window worker."
         }
       ],
       "engines": [
@@ -260,7 +326,7 @@
           "required_input_ids": ["tg_verify"]
         },
         {
-          "id": "prop1224_full_scheduler",
+          "id": "python_prop1224_full_fallback",
           "role": "producer_and_checker",
           "state": "ready",
           "invocation": ["{python}", "{repository}/tools/tg_prop1224_campaign.py", "run", "{workspace}/prop1224"],
@@ -278,7 +344,7 @@
         "independent_replay_capable": true,
         "lean_realization_proved": false
       },
-      "remaining_requirements": ["Optimize or execute and retain the prohibitively slow full campaign over all 3389047618 q rows.", "Prove the directed transcendental realization in Lean."]
+      "remaining_requirements": ["Execute and independently audit the preferred 12930-leaf MPFR/GMP phase DAG and retain its complete plan-bound receipt aggregate; the generic single-command Python engine remains only an unscaled fallback.", "Prove the directed MPFR/GMP transcendental realization in Lean."]
     },
     {
       "atom_id": "cdem-squarefree",
@@ -298,7 +364,7 @@
           "kind": "executable",
           "locator": "build/h100-native/sparkinterval-h100-tg-mobius-segment",
           "immutable_sha256": null,
-          "purpose": "Exact CUDA Moebius and squarefree transition producer."
+          "purpose": "Legacy linear CUDA fallback; the shared Hurst campaign is the preferred production route."
         },
         {
           "id": "cuda_device",
@@ -312,12 +378,33 @@
           "kind": "repository_file",
           "locator": "tools/tg_mobius_campaign.py",
           "immutable_sha256": null,
-          "purpose": "Atomic resumable Moebius/squarefree campaign supervisor."
+          "purpose": "Legacy per-atom linear supervisor."
+        },
+        {
+          "id": "tg_hurst_residual_campaign",
+          "kind": "repository_file",
+          "locator": "tools/tg_hurst_residual_campaign.py",
+          "immutable_sha256": null,
+          "purpose": "Preferred shared 10000-leaf, four-coordinate, two-pass campaign and certificate replay."
+        },
+        {
+          "id": "tg_hurst_residual_source",
+          "kind": "repository_file",
+          "locator": "reference/tg_hurst_residual_shard.cpp",
+          "immutable_sha256": null,
+          "purpose": "Pinned source-scale segmented-Mobius worker shared by four atoms."
+        },
+        {
+          "id": "hurst_upstream",
+          "kind": "repository_file",
+          "locator": "specifications/HURST_MERTENS_UPSTREAM.json",
+          "immutable_sha256": null,
+          "purpose": "Reviewed Hurst source and provenance closure."
         }
       ],
       "engines": [
         {
-          "id": "linear_squarefree_full",
+          "id": "linear_squarefree_full_fallback",
           "role": "producer_and_checker",
           "state": "ready",
           "invocation": ["{python}", "{repository}/tools/tg_mobius_campaign.py", "run", "--runner", "{input:mobius_runner}", "--output-dir", "{workspace}/squarefree", "--target", "squarefree", "--segment-count", "100000000"],
@@ -335,7 +422,7 @@
         "independent_replay_capable": false,
         "lean_realization_proved": false
       },
-      "remaining_requirements": ["Execute the presently prohibitive linear chain through 10^16 or replace it with a proved compressed squarefree algorithm.", "Connect the endpoint reduction and certificate checker to Lean."]
+      "remaining_requirements": ["Do not schedule this legacy per-atom scan in production; execute and independently audit the one shared Hurst two-pass campaign owned by mertens-hurst, then replay its squarefree certificate projection.", "Connect the shared certificate and strict-real endpoint reduction to Lean."]
     },
     {
       "atom_id": "cdem-table-abel",
@@ -391,7 +478,7 @@
           "id": "cdem_exact_scan",
           "role": "producer_and_checker",
           "state": "ready",
-          "invocation": ["{python}", "{repository}/tools/tg_verify.py", "run-cdem-abel-full", "{input:cdem_source}", "--replay-source", "{input:cdem_replay_source}", "--compiler", "{input:cpp_compiler}", "--transcript-output", "{workspace}/transcript.txt"],
+          "invocation": ["{python}", "{repository}/tools/tg_verify.py", "run-cdem-abel-full", "{input:cdem_source}", "--replay-source", "{input:cdem_replay_source}", "--compiler", "{input:cpp_compiler}", "--transcript-output", "{workspace}/transcript.txt", "--artifact-output", "{workspace}/cdem-abel-artifact.bin", "--registered-result-output", "{workspace}/registered-result.txt"],
           "supports_full_source": true,
           "supports_resume": false,
           "sample_only": false,
@@ -406,7 +493,7 @@
         "independent_replay_capable": true,
         "lean_realization_proved": false
       },
-      "remaining_requirements": ["Add a kernel-checkable certificate bridge and prove the recurrence realization in Lean."]
+      "remaining_requirements": ["Run the complete producer and independent replay inside the production Azure measured runner, return the exact registered Nat.pair payload, admit the signed receipt, generate its concrete Lean consumer, and prove the definition-by-definition claude_math import theorem. The registered source-shaped bridge is proved; C++/machine-code refinement remains within the disclosed single trusted-run boundary."]
     },
     {
       "atom_id": "mertens-hurst",
@@ -426,7 +513,7 @@
           "kind": "executable",
           "locator": "build/h100-native/sparkinterval-h100-tg-mobius-segment",
           "immutable_sha256": null,
-          "purpose": "Exact CUDA Moebius and Mertens transition producer."
+          "purpose": "Legacy linear CUDA fallback; the source-scale Hurst worker is preferred."
         },
         {
           "id": "cuda_device",
@@ -440,12 +527,33 @@
           "kind": "repository_file",
           "locator": "tools/tg_mobius_campaign.py",
           "immutable_sha256": null,
-          "purpose": "Atomic resumable Moebius/Hurst campaign supervisor."
+          "purpose": "Legacy per-atom linear supervisor."
+        },
+        {
+          "id": "tg_hurst_residual_campaign",
+          "kind": "repository_file",
+          "locator": "tools/tg_hurst_residual_campaign.py",
+          "immutable_sha256": null,
+          "purpose": "Preferred shared 10000-leaf, four-coordinate, two-pass campaign and certificate replay."
+        },
+        {
+          "id": "tg_hurst_residual_source",
+          "kind": "repository_file",
+          "locator": "reference/tg_hurst_residual_shard.cpp",
+          "immutable_sha256": null,
+          "purpose": "Pinned source-scale segmented-Mobius worker shared by four atoms."
+        },
+        {
+          "id": "hurst_upstream",
+          "kind": "repository_file",
+          "locator": "specifications/HURST_MERTENS_UPSTREAM.json",
+          "immutable_sha256": null,
+          "purpose": "Reviewed Hurst source and provenance closure."
         }
       ],
       "engines": [
         {
-          "id": "linear_hurst_full",
+          "id": "linear_hurst_full_fallback",
           "role": "producer_and_checker",
           "state": "ready",
           "invocation": ["{python}", "{repository}/tools/tg_mobius_campaign.py", "run", "--runner", "{input:mobius_runner}", "--output-dir", "{workspace}/hurst", "--target", "hurst", "--segment-count", "100000000"],
@@ -463,7 +571,7 @@
         "independent_replay_capable": false,
         "lean_realization_proved": false
       },
-      "remaining_requirements": ["Execute the presently prohibitive linear chain through 10^16 or import Hurst's compressed artifacts.", "Connect the resulting certificate boundary to Lean."]
+      "remaining_requirements": ["Execute and independently audit the preferred shared Hurst source-scale two-pass DAG once for all four Mobius-family atoms; the generic single-command CUDA engine remains only a legacy linear fallback.", "Connect the four-state certificate boundary and real-slab reductions to Lean."]
     },
     {
       "atom_id": "ramare-zuniga-lemma-6-2",
@@ -500,6 +608,20 @@
           "purpose": "Atomic resumable full-source R2Star campaign supervisor."
         },
         {
+          "id": "r2star_arithmetic_replayer",
+          "kind": "executable",
+          "locator": "build/h100-native/sparkinterval-tg-r2star-arithmetic-replay",
+          "immutable_sha256": null,
+          "purpose": "Separately built CPU implementation that reconstructs every factor row, directed coefficient, prefix state, and squared-envelope minimum before registered success."
+        },
+        {
+          "id": "r2star_h100_materializer",
+          "kind": "repository_file",
+          "locator": "tools/tg_azure_h100_r2star_materializer.py",
+          "immutable_sha256": null,
+          "purpose": "Fresh-workspace, challenge-bound one-job H100 materializer with pinned source/runtime closure and mandatory retained-trace arithmetic replay."
+        },
+        {
           "id": "cuda_device",
           "kind": "cuda_device",
           "locator": "NVIDIA H100 compute capability 9.0",
@@ -527,17 +649,27 @@
           "supports_resume": true,
           "sample_only": false,
           "required_input_ids": ["tg_r2star_campaign", "r2star_runner", "cuda_device"]
+        },
+        {
+          "id": "cpu_r2star_full_row_replay",
+          "role": "checker",
+          "state": "ready",
+          "invocation": ["{python}", "{repository}/tools/tg_r2star_campaign.py", "verify-arithmetic", "{workspace}/r2star", "--arithmetic-replayer", "{input:r2star_arithmetic_replayer}", "--replay-threads", "32", "--registered-result-output", "{workspace}/registered-result.txt"],
+          "supports_full_source": true,
+          "supports_resume": false,
+          "sample_only": false,
+          "required_input_ids": ["tg_r2star_campaign", "r2star_arithmetic_replayer"]
         }
       ],
       "assurance": {
         "arithmetic_decisions_exact": true,
         "directed_enclosures": true,
         "gap_free_full_domain_capable": true,
-        "authenticated_resume_capable": true,
-        "independent_replay_capable": false,
+        "authenticated_resume_capable": false,
+        "independent_replay_capable": true,
         "lean_realization_proved": false
       },
-      "remaining_requirements": ["Run and retain one gap-free 21-billion-row campaign.", "Connect the recurrence and enclosures to Lean's R2Star definition."]
+      "remaining_requirements": ["Run and retain the fresh one-job 21-billion-row chain and mandatory independent CPU replay on the target NCC H100 SKU; the present 1--8 node-hour range is an uncalibrated single-node sensitivity, not an H100 measurement.", "Construct the concrete Lean source evidence and prove/review the physical recurrence and directed-log realization of coefficientRealizes and logLowerRealizes before enabling the semantic binding."]
     },
     {
       "atom_id": "helfgott-platt-theorem-4-1",
@@ -564,7 +696,7 @@
           "kind": "repository_file",
           "locator": "tools/tg_goldbach_campaign.py",
           "immutable_sha256": null,
-          "purpose": "One-command literal binary-Goldbach and prime-ladder reconstruction supervisor."
+          "purpose": "Literal single-command fallback; the preferred cluster route composes the hardened binary campaign with the native parallel ladder."
         },
         {
           "id": "pocklington_producer",
@@ -604,7 +736,7 @@
         "independent_replay_capable": true,
         "lean_realization_proved": false
       },
-      "remaining_requirements": ["Replace or execute the computationally astronomical literal binary-Goldbach scan and retain the complete ladder campaign.", "Add the Lean reduction from the checked binary result and prime ladder to the source atom."]
+      "remaining_requirements": ["Execute and independently replay the preferred 65536-leaf hardened binary campaign and 492700-range native ladder; the generic single-command engine remains an unscaled fallback.", "Retain the runtime/attestation closure and add the Lean reduction from both checked branches to the source atom."]
     },
     {
       "atom_id": "platt-dirichlet-theorem-7-1",
@@ -655,6 +787,41 @@
           "purpose": "Rigorous unscaled Arb argument-principle and Hardy-Z producer/checker."
         },
         {
+          "id": "tg_dirichlet_lattice_cache",
+          "kind": "repository_file",
+          "locator": "tools/tg_dirichlet_lattice_cache.py",
+          "immutable_sha256": null,
+          "purpose": "Exact 125-GiB t-major cache plan, bounded authenticated reader, replay-receipt repacker, catalog, and deterministic broadcast schedule; a bounded row-resident CUDA consumer now exists, while source population and source-scale execution remain open."
+        },
+        {
+          "id": "tg_dirichlet_tmajor_adapter",
+          "kind": "repository_file",
+          "locator": "tools/tg_dirichlet_tmajor_adapter.py",
+          "immutable_sha256": null,
+          "purpose": "Bounded fail-closed admission of typed fixed-q bundles in deterministic order, including byte-identity checks between retained TGDLATI1 payloads and authenticated t-major cache rows; CUDA production, spool-to-pipeline execution, zero state, and source-scale execution remain open."
+        },
+        {
+          "id": "tg_dirichlet_tmajor_spool",
+          "kind": "repository_file",
+          "locator": "tools/tg_dirichlet_tmajor_spool.py",
+          "immutable_sha256": null,
+          "purpose": "Authenticated one-copy-per-row lane archive, exact source-scale schedule accounting, and deterministic fixed-q run-input/manifest producer and replay; TGDLTMB1 now consumes its authenticated row blocks, but the downstream multi-q FFT/zero pipeline does not."
+        },
+        {
+          "id": "tg_dirichlet_tmajor_cuda_block",
+          "kind": "repository_file",
+          "locator": "tools/tg_dirichlet_tmajor_cuda_block.py",
+          "immutable_sha256": null,
+          "purpose": "Typed bounded-memory primitive-only V2 TGDLTMB1 builder/replayer with a direct directed-MPFR factor and exact-rational Taylor-tail source, exact 286556459000-byte source input model, one-upload row-resident CUDA mode, and fail-closed execution-summary typing. It emits TGDAFFI1 only and does not claim FFT, completed-L, zero, Turing, attestation, or source-scale closure."
+        },
+        {
+          "id": "tg_dirichlet_tblock_supervisor",
+          "kind": "repository_file",
+          "locator": "tools/tg_dirichlet_tblock_supervisor.py",
+          "immutable_sha256": null,
+          "purpose": "Fail-closed one-block-at-a-time subprocess protocol, constant-size exact active-q roster formula, immutable resumable checkpoints, and bounded structural worker. Production is disabled until actual framed typed-bundle bytes are freshly replayed and adapter-admitted; the current fixed-q all-character service is not a multi-q t-block worker."
+        },
+        {
           "id": "python_flint",
           "kind": "python_module",
           "locator": "flint",
@@ -699,7 +866,7 @@
         "independent_replay_capable": false,
         "lean_realization_proved": false
       },
-      "remaining_requirements": ["Implement the practical Platt lattice/FFT and Turing pipeline or execute the astronomical unscaled reference campaign.", "Add an independent checker and capture the Python/FLINT/GMP/MPFR runtime closure.", "Prove the completed-L, Hardy-Z, and multiplicity-count realization in Lean."]
+      "remaining_requirements": ["Populate and audit the implemented 125-GiB t-major Hurwitz cache and root catalog; connect the implemented authenticated 286556459000-byte primitive-only V2 direct-source TGDLTMB1 row-resident CUDA output stream to a persistent multi-q all-character FFT/typed-bundle/completed-L lane, admit it through the bounded cache-row adapter, and implement authenticated t-major zero-state import/export; source-scale measure and attest that lane. Fuse or source-scale measure the implemented small-q parity-tail semantic reducer so its 226.996-TB transient disk pipe is closed; prove source-wide interval usefulness, complete the source exception/window policy, prove the interpolation bound uniformly, and prove the corrected reflected paired-Turing bridge, or execute the astronomical unscaled reference campaign.", "Add an independent full-pipeline checker and capture the Python/FLINT/GMP/MPFR/CUDA runtime closure; the direct factor replay is a component checker, not that full-pipeline closure.", "Prove the completed-L, Hardy-Z, and multiplicity-count realization in Lean without turning ambiguous sign samples into missing or simple zeros."]
     },
     {
       "atom_id": "platt-little-mertens-2-11",
@@ -756,7 +923,7 @@
         "independent_replay_capable": false,
         "lean_realization_proved": false
       },
-      "remaining_requirements": ["Run and retain the complete resumable campaign through 10^12.", "Prove the real-step reduction and certificate checker in Lean."]
+      "remaining_requirements": ["Do not schedule a separate per-atom scan; execute and independently audit the shared Hurst campaign owned by mertens-hurst, then replay this exact guard family.", "Prove the reciprocal-state and real-step certificate reduction in Lean."]
     },
     {
       "atom_id": "platt-little-mertens-stronger",
@@ -813,7 +980,7 @@
         "independent_replay_capable": false,
         "lean_realization_proved": false
       },
-      "remaining_requirements": ["Run and retain the complete resumable campaign through 7727068587.", "Prove the left-limit endpoint reduction and certificate checker in Lean."]
+      "remaining_requirements": ["Do not schedule a separate per-atom scan; execute and independently audit the shared Hurst campaign owned by mertens-hurst, then replay this exact guard family and exceptional endpoint.", "Prove the stronger-range endpoint and certificate reduction in Lean."]
     }
   ]
 }

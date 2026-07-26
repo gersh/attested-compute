@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-cpu-dirichlet-materialization.schema.json",
+  "title": "SparkInterval Dirichlet Azure CPU materialization manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "accepted", "build_steps", "challenge_pin", "classification",
+    "cpu_operator_config", "execution_completed", "factory_id", "job_spec",
+    "kind", "lean_theorem_produced", "optimized_platt_pipeline_selected",
+    "package", "portfolio_shard_config",
+    "raw_fallback_expected_to_finish_within_timeout", "registered_invocation",
+    "runtime", "schema_version", "semantic_binding_enabled", "stage_kind",
+    "source_run_receipt_produced", "transcript_policy"
+  ],
+  "properties": {
+    "accepted": {"const": false},
+    "build_steps": {"type": "array", "minItems": 3, "maxItems": 3},
+    "challenge_pin": {"$ref": "#/$defs/filePin"},
+    "classification": {"enum": ["source_reviewed_dirichlet_fallback_operator_validated_materialization_not_execution_evidence", "source_reviewed_dirichlet_retained_postcheck_operator_validated_materialization_not_execution_evidence"]},
+    "cpu_operator_config": {"$ref": "#/$defs/filePin"},
+    "execution_completed": {"const": false},
+    "factory_id": {"enum": ["platt_dirichlet_full_source_flint_x86_cpu_v1", "platt_dirichlet_retained_postcheck_x86_cpu_v1"]},
+    "job_spec": {"$ref": "#/$defs/filePin"},
+    "kind": {"const": "sparkinterval.azure.cpu.dirichlet-materialization.v1"},
+    "lean_theorem_produced": {"const": false},
+    "optimized_platt_pipeline_selected": {"const": false},
+    "package": {"$ref": "#/$defs/filePin"},
+    "portfolio_shard_config": {"$ref": "#/$defs/filePin"},
+    "raw_fallback_expected_to_finish_within_timeout": {"const": false},
+    "registered_invocation": {"const": "plattDirichletTheorem71ProductionV1"},
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["extracted_wheel_tree_sha256", "path", "python_version", "sha256", "shared_object_count", "size_bytes", "wheel_sha256"],
+      "properties": {
+        "extracted_wheel_tree_sha256": {"$ref": "#/$defs/sha256"},
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "python_version": {"type": "string", "pattern": "^Python 3\\.(1[0-9]|[2-9][0-9])(?:\\.|$)"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "shared_object_count": {"type": "integer", "minimum": 1, "maximum": 2000},
+        "size_bytes": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+        "wheel_sha256": {"const": "376b88cacd30612479e839ffdba887599d3f9c8c0e214852bf80bb2b194e4d76"}
+      }
+    },
+    "schema_version": {"const": 1},
+    "semantic_binding_enabled": {"type": "boolean"},
+    "source_run_receipt_produced": {"const": false},
+    "stage_kind": {"enum": ["source", "postcheck"]},
+    "transcript_policy": {"$ref": "#/$defs/filePin"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"stage_kind": {"const": "source"}}},
+      "then": {"properties": {
+        "classification": {"const": "source_reviewed_dirichlet_fallback_operator_validated_materialization_not_execution_evidence"},
+        "factory_id": {"const": "platt_dirichlet_full_source_flint_x86_cpu_v1"}
+      }}
+    },
+    {
+      "if": {"properties": {"stage_kind": {"const": "postcheck"}}},
+      "then": {"properties": {
+        "classification": {"const": "source_reviewed_dirichlet_retained_postcheck_operator_validated_materialization_not_execution_evidence"},
+        "factory_id": {"const": "platt_dirichlet_retained_postcheck_x86_cpu_v1"}
+      }}
+    }
+  ],
+  "$defs": {
+    "absolutePath": {"type": "string", "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}
+      }
+    }
+  }
+}

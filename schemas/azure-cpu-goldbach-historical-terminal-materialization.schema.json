@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-cpu-goldbach-historical-terminal-materialization.schema.json",
+  "title": "SparkInterval historical Helfgott--Platt Goldbach terminal materialization",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["accepted", "build_admission_sha256", "challenge_pin", "child_identity_commitment_sha256", "classification", "cpu_operator_config", "execution_completed", "factory_id", "job_spec", "kind", "lean_theorem_produced", "package", "portfolio_shard_config", "registered_invocation", "runtime", "schema_version", "semantic_binding_enabled", "source_run_receipt_produced", "terminal_handoff_sha256", "transcript_policy"],
+  "properties": {
+    "accepted": {"const": false},
+    "build_admission_sha256": {"$ref": "#/$defs/sha256"},
+    "challenge_pin": {"$ref": "#/$defs/filePin"},
+    "child_identity_commitment_sha256": {"$ref": "#/$defs/sha256"},
+    "classification": {"const": "source_reviewed_historical_goldbach_terminal_operator_validated_materialization_not_execution_evidence"},
+    "cpu_operator_config": {"$ref": "#/$defs/filePin"},
+    "execution_completed": {"const": false},
+    "factory_id": {"const": "helfgott_platt_historical_terminal_cpu_v1"},
+    "job_spec": {"$ref": "#/$defs/filePin"},
+    "kind": {"const": "sparkinterval.azure.cpu.helfgott-platt-goldbach-terminal-materialization.v1"},
+    "lean_theorem_produced": {"const": false},
+    "package": {"$ref": "#/$defs/filePin"},
+    "portfolio_shard_config": {"$ref": "#/$defs/filePin"},
+    "registered_invocation": {"const": "helfgottPlattGoldbachProductionV1"},
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["child_verifier_key_manifest_sha256", "dynamic_runtime_boundary", "kind", "python_executable", "python_version", "schema_version"],
+      "properties": {
+        "child_verifier_key_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "dynamic_runtime_boundary": {"type": "string", "minLength": 1},
+        "kind": {"const": "sparkinterval.helfgott-platt-goldbach-terminal-runtime-closure.v1"},
+        "python_executable": {"$ref": "#/$defs/relativeFilePin"},
+        "python_version": {"type": "string", "pattern": "^Python 3\\."},
+        "schema_version": {"const": 1}
+      }
+    },
+    "schema_version": {"const": 1},
+    "semantic_binding_enabled": {"type": "boolean"},
+    "source_run_receipt_produced": {"const": false},
+    "terminal_handoff_sha256": {"$ref": "#/$defs/sha256"},
+    "transcript_policy": {"$ref": "#/$defs/filePin"}
+  },
+  "$defs": {
+    "absolutePath": {"type": "string", "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"},
+    "relativePath": {"type": "string", "pattern": "^(?!/)(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$))[A-Za-z0-9._/-]+$"},
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807}
+      }
+    },
+    "relativeFilePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/relativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807}
+      }
+    }
+  }
+}

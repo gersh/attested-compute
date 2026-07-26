@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-cpu-a7-materializer-site.schema.json",
+  "title": "SparkInterval CH25 A.7 Azure CPU materializer site",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["a7", "base_site", "kind", "schema_version"],
+  "properties": {
+    "a7": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact", "flint_source_root", "python_flint_source_root", "python_flint_wheel"],
+      "properties": {
+        "artifact": {"$ref": "#/$defs/filePin"},
+        "flint_source_root": {"$ref": "#/$defs/absolutePath"},
+        "python_flint_source_root": {"$ref": "#/$defs/absolutePath"},
+        "python_flint_wheel": {"$ref": "#/$defs/filePin"}
+      }
+    },
+    "base_site": {"$ref": "#/$defs/filePin"},
+    "kind": {"const": "sparkinterval.azure.cpu.a7-boundary-materializer-site.v1"},
+    "schema_version": {"const": 1}
+  },
+  "$defs": {
+    "absolutePath": {"type": "string", "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"},
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}
+      }
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

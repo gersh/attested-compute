@@ -45,6 +45,10 @@ from tg_verifier.dirichlet_campaign import (  # noqa: E402
     source_height,
     verify_campaign,
 )
+from tg_verifier.campaign_io import (  # noqa: E402
+    MeasuredWorkerScopeError,
+    require_azure_measured_worker_for_workload,
+)
 
 
 def _positive(text: str) -> int:
@@ -76,6 +80,30 @@ def _emit(value: object, pretty: bool) -> None:
             separators=None if pretty else (",", ":"),
         )
     )
+
+
+def _write_registered_result(path: Path) -> None:
+    """Create literal ``true`` once, after complete source replay succeeds."""
+
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    for optional in ("O_CLOEXEC", "O_NOFOLLOW"):
+        flags |= getattr(os, optional, 0)
+    descriptor = os.open(path, flags, 0o400)
+    try:
+        raw = b"true"
+        view = memoryview(raw)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise OSError("short registered-result write")
+            view = view[written:]
+        os.fsync(descriptor)
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
+    finally:
+        os.close(descriptor)
 
 
 def command_capability(args: argparse.Namespace) -> None:
@@ -145,7 +173,17 @@ def command_init(args: argparse.Namespace) -> None:
     )
 
 
+def _guard_campaign_arithmetic() -> None:
+    """Keep arbitrary pinned backends out of ordinary local CLI execution."""
+
+    require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+    )
+
+
 def command_run(args: argparse.Namespace) -> None:
+    _guard_campaign_arithmetic()
     _emit(
         run_campaign(args.root, max_chunks=args.max_chunks, timeout=args.timeout),
         args.pretty,
@@ -154,6 +192,7 @@ def command_run(args: argparse.Namespace) -> None:
 
 def command_verify(args: argparse.Namespace) -> None:
     if args.rerun_checker:
+        _guard_campaign_arithmetic()
         result = rerun_external_checkers(args.root, timeout=args.timeout)
     else:
         result = verify_campaign(args.root, require_complete=args.require_complete)
@@ -274,6 +313,10 @@ def _validate_retained_source_requirement(
 def command_source(args: argparse.Namespace) -> None:
     """Compose q=1 zeta evidence with the full q>=2 reference campaign."""
 
+    require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+    )
     os.environ["TG_DIRICHLET_FLINT_MAX_PRECISION"] = str(
         args.reference_max_precision
     )
@@ -356,18 +399,50 @@ def command_source(args: argparse.Namespace) -> None:
 def command_verify_source(args: argparse.Namespace) -> None:
     """Recheck both campaigns and the two files composing the source atom."""
 
+    if args.registered_result_output is not None:
+        require_azure_measured_worker_for_workload(
+            exact_production=True,
+            work_bounds=(),
+        )
     root = args.root.resolve()
     q1 = _q1_zeta_requirement(args.q1_zeta_input.resolve())
     requirement_path = root / "q1-zeta-requirement.json"
     _validate_retained_source_requirement(requirement_path, q1)
     state = verify_campaign(root, require_complete=True)
-    if not state["complete"] or not state["final_present"]:
+    if (
+        not state["complete"]
+        or not state["final_present"]
+        or state.get("mode") != "full_source"
+        or state.get("q_start") != SOURCE_MIN_Q
+        or state.get("q_stop") != SOURCE_MAX_Q
+        or state.get("characters_total") != 29_565_923_837
+        or state.get("characters_covered") != 29_565_923_837
+    ):
         raise DirichletCampaignError("q=2..400000 campaign is not complete")
+    if args.registered_result_output is not None:
+        replay = rerun_external_checkers(root)
+        if (
+            replay.get("complete") is not True
+            or replay.get("final_present") is not True
+            or replay.get("fresh_checker_replay_performed") is not True
+            or replay.get("fresh_external_checker_replays") != state.get(
+                "chunks"
+            )
+        ):
+            raise DirichletCampaignError(
+                "registered Dirichlet output requires every retained checker "
+                "to replay"
+            )
     q2_final = finalize_campaign(root)
     expected = _source_document(q1, q2_final)
     source_path = root / "source-final.json"
     if source_path.read_bytes() != canonical_json_bytes(expected):
         raise DirichletCampaignError("source-final.json differs from fresh composition")
+    if args.registered_result_output is not None:
+        # This path is the legacy portfolio terminal: it emits no registered
+        # result until q=1, every q>=2 checker, and the exact composition have
+        # all been revalidated.
+        _write_registered_result(args.registered_result_output)
     _emit(
         {
             **expected,
@@ -477,14 +552,22 @@ def main() -> int:
         type=Path,
         required=True,
     )
+    verify_source.add_argument(
+        "--registered-result-output",
+        type=Path,
+        help=(
+            "exclusively create literal `true` after complete q=1/q>=2 "
+            "source replay"
+        ),
+    )
     verify_source.set_defaults(func=command_verify_source)
 
     args = parser.parse_args()
     try:
         args.func(args)
-    except DirichletCampaignError as error:
+    except (DirichletCampaignError, MeasuredWorkerScopeError) as error:
         print(f"error: {error}", file=sys.stderr)
-        return 1
+        return 2 if isinstance(error, MeasuredWorkerScopeError) else 1
     return 0
 
 

@@ -32,10 +32,9 @@ real DGX signature or H100 attestation. -/
 private def statement : RunStatement := {
   algorithmId := invocation.algorithm.algorithmId
   algorithmHash := invocation.algorithm.algorithmHash
-  inputHash := SHA256.digestString invocation.canonicalInput
-  parametersHash :=
-    SHA256.digestString invocation.algorithm.canonicalParameters
-  domainHash := SHA256.digestString invocation.algorithm.canonicalDomain
+  inputHash := invocation.canonicalInputHash
+  parametersHash := invocation.algorithm.canonicalParametersHash
+  domainHash := invocation.algorithm.canonicalDomainHash
   result := cubicSumDivThree20000Output
   outputHash := SHA256.digestString cubicSumDivThree20000Output
   nonce := "nonce"
@@ -47,7 +46,18 @@ private def statement : RunStatement := {
 }
 
 example : invocation.statementCheck statement = true := by
-  simp [RegisteredInvocation.statementCheck, statement, invocation]
+  simp [RegisteredInvocation.statementCheck,
+    RegisteredInvocation.resultCheck,
+    RegisteredInvocation.ResultAllowed,
+    RegisteredInvocation.deploymentCheck, statement, invocation,
+    cubicSumDivThree20000Invocation]
+
+/-- Matching identity metadata cannot select malformed result bytes. -/
+example :
+    invocation.statementCheck { statement with result := "error" } = false := by
+  apply
+    RegisteredInvocation.statementCheck_eq_false_of_resultCheck_eq_false
+  rfl
 
 /-- A self-declared algorithm ID cannot select the registered semantics. -/
 example :

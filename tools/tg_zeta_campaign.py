@@ -15,6 +15,7 @@ from dataclasses import asdict, is_dataclass
 from fractions import Fraction
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Any
@@ -24,6 +25,9 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
+from tg_verifier.campaign_io import (  # noqa: E402
+    require_azure_measured_worker_for_workload,
+)
 from tg_verifier.zeta_zero_campaign import (  # noqa: E402
     MAX_BATCH_SIZE,
     MAX_PRECISION_BITS,
@@ -34,8 +38,11 @@ from tg_verifier.zeta_zero_campaign import (  # noqa: E402
     finalize_campaign,
     initialize_campaign,
     replay_chunk,
+    render_head_q128_lean_module,
+    retained_head_q128_cells,
     run_campaign,
     verify_campaign,
+    write_once,
 )
 
 
@@ -100,6 +107,30 @@ def _emit(value: object, *, pretty: bool) -> None:
     )
 
 
+def _write_registered_result(path: Path) -> None:
+    """Create the exact registered Boolean result without replacing a file."""
+
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    for optional in ("O_CLOEXEC", "O_NOFOLLOW"):
+        flags |= getattr(os, optional, 0)
+    descriptor = os.open(path, flags, 0o400)
+    try:
+        raw = b"true"
+        view = memoryview(raw)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise OSError("short registered-result write")
+            view = view[written:]
+        os.fsync(descriptor)
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
+    finally:
+        os.close(descriptor)
+
+
 def command_profiles(args: argparse.Namespace) -> int:
     _emit(
         {
@@ -123,6 +154,12 @@ def command_profiles(args: argparse.Namespace) -> int:
 
 
 def command_count(args: argparse.Namespace) -> int:
+    # Height is the extent of this count-from-zero workload, not merely an
+    # identifying endpoint.  Counts through height 64 remain useful local KATs.
+    require_azure_measured_worker_for_workload(
+        exact_production=False,
+        work_bounds=(args.height,),
+    )
     backend = FlintZetaBackend()
     count = backend.exact_zero_count(args.height, args.precision_bits)
     if args.expected is not None and count != args.expected:
@@ -149,6 +186,12 @@ def command_count(args: argparse.Namespace) -> int:
 
 
 def command_isolate(args: argparse.Namespace) -> int:
+    # Only the first at-most-64 indexed ordinates are a local KAT.  A short
+    # batch at a very high index can still require production-scale work.
+    require_azure_measured_worker_for_workload(
+        exact_production=args.first_index != 1,
+        work_bounds=(args.count,),
+    )
     backend = FlintZetaBackend()
     ordinates = backend.isolate_ordinates(
         args.first_index, args.count, args.precision_bits
@@ -194,6 +237,10 @@ def command_isolate(args: argparse.Namespace) -> int:
 
 
 def command_init(args: argparse.Namespace) -> int:
+    require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+    )
     result = initialize_campaign(
         args.directory,
         PROFILES[args.profile],
@@ -205,6 +252,10 @@ def command_init(args: argparse.Namespace) -> int:
 
 
 def command_run(args: argparse.Namespace) -> int:
+    require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+    )
     result = run_campaign(
         args.directory,
         max_chunks=args.max_chunks,
@@ -215,11 +266,19 @@ def command_run(args: argparse.Namespace) -> int:
 
 
 def command_finalize(args: argparse.Namespace) -> int:
+    require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+    )
     _emit(finalize_campaign(args.directory), pretty=args.pretty)
     return 0
 
 
 def command_verify(args: argparse.Namespace) -> int:
+    require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+    )
     _emit(
         verify_campaign(args.directory, require_complete=args.complete),
         pretty=args.pretty,
@@ -228,11 +287,26 @@ def command_verify(args: argparse.Namespace) -> int:
 
 
 def command_replay_chunk(args: argparse.Namespace) -> int:
+    require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+    )
     _emit(replay_chunk(args.directory, args.chunk_index), pretty=args.pretty)
     return 0
 
 
 def command_full(args: argparse.Namespace) -> int:
+    require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+    )
+    if (
+        args.registered_result_output is not None
+        and args.profile != "platt-head-2e4"
+    ):
+        raise ZetaCampaignError(
+            "the registered result is defined only for platt-head-2e4"
+        )
     initialized = initialize_campaign(
         args.directory,
         PROFILES[args.profile],
@@ -241,6 +315,27 @@ def command_full(args: argparse.Namespace) -> int:
     )
     run = run_campaign(args.directory, max_chunks=None, replay_count=True)
     final = finalize_campaign(args.directory)
+    if args.registered_result_output is not None:
+        chunk_count = run.get("chunks_total")
+        if (
+            isinstance(chunk_count, bool)
+            or not isinstance(chunk_count, int)
+            or chunk_count <= 0
+            or run.get("complete") is not True
+        ):
+            raise ZetaCampaignError(
+                "registered Platt-head output requires a complete campaign"
+            )
+        for chunk_index in range(chunk_count):
+            replay_chunk(args.directory, chunk_index)
+        cells = retained_head_q128_cells(args.directory)
+        # Rendering is part of the registered semantics: it rechecks the exact
+        # named 22,491-row commitment even though this legacy terminal retains
+        # the campaign rather than a second copy of the generated module.
+        render_head_q128_lean_module(cells)
+        # No registered result exists until complete execution, fresh replay,
+        # final-chain validation, and both reviewed table commitments pass.
+        _write_registered_result(args.registered_result_output)
     _emit(
         {
             "accepted": True,
@@ -248,6 +343,35 @@ def command_full(args: argparse.Namespace) -> int:
             "initialized": initialized,
             "run": run,
             "final": final,
+            "lean_atom_discharged": False,
+        },
+        pretty=args.pretty,
+    )
+    return 0
+
+
+def command_emit_lean_table(args: argparse.Namespace) -> int:
+    require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+    )
+    cells = retained_head_q128_cells(args.directory)
+    source = render_head_q128_lean_module(cells, namespace=args.namespace)
+    raw = source.encode("utf-8")
+    write_once(args.output, raw)
+    _emit(
+        {
+            "accepted": True,
+            "classification": "complete_reviewed_platt_head_q128_lean_table",
+            "output": str(args.output),
+            "output_sha256": hashlib.sha256(raw).hexdigest(),
+            "row_count": len(cells),
+            "rows_sha256": (
+                "e7943dee86b5bf029e9159bd5e54e8726bac14ecaf9a5f42c9b254d98d15a6b7"
+            ),
+            "all_rows_with_sentinel_sha256": (
+                "fc67e829c51adda0804b23b959db33d48e9e1a70076a9caf2ec4d6be96cf29ca"
+            ),
             "lean_atom_discharged": False,
         },
         pretty=args.pretty,
@@ -321,6 +445,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     verify.set_defaults(handler=command_verify)
 
+    emit_lean = subcommands.add_parser(
+        "emit-lean-table",
+        help="generate the exact reviewed Q128 Lean table from a complete head run",
+    )
+    emit_lean.add_argument("directory", type=Path)
+    emit_lean.add_argument("output", type=Path)
+    emit_lean.add_argument(
+        "--namespace",
+        default="SparkInterval.Generated.PlattHeadQ128",
+    )
+    emit_lean.set_defaults(handler=command_emit_lean_table)
+
     replay = subcommands.add_parser(
         "replay-chunk", help="freshly recompute one retained FLINT chunk"
     )
@@ -335,6 +471,14 @@ def build_parser() -> argparse.ArgumentParser:
     full.add_argument("--profile", choices=sorted(PROFILES), required=True)
     full.add_argument("--batch-size", type=_batch_size, default=4_096)
     full.add_argument("--precision-bits", type=_precision, default=96)
+    full.add_argument(
+        "--registered-result-output",
+        type=Path,
+        help=(
+            "exclusively create literal `true` after the complete campaign "
+            "has finalized"
+        ),
+    )
     full.set_defaults(handler=command_full)
     return parser
 

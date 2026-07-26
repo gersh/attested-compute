@@ -1,6 +1,42 @@
+import SparkInterval.Audit.TrustedComputeCertificates
+import SparkInterval.Execution.ArchitectureExecution
+import SparkInterval.Execution.CompactArchitectureReceipt
+import SparkInterval.Execution.CompactClaimReceipt
+import SparkInterval.Execution.ProjectedCertificateProgram
+import SparkInterval.Execution.CompactArchitectureRegistry
+import SparkInterval.Execution.X86ELFDecoder
+import SparkInterval.Execution.X86PureEntryABI
+import SparkInterval.Execution.X86ELFExactPureEntry
+import SparkInterval.Execution.X86StaticBinaryCertificate
 import SparkInterval.Execution.CompactAttestedVerifier
 import SparkInterval.Execution.FormalPTXProgram
+import SparkInterval.Dirichlet.PlattTheorem71CompactChecker
+import SparkInterval.TernaryGoldbach.A7BoundaryCompactChecker
+import SparkInterval.TernaryGoldbach.CDEMAbelCompactChecker
+import SparkInterval.TernaryGoldbach.CompactExternalAtomCapstone
+import SparkInterval.TernaryGoldbach.Goldbach10Pow27CompactChecker
+import SparkInterval.TernaryGoldbach.GoldbachCompactChecker
+import SparkInterval.TernaryGoldbach.HurstCompactChecker
+import SparkInterval.TernaryGoldbach.Prop1224CompactChecker
+import SparkInterval.TernaryGoldbach.PsiCompactChecker
+import SparkInterval.TernaryGoldbach.R2StarCompactChecker
+import SparkInterval.TernaryGoldbach.ZetaHeadCompactChecker
+import SparkInterval.TernaryGoldbach.ZetaRHCompactChecker
+import SparkInterval.Execution.RegisteredA7BoundaryCertificate
 import SparkInterval.Execution.RegisteredCubicSumCertificate
+import SparkInterval.Execution.RegisteredCDEMAbelCertificate
+import SparkInterval.Execution.RegisteredH100FormalPtxPilot
+import SparkInterval.Execution.RegisteredGoldbachCertificate
+import SparkInterval.Execution.RegisteredGoldbach10Pow27Certificate
+import SparkInterval.Execution.HistoricalGoldbachTerminalPins
+import SparkInterval.Execution.RegisteredHurstSharedCertificate
+import SparkInterval.Execution.RegisteredPsiLemma92Certificate
+import SparkInterval.Execution.RegisteredProp1224Certificate
+import SparkInterval.Execution.RegisteredPlattTheorem71Certificate
+import SparkInterval.Execution.RegisteredR2StarCertificate
+import SparkInterval.Execution.RegisteredSqrt218Certificate
+import SparkInterval.Execution.RegisteredZetaHeadCertificate
+import SparkInterval.Execution.RegisteredZetaRHCertificate
 import SparkInterval.Execution.SignedResultCertificateComposition
 import SparkInterval.Execution.SignedZetaVerifier
 import SparkInterval.Execution.Trusted.DGXOperatorSignature
@@ -17,11 +53,13 @@ export compatibility theorems, not additional axioms.
 /-!
 # External execution claims and checked-result composition
 
-This aggregate import exposes run statements, H100 and DGX structural policy,
-the two explicit execution trust bridges, and the composition of an
+This aggregate import exposes run statements, legacy H100 and DGX structural
+diagnostics, the single source-admitted execution trust bridge, and the composition of an
 operator-signed returned payload with the independently checked full result
 certificate theorem, including the typed finite-height zeta endpoint view.
 It also exposes the preferred closed-registry compact-result contract.  On
-that route the sole axiom supplies the per-run formal `Runs` fact, while the
-checker-to-mathematics soundness theorem remains an ordinary Lean obligation.
+that route the sole axiom supplies only the closed physical architecture
+outcome.  Exact executable-to-checker and checker-to-mathematics soundness are
+ordinary Lean obligations.  The older application-level `Runs` projection is
+retained temporarily while its consumers migrate.
 -/

@@ -261,7 +261,7 @@ theorem minFiniteReal_eq_neg_greatestPositiveFinite :
     minFiniteReal = -Binary64Finite.greatestPositiveFinite.toReal := by
   apply le_antisymm
   · let negGreatest : Binary64Finite :=
-      ⟨BitVec.ofNat 64 0xffefffffffffffff, by native_decide⟩
+      ⟨BitVec.ofNat 64 0xffefffffffffffff, by decide⟩
     have hneg : negGreatest.toReal =
         -Binary64Finite.greatestPositiveFinite.toReal := by
       -- The two encodings have identical magnitude fields and opposite signs.

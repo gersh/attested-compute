@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-cpu-platt-pt21-materializer-site.schema.json",
+  "title": "SparkInterval PT21 Azure CPU materializer site",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["base_site", "kind", "pt21", "schema_version"],
+  "properties": {
+    "base_site": {"$ref": "#/$defs/filePin"},
+    "kind": {"const": "sparkinterval.azure.cpu.platt-pt21-materializer-site.v1"},
+    "pt21": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution_contract_id", "flint_source_root", "retained_export_root", "runtime"],
+      "properties": {
+        "execution_contract_id": {"enum": ["reference-cpu-flint-3.6-v1", "optimized-h100-windowed-v2"]},
+        "flint_source_root": {"$ref": "#/$defs/absolutePath"},
+        "retained_export_root": {"$ref": "#/$defs/absolutePath"},
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["manifest", "python", "runner"],
+          "properties": {
+            "manifest": {"$ref": "#/$defs/filePin"},
+            "python": {"$ref": "#/$defs/filePin"},
+            "runner": {"$ref": "#/$defs/filePin"}
+          }
+        }
+      }
+    },
+    "schema_version": {"const": 1}
+  },
+  "$defs": {
+    "absolutePath": {
+      "type": "string",
+      "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"
+    },
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}
+      }
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

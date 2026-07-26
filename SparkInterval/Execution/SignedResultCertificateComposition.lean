@@ -79,11 +79,17 @@ theorem outcomeCheckForRegisteredInvocation_sound
     certificate.CertifiedOutcomeForRegisteredInvocation invocation := by
   simp only [outcomeCheckForRegisteredInvocation, Bool.and_eq_true] at hcheck
   have houtcome := outcomeCheck_sound hcheck.2
+  have hbinding :
+      invocation.statementCheck certificate.statement = true ∧
+        invocation.receiptCheck certificate.attestation = true := by
+    simpa only [RegisteredInvocation.certificateBindingCheck,
+      Bool.and_eq_true] using hcheck.1
   have hrun := houtcome.produced.registered invocation hcheck.1
   change invocation.Runs certificate.statement.result at hrun
   rw [houtcome.binding.1] at hrun
   exact {
-    identity := RegisteredInvocation.statementCheck_sound hcheck.1
+    identity := RegisteredInvocation.statementCheck_sound hbinding.1
+    receiptBound := hbinding.2
     outcome := houtcome
     run := hrun
   }

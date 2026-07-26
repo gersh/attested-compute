@@ -2,9 +2,10 @@
 
 > **Work in progress:** SparkInterval is an early research prototype seeking
 > collaborators. Full result certificates can already be generated, checked,
-> imported, and used as Lean theorems. Production enclave-backed certificate
-> issuance and a shared certificate registry are still future work. Do not
-> treat the current local-run tooling as a production attestation service.
+> imported, and used as Lean theorems. The Azure confidential CPU/H100
+> evidence, signed-receipt, source-registry, and generated-Lean-consumer tools
+> are implemented, but no production Azure run or receipt is admitted. Do not
+> treat the repository or its development key as an attestation service.
 
 SparkInterval is an open project built around a simple idea: **calculate once,
 verify once, use the result as a theorem**. The expensive bounded calculation
@@ -21,13 +22,21 @@ bundles, and Lean kernel-checks the zero certificates into conditional
 finite-strip GRH theorems — see the
 [GRH POC quick start](#grh-poc-quick-start) below.
 
-For provenance-sensitive computations, the intended production path uses
-measured code inside a secure execution environment (a CPU TEE together with
-GPU confidential-computing support where available). An external verifier
-checks the resulting hardware evidence and binds the exact program, inputs,
-bounds, output, and completion status into a computation certificate.
-Certificates can then be stored by digest in a shared library and reused by
-later Lean proofs.
+For provenance-sensitive computations, the Azure path is designed to use measured code
+inside a secure execution environment: AMD SEV-SNP plus vTPM for CPU jobs, and
+that CPU boundary together with NVIDIA H100 confidential computing for GPU
+jobs. A separately pinned verifier appraises the hardware evidence and binds
+the exact program, inputs, bounds, output, challenge, and completion status
+into a signed computation receipt. A reviewed source registry can then admit
+that receipt by digest for later Lean proofs. The tracked registry is empty,
+so this is implemented infrastructure rather than evidence that a production
+run has happened.
+
+For a fast local control-plane check, run `make local-static`. It validates
+the cloud-only guards, compact Sqrt218 build/launcher/discovery manifests, and
+the pure-entry source callgraph without compiling or executing a production
+worker, opening a production certificate, or reconstructing an instruction
+trace.
 
 In this project, **bounded arithmetic** means a finite computation whose input
 domain, numeric representation, resource/coverage bounds, and claimed result
@@ -113,7 +122,12 @@ current theorem that additionally binds the exact serialized JSON parser/hash
 calculation uses `native_decide`; policies that forbid it should use the direct
 typed-data theorem and understand that narrower binding. Compact
 enclave-backed certificates are intended to reduce local checking further, but
-their production evidence importer is not implemented yet.
+the current repository has not admitted a production receipt. The implemented
+Azure import path verifies a source-pinned receipt key outside Lean, generates
+a reviewed closed registry entry, and lets Lean kernel-reduce exact membership
+and structural binding. Production still requires an independently reviewed
+appraisal policy, measured-runner enforcement, a Managed HSM key and
+key-attestation review, a real Azure run, and registry review.
 
 This design follows a broader proof-certificate pattern already used for SAT,
 pseudo-Boolean, and computer-algebra results: let a specialized external engine
@@ -138,23 +152,54 @@ See [Project vision](docs/VISION.md) for the proposed secure architecture and
 
 SparkInterval is a research prototype. Lean-consumable full certificates,
 CPU/Lean certificate checking, formal interval arithmetic, modeled generated
-GPU code, and local DGX Spark/H100 validation are implemented. Production
-enclave-backed acceptance and a public shared certificate registry are not.
-The table below is the precise status, including the boundary of every claim.
+GPU code, local DGX Spark/H100 validation, Azure CPU/H100 deployment adapters,
+attestation collection/appraisal plumbing, signed receipts, and source-pinned
+Lean import are implemented. No production Azure receipt is admitted and no
+public shared certificate service exists. The table below is the precise
+status, including the boundary of every claim.
 
 | Route | Current result | Important boundary |
 | --- | --- | --- |
 | Generated Lean full certificate | A deterministic generated module materializes the formula and complete witness; Lean independently checks every row and exports reusable row or finite-sum bound theorems | Importable today; a clean build checks the full witness, and the direct kernel theorem does not by itself bind the typed data to the original JSON bytes |
 | Generated polynomial model | Lean proves whole-module typed-AST execution and exact-real containment; a pinned PTX 9.0 slice adds opcode citations and finite/non-NaN arithmetic refinement | No full emitted-instruction-text, `ptxas`, SASS, driver, or hardware refinement |
-| DGX Spark (`aarch64`, `sm_121`) | Native CUDA runs, exact CPU replay, artifact audits, and canonical local bundles | GB10 has no supported hardware attestation; evidence is `local_unattested` |
+| DGX Spark (`aarch64`, `sm_121`) | Tiny bounded CUDA/CPU known-answer tests, static artifact audits, performance sampling, and canonical local diagnostic bundles | Source-scale arithmetic and independent arithmetic replay are cloud-only. GB10 has no supported hardware attestation; evidence is `local_unattested` |
 | DGX operator signature | A pinned Ed25519 key endorses the exact local bundle | Proves the pinned key signed; operator attribution is out of band, and neither truth nor GPU execution follows |
-| Accepted Lean run certificate | One explicit axiom supplies both the exact historical return and, after a closed registered-invocation check, that invocation's fixed formal `Runs` relation | Requires a trusted private-evidence importer; the per-run registry bridge is not a universal determinism or backend-refinement theorem |
-| Closed registry example | `cubicSumDivThree20000V1` fixes an executable integer cube accumulator followed by one division by three; Lean proves its exact operational result `13334666700000000`, agreement with the rational sum, and u64 safety of every cube and accumulator step, all without `native_decide` | These are axiom-free model and bounded-arithmetic proofs, not a GPU-opcode or physical-execution proof; no signed bundle can enter Lean because the private-evidence importer is absent |
-| H100 (`x86_64`, `sm_90`) native | Strict probe, primitive, postfix-expression, Dirichlet-GRH, R2Star, and Möbius runners; exact CPU conformance and PTX/SASS audits; plus a content-bound Slurm deployment for all thirteen ternary-Goldbach campaigns | Five full-source campaigns use native H100 arithmetic. Eight execute as CPU/FLINT sidecars; the full-source Dirichlet route is one of those sidecars, while its H100 evaluator remains only a bounded POC. Current runs are local evidence; no NVIDIA confidential-computing evidence is accepted |
-| High-bound zeta-zero foundation | Lean canonically checks a signed full endpoint payload, bridges analytic multiplicity to distinct counts, and conditionally composes a Hardy-Z model plus multiplicity bound into the finite-height theorem | Endpoint realization and the analytic Turing/argument-principle bound remain uninstantiated; no height has been certified |
-| Ternary Goldbach external-computation work | Catalogs all thirteen live source atoms and gives each an exact full-source entry point: A.7 and CDEM full replays; psi and Proposition 12.2.4 streams; head/high zeta campaigns; exact CUDA R2Star and Möbius campaigns; a literal binary-Goldbach/prime-ladder reconstruction; and a 29,565,923,837-character Dirichlet scheduler with rigorous Arb argument-principle fallback and explicit `q=1` zeta composition | Capability is not completion. High zeta, Goldbach, Dirichlet, psi, Proposition 12.2.4, and the linear `10^16` scans are prohibitively or astronomically unscaled. Several paths share producer/checker code or trust FLINT/CUDA/runtime semantics. Every source campaign still lacks its Lean realization theorem, and no source atom is discharged |
+| Accepted Lean run certificate | One explicit axiom supplies both the exact historical return and, after a closed registered-invocation check, that invocation's fixed formal `Runs` relation | The Azure importer is a reviewed source-generation process, not a signature oracle inside Lean; the per-run registry bridge is not a universal determinism or backend-refinement theorem |
+| Closed algorithm-registry example | `cubicSumDivThree20000V1` fixes an executable integer cube accumulator followed by one division by three; Lean proves its exact operational result `13334666700000000`, agreement with the rational sum, and u64 safety of every cube and accumulator step, all without `native_decide` | These are axiom-free model and bounded-arithmetic proofs, not a GPU-opcode or physical-execution proof; the trusted-compute receipt registry is empty, so no accepted physical run instantiates it |
+| Helfgott (2.18) finite Sqrt218 path | The full producer and independent replay are guarded to the measured Azure worker; ordinary local runs are limited to at most 64 work items. In addition to the legacy canonical V1 route, the fixed-width V2 path has a strict byte decoder, exact 120-byte result format, and ordinary Lean source refinements for all 50 C functions reachable from the pure entry: parser, roster, power layout, log ladder, complete event scan, endpoint root/reciprocal/anchor, SHA-256, wrapper control flow, and result encoding. The exact ELF decoder now resolves the unique selected static symbol and proves it is the executable `e_entry`; a separate symbolic x86 ABI model proves exact segment loading/zero-fill, guarded disjoint memory, SysV entry registers, immutable input, and strict return observation, and their load composition is an ordinary data-independent theorem. A compact static-binary certificate checks exact instruction bytes, contiguous blocks, unique addresses, selected entry, and closed direct control flow, then isolates the still-open universal x86 trace-to-block and block-summary proofs. The direct no-replay capstone maps a successful pure-source trace to the exact Mathlib source claim. A compact V2 execution-closure identity binds the measured launcher separately from the architecture-modeled pure-entry ELF and pins the launcher contract plus compiler/model/ABI/entry identities; legacy V1 metadata is ineligible for physical-launch admission. The preferred receipt theorem retains the small exact ELF and 120-byte result while leaving the production input and machine trace existentially opaque. Separate cloud-only VST/CompCert and launcher build lanes are fail-closed and non-authorizing; the latter pins an unreviewed loader/trampoline source prototype without running it | No production corpus, measured image, appraiser, key, run, or receipt is admitted. No cloud-built launcher binary has been produced or reviewed, and its source has no Lean initializer/observer or x86 refinement. The VST specification/proof pins are still absent, so the proof lane stops before invoking tools and authorizes no theorem. Reachable x86-64 semantics, CompCert-to-object and assembler/linker validation, physical CPU conformance, and receipt-to-architecture admission remain open; no local build replays the production certificate or instruction trace |
+| Azure SEV-SNP CPU trusted compute | Exact CPU VM profiles, private-network deployment, a challenge-first measured runner, ordered no-reset PCR binding, an independently replayed static closed-algorithm example, external Azure/MAA/vTPM appraisal ABI, compact receipt signing, and source-pinned Lean import | No production measured image, appraiser/root policy, Managed HSM key attestation, real Azure run, or admitted receipt is included |
+| H100 (`x86_64`, `sm_90`) native and Azure NCC trusted compute | Strict native runners, exact CPU conformance and PTX/SASS audits, one closed Lean-generated `sm_90` pilot with an independent trace verifier, a stateful one-VM Azure operator workflow, and a content-bound deployment for all thirteen source atoms plus the distinct lowered `10^27` finite endpoint. Both historical and lowered finite-Goldbach routes have separate exact measured-job/projection/export factories for all 8,192 H100 groups | The local pilot packages but cannot execute on the DGX Spark's GB10 or claim Azure attestation. Production still requires an exact `x86_64` measured image, Azure/NVIDIA composite appraiser and policy, HSM key, authenticated transport, H100 calibration, and real receipts. Attestation authenticates an approved measured run; it does not prove arbitrary user code or mathematics |
+| High-bound zeta-zero foundation | Lean canonically checks a signed full endpoint payload, bridges analytic multiplicity to distinct counts, and conditionally composes a Hardy-Z model plus multiplicity bound into the finite-height theorem. The PT21 vertical slice now pins the exact height, count, FLINT campaign identity and CPU/SEV-SNP deployment through a closed registered invocation and signed wrapper | Endpoint/Hardy-Z/count realization, a source-evidence materializer, the multi-year full run and an attested successful receipt remain absent; the semantic binding stays disabled and no height has been certified |
+| Platt zeta head through 20,000 | A completed local FLINT 3.6.0/96-bit replay isolates all 22,491 included zeros plus the sentinel. The exact included Q128 table is generated into Lean, which proves that checked Hardy-Z/count evidence for that named table yields the multiplicity-preserving source claim. A closed CPU/SEV-SNP invocation pins both the 22,492-row artifact digest and the distinct 22,491-row source-table commitment | No `CheckedQ128HeadEvidence`, admitted receipt, or downstream exact-table bridge is shipped. FLINT/Hardy-Z/count realization remains external; the registered success relation names the exact table rather than trusting digest collision resistance. The exact invocation/theorem/result-path shape is staged, but the semantic binding stays disabled |
+| Platt Dirichlet Theorem 7.1 | Lean states the exact universal even/odd conductor-height proposition and proves it from a two-field `PlattTheorem71SourceEvidence`. A closed CPU/SEV-SNP finalizer pins `q=1..400000`, the two source height formulas, the exact 29,565,923,837-character `q=2..400000` roster count, and the separate stronger `q=1` zeta campaign; its signed wrapper exposes the source theorem only when result `true` carries that exact evidence | No full physical campaign or successful receipt exists. Roster realization, completed-L/Hardy identity, complete brackets, conjugation, and total-zero counts remain open. The exact invocation/theorem/result-path shape is staged, but the semantic binding stays disabled |
+| Ternary Goldbach external-computation work | Catalogs all thirteen live source atoms plus the distinct lowered finite endpoint as eleven physical campaigns: source-scale two-pass psi and shared Hurst workers; a 12,930-leaf MPFR/GMP Proposition 12.2.4 campaign; head/high zeta campaigns; exact R2Star and CDEM replays; historical and lowered binary-Goldbach/ladder campaigns; and the exact 29,565,923,837-character Dirichlet scheduler. The Hurst V2 bridge now trusts only primitive local row/guard replay evidence and derives global prefixes in ordinary Lean before proving all four Hurst-family atoms (five real inequalities), including the `6/π²` enclosure, with only Lean's foundational trio. The CH25 psi bridge now proves that its one-log-interval-per-prime-power fold is Mathlib's `p.log` expansion, derives the exact Q64 enclosure of `Chebyshev.psi`, proves the endpoint/real-slab reduction, registers the source-shaped CPU result, and pins its receipt-import identity. Dirichlet has certified Hurwitz inputs, directed H100 Taylor and small-q Gaussian/DFT arithmetic, a persistent residue-composition/all-character/completed-L graph, independent MPFR/Arb checks, scalable root-number artifacts, a q-persistent factored small-q service with reduced integrity streaming, and a rigorous slow FLINT fallback. Its ordinary Lean bridge checks raw binary64 Gaussian/postprocess traces, bounded radix-2 traces, the generic direct-DFT identity, source/full-length alignment, raw scaling/tail/untilt witnesses, producer-compatible strict signs, ordered all-modulus raw-word attachment, exact rational zero-bracket construction, explicit primitive-roster/character-row/source-evaluator contracts, a same-cell character/evaluator capstone, and opaque-roster-to-GRH assembly | Capability is not completion. No production Azure campaign has run and no source atom is discharged. Hurst and psi still need physical full-range receipts, exact retained-row-to-evidence bindings, and downstream receipt application; `claude_math` now has the conditional Hurst adapters but intentionally retains its live atoms until receipts exist. High zeta and historical Goldbach remain multi-year at current measured/projected rates; the lowered Goldbach campaign is source-closed but uncalibrated and unrun. Dirichlet still needs a canonical byte/sidecar and physical-execution link to the Lean certificate, concrete proofs of the now-explicit analytic-input and primitive-character contracts, a source-wide interval-width argument, efficient persistent lattice/recovery production, exception refinement and source-wide bracket selection, the completed-L evaluator/Hardy-model theorem, conjugation coverage, the separate `q=1` zeta case, and corrected Turing normalization/phase closure. Several paths trust FLINT/MPFR/CUDA/runtime semantics, and most source campaigns still lack their final Lean realization theorem |
 | GRH POC (Dirichlet L-functions, arXiv:1305.3087) | A rigorous GPU interval evaluator isolates critical-line zeros of every primitive character of a modulus; runs emit signed-eligible canonical bundles whose job inputs re-encode deterministically and whose certificate endpoints byte-bind to recorded outputs; Lean kernel-checks the bracket families and derives conditional finite-strip GRH theorems, with moduli 3 and 4 fully classified | The evaluator-realization and Turing zero-count premises remain explicit hypotheses; the direct evaluator is valid only for moderate ordinates, and no Platt-scale height or modulus range is certified |
 | Certified in-Lean numerics (`SparkInterval/Certified`) | Executable, fully proved rational-interval `sqrt`, `exp`, `log`, `sin`, `cos`, `arctan`, complex rectangles, and unconditional certified evaluators for the GRH Dirichlet main sums and Euler-Maclaurin correction terms | The Stirling Gamma-factor composition and the two named analytic remainder premises (Euler-Maclaurin tail, Stirling) are stated but not yet proved; kernel reduction does not evaluate `Nat.sqrt`-based enclosures, so evaluator-bound checks need compiled evaluation |
+
+The finite Helfgott--Platt Goldbach path now also has an exact conditional
+Lean vertical slice: ordinary Lean proves the binary-plus-prime-ladder
+reduction, and a closed Azure CPU finalizer pins both the H100 binary and CPU
+ladder campaign/source-artifact identities. This is not a completion claim.
+Neither branch has run at source scale, and no `CheckedSourceEvidence` or
+successful receipt is shipped. The measured terminal now commits to all 8,512
+signed producer identities and independently matches their result hashes to
+the 65,536 binary and 492,700 ordinary/native ladder receipts before branch
+replay. The historical H100 array now has a separate campaign-specific
+measured-job/projection/export materializer for every group. Production
+build/image/policy/key pins are still unconfigured, no source-scale run has
+occurred, and the Azure semantic binding remains disabled and null.
+
+The conditional `10^27` crossover has a second, explicitly versioned finite
+campaign, `ternary-goldbach-finite-below-10pow27-v1`. The v3 cluster manifest
+keeps it separate from the stronger historical computation and schedules its
+65,536 lowered binary leaves, 7,106 n=45 ladder ranges, reducers, replay, and
+measured CPU finalizer. Its registered invocation and exact terminal-result
+path are staged in the Azure semantic inventory with `enabled:false`; CPU
+phase materializers cover all seven CPU groups and verify signed retained
+handoffs. Closed per-group H100 operational/export materializers now cover all
+8,192 groups, and sizing has a separate exact campaign row. Source-realization
+review, H100 calibration, production policies/keys, and real receipts remain
+gates; the semantic binding stays disabled.
 
 ## Choose a workflow
 
@@ -172,18 +217,57 @@ The table below is the precise status, including the boundary of every claim.
   [benchmarks](docs/algorithms/GRH_POC_BENCHMARKS.md).
 - To review or extend the high-bound zero verifier, start with its
   [formal architecture and status](docs/algorithms/ZETA_ZERO_VERIFIER.md).
+- To review the cloud-only finite computation behind Helfgott (2.18), including
+  its explicit local-run guard and current compiler/ISA gap, use the
+  [Sqrt218 Azure CPU guide](docs/algorithms/SQRT218_AZURE_CPU_CERTIFICATE.md),
+  [verified-compiler path](docs/algorithms/SQRT218_VERIFIED_COMPILER_PATH.md),
+  [x86-model feasibility audit](docs/algorithms/SQRT218_X86_MODEL_FEASIBILITY.md),
+  [static binary-certificate boundary](docs/algorithms/SQRT218_STATIC_BINARY_CERTIFICATE.md),
+  and
+  [compact no-replay receipt boundary](docs/algorithms/COMPACT_ARCHITECTURE_RECEIPT_BOUNDARY.md).
 - To audit the thirteen external atoms used by the ternary Goldbach theorem,
   or prepare their fail-closed one-job/one-H100 Slurm deployment, use the
   [unified campaign control plane](docs/algorithms/TERNARY_GOLDBACH_CAMPAIGNS.md)
   and [H100 cluster guide](docs/algorithms/H100_TG_CLUSTER.md); for exact
   commands, evidence levels, and feasibility estimates, read the
   [external-atoms guide](docs/algorithms/TERNARY_GOLDBACH_EXTERNAL_ATOMS.md).
-- The A.7 command recomputes every retained FLINT/Arb leaf. The CDEM producer
+  The production-data-free trust view is the
+  [closed architecture registry](docs/algorithms/REGISTERED_ARCHITECTURE_INVOCATIONS.md),
+  [compact closure matrix](docs/algorithms/TERNARY_GOLDBACH_COMPACT_RECEIPT_CLOSURE.md),
+  [13-atom checker capstone](docs/algorithms/TERNARY_GOLDBACH_COMPACT_ATOM_CAPSTONE.md),
+  [15-family native-dependency closure](docs/algorithms/TERNARY_GOLDBACH_NATIVE_FAMILY_CLOSURE.md),
+  [1,371-member native-root crosswalk](docs/algorithms/TERNARY_GOLDBACH_NATIVE_MEMBER_CROSSWALK.md),
+  [all-family aggregate architecture route](docs/algorithms/TERNARY_GOLDBACH_NATIVE_AGGREGATE_ARCHITECTURE.md),
+  and the
+  [full 1,387-root trust-boundary audit](docs/algorithms/TERNARY_GOLDBACH_FULL_TRUST_BOUNDARY.md).
+  That full audit now fixes 11 proof-authorizing receipt slots—10 external
+  campaigns and one all-native aggregate—but records 0 imported receipts and
+  0 accepted receipts. The slots are typed handoff boundaries, not a claim
+  that any theorem dependency has been discharged.
+- The A.7 command recomputes every retained FLINT/Arb leaf; its exact
+  source-shaped rational-box theorem and conditional CPU receipt bridge are
+  implemented. Its closed one-job Azure CPU materializer pins the exact
+  artifact, full source/runtime closure, and a second complete replay; the
+  FLINT-to-Mathlib realization, x86-64 production materialization, attested
+  run, and receipt admission remain explicit. The CDEM producer
   hashes and compiles reviewed source, runs a small independent preflight, and
   executes all five billion recurrence steps. A second command recompiles a
   separately reviewed implementation and independently replays all 1,000
-  bounded-memory chunks. Their receipts retain the external-toolchain and
-  missing-Lean-realization boundaries explicitly.
+  bounded-memory chunks. A standalone no-shell terminal now accepts the
+  complete fixed-width CDEM artifact as its input and replays every row. An
+  additive two-stage Azure materializer verifies the first job's signed
+  receipt and retained archive, then makes those exact artifact bytes the
+  second measured job's input under a fresh challenge. It is bounded-tested
+  and deliberately emits no Lean theorem candidate: the C++/compiler/ELF-to-
+  Lean refinement and a production verifier key/run remain explicit. Any
+  eventual receipts retain the external-toolchain and physical-refinement
+  boundaries explicitly.
+- Proposition 12.2.4 now has a closed Azure CPU phase DAG: 12,930 logical
+  GMP/MPFR leaves in four 96-worker measured jobs, signed retained-export
+  handoffs, a second complete replay, and
+  an independently repeated exact terminal merge bound to the registered
+  `true` result. The production x86-64 source build, actual Azure run,
+  MPFR/GMP-to-exact-real review, and receipt admission remain explicit.
 - To smoke-test the host-side schedule and synthetic streaming-bracket
   scaffolding, run `python3 tools/benchmark_zeta_foundations.py --pretty`; this
   is not a zeta, Lean, GPU, or production-certificate benchmark.
@@ -191,6 +275,24 @@ The table below is the precise status, including the boundary of every claim.
   [H100 native workflow](docs/USING.md#h100-native-local-validation).
 - To prepare H100 device artifacts without an H100, use the
   [H100 offline workflow](docs/USING.md#h100-offline-artifacts).
+- To deploy confidential Azure SEV-SNP CPU VMs or one-H100 NCC VMs, collect
+  statement-bound evidence, independently appraise it, sign a receipt, and
+  prepare a reviewed Lean registry entry, use the
+  [Azure confidential-compute workflow](docs/AZURE_CONFIDENTIAL_COMPUTE.md).
+  Before supplying credentials or creating resources, run
+  `tools/tg_azure_launch_preflight.py --pretty`; its
+  [read-only launch report](docs/AZURE_TG_LAUNCH_PREFLIGHT.md) checks all ten
+  source campaigns, 33 phase groups, registered backends, materializer CLIs,
+  and site schemas while keeping redacted pins, missing calibration, and
+  absent receipts visibly blocked.
+  The stateful one-H100 production handoff is documented in the
+  [Azure H100 operator runbook](docs/AZURE_H100_PRODUCTION_OPERATOR.md), and
+  the exact challenge-first protocol is documented in the
+  [measured-runner guide](docs/AZURE_MEASURED_RUNNER.md).
+  The [DGX Spark measurements and Azure sizing note](docs/AZURE_PERFORMANCE_SIZING.md)
+  records the current host-replay bottleneck and non-H100 planning data; the
+  [Managed HSM guide](docs/AZURE_MANAGED_HSM_SIGNING.md) covers production
+  receipt signing and key-attestation review.
 
 ## Collaborate
 
@@ -226,13 +328,42 @@ ecosystem expansion. The project is MIT licensed.
 
 Run these commands from the repository root.
 
+This quick start exercises proofs and tiny examples only. Production-scale
+ternary-Goldbach arithmetic is intentionally a measured Azure workload, not a
+local build step or CI test. After such a run is independently appraised, the
+ordinary Lean handoff checks its compact source-pinned receipt and fixed
+registered semantics; it does not regenerate or replay the production
+certificate.
+
 Small core proofs:
 
 ```bash
+./tools/safe_lake_build.py
 ./tools/safe_lake_build.py SparkInterval.IntervalOpsSound
 ./tools/safe_lean.sh examples/lean/IntervalArithmetic.lean
 ./tools/safe_lean.sh examples/lean/ZetaIdentity.lean
 ```
+
+The no-argument build is the explicit compact, data-independent proof root.
+It includes the closed 13-atom/10-campaign catalog, every ordinary
+checker-to-source-claim adapter, the all-atom capstone, and the universal
+Sqrt218 C/ELF/ABI/physical-identity composition. It also includes the closed
+source-program audit for the ten external campaigns plus the Ramaré fallback:
+all eleven retain explicit generator/parser/final-check/soundness gaps and
+zero are marked concrete. The separate downstream all-native aggregate does
+have an exact Lean source-level `FixedDecisionProgram` certificate, but no
+static-CPU compiler/loader/ISA refinement; it is not part of that zero-of-
+eleven count. The compact root excludes the legacy
+`RegisteredAlgorithm`, `PlattHeadQ128`, and `CDEMAbelProduction`
+materializations. The static closure audit reports the current module, byte,
+and line counts:
+
+```bash
+python3 tools/audit_local_lean_boundary.py
+```
+
+The broad production-materialized Lean library is Azure-qualification-only;
+it is not run by this quick start.
 
 Generate and check the complete two-row certificate in a fresh destination:
 
@@ -305,6 +436,15 @@ conditional finite-strip GRH theorem for modulus 4 depending only on
 Lean's standard axioms; the [GRH POC guide](docs/algorithms/GRH_POC.md)
 states the remaining analytic premises exactly.
 
+For the source-shaped Platt large-\(q\) route, the
+[row-resident t-major component](docs/algorithms/DIRICHLET_TMAJOR_CUDA_BLOCK.md)
+now supplies a typed, independently replayed direct-MPFR input and one-upload
+CUDA composition mode. Its primitive-only V2 source input is
+286,556,459,000 bytes, but it
+ends at `TGDAFFI1`; source cache population, persistent multi-\(q\) FFT and
+completed-\(L\) integration, authenticated zero state, Turing closure,
+attestation, and the source run remain open.
+
 ## H100 quick start
 
 On a host with exactly one visible NVIDIA H100 at compute capability 9.0,
@@ -345,6 +485,13 @@ receipt reports `evidence_class: local_unattested` and
 confidential-computing evidence. See the [H100 guide](docs/H100.md) for the
 offline CLI checks and the separate generated-`sm_90` polynomial path.
 
+For a confidential Azure run, use the separate
+[`Standard_NCC40ads_H100_v5` workflow](docs/AZURE_CONFIDENTIAL_COMPUTE.md).
+It deploys one H100 per VM and requires a fresh off-VM challenge, composite
+Azure SEV-SNP/vTPM and NVIDIA appraisal, measured-runner policy, an HSM-signed
+receipt, and source-registry review. The tools exist, but this repository has
+not performed or admitted such a production run.
+
 ## Explicit nonclaims
 
 - The real-integer zeta POC encloses positive real values for supported integer
@@ -378,25 +525,51 @@ offline CLI checks and the separate generated-`sm_90` polynomial path.
 - PTX and SASS audits are conservative artifact checks, not formal proofs that
   `ptxas`, the CUDA driver, or physical hardware implements Lean's machine.
 - An operator signature is not hardware attestation.
-- The sole `accepted_run_certificate_sound` axiom establishes one accepted
-  certificate's historical outcome and its fixed formal semantics for every
-  matching constructor of the closed invocation registry.
-  `accepted_registered_run_sound` and the DGX/H100 names are proved projections,
-  not additional axioms. This per-run bridge does not say that every future run
-  is deterministic or prove a general PTX/cubin/backend refinement theorem.
-- The closed registry currently contains only
-  `RegisteredAlgorithm.cubicSumDivThreeV1` and
-  `RegisteredInvocation.cubicSumDivThree20000V1`; no zeta checker is registered.
-- Its `cubicNumeratorLoop`/`cubicSumDivThreeMachine` proofs establish the
+- The sole `accepted_run_certificate_sound` axiom accepts only an exact
+  source-admitted `checkTrustedCompute` receipt. It establishes that receipt's
+  historical outcome and its fixed formal semantics for every matching
+  constructor of the closed invocation registry. `accepted_registered_run_sound`
+  is a proved projection, not another axiom. The legacy DGX-signature and H100
+  structural checks remain diagnostics and are unconditionally rejected by
+  `RunCertificate.check`; they cannot establish `AlgorithmReturned` or `Runs`.
+  This per-run bridge does not say that every future run is deterministic or
+  prove a general PTX/cubin/backend refinement theorem.
+- Before a closed invocation can match, Lean recomputes the SHA-256 bindings
+  for its canonical algorithm, input, parameter, and domain bytes. An edited
+  preimage with a stale reviewed digest therefore disables certificate
+  selection instead of silently reusing an older admitted receipt.
+- The same selector checks an invocation-specific canonical result language.
+  The tutorial and pilot have one exact result, CDEM has its exact paired
+  decimal result or `false`, and the source campaigns admit only `true` or
+  `false`. Malformed signed result bytes cannot select a `Runs` relation.
+- The source audit rejects `native_decide` in production Lean modules. Small
+  executable facts use kernel `decide`; large computations must cross an
+  explicit certificate or the disclosed trusted-run boundary. Test-only KATs
+  remain outside theorem dependencies.
+- The closed algorithm/invocation registry contains the CPU tutorial, the
+  one-row formal-PTX H100 pilot, and source-shaped Ternary-Goldbach entries,
+  including exact conditional PT21 finite-RH and Platt Dirichlet Theorem 7.1
+  slices. Registration alone is not verification: both still lack materialized
+  source evidence, source-scale runs, and attested successful receipts.
+- The cubic tutorial's `cubicNumeratorLoop`/`cubicSumDivThreeMachine` proofs establish the
   tutorial algorithm and u64 bounds in Lean. They do not establish that a GPU
   executable implements those steps; that particular-run connection remains
   exactly the certificate axiom's responsibility.
+- The H100 pilot separately proves that its registered PTX text is exactly the
+  formal emitter's output for the closed constant `[1,1]` batch and that both
+  returned binary64 endpoints decode to rational one. It remains a deliberately
+  small deployment-path test, not a production finite computation.
 - Literal algorithm ID/hash checks do not prove that a cubin was compiled from
   the formal PTX module.
 - Successful H100 native, generated-polynomial, or real-zeta validation is
   local execution/conformance evidence, not confidential-computing
-  attestation. Production H100 acceptance remains fail-closed until a genuine
-  measured workload and trusted NVIDIA evidence verifier exist.
+  attestation. The Azure path can collect, independently appraise, sign, and
+  source-import genuine evidence, but its tracked receipt registry is empty.
+- An Azure or NVIDIA attestation token does not prove arbitrary user-space code
+  caused the claimed output or that the finite algorithm is mathematically
+  sound. Those claims require a reviewed measured runner, a closed invocation,
+  and its ordinary Lean soundness theorem; the physical-to-formal per-run step
+  remains exactly the sole execution axiom.
 
 ## Documentation
 
@@ -410,6 +583,11 @@ offline CLI checks and the separate generated-`sm_90` polynomial path.
 - [Examples](examples/README.md)
 - [DGX Spark setup](docs/DGX_SPARK_SETUP.md)
 - [H100 native, offline, and production boundary](docs/H100.md)
+- [Azure confidential CPU/H100 execution](docs/AZURE_CONFIDENTIAL_COMPUTE.md)
+- [Ternary Goldbach Azure launch preflight](docs/AZURE_TG_LAUNCH_PREFLIGHT.md)
+- [DGX Spark benchmarks and Azure sizing](docs/AZURE_PERFORMANCE_SIZING.md)
+- [Azure Managed HSM receipt signing](docs/AZURE_MANAGED_HSM_SIGNING.md)
+- [Pinned numeric-corpus references and cloud-receipt binding](docs/NUMERIC_CORPUS_REFERENCES.md)
 - [Run-bundle and certificate formats](docs/FORMAT.md)
 - [Memory-safe builds](docs/MEMORY_SAFE_BUILDS.md)
 - [Proof blueprint and NVIDIA-spec traceability](docs/PROOF_BLUEPRINT.md)
@@ -419,5 +597,13 @@ offline CLI checks and the separate generated-`sm_90` polynomial path.
 - [Real-zeta POC algorithm](docs/algorithms/REAL_ZETA_POC.md)
 - [High-bound zeta-zero verifier status](docs/algorithms/ZETA_ZERO_VERIFIER.md)
 - [Ternary Goldbach external atoms](docs/algorithms/TERNARY_GOLDBACH_EXTERNAL_ATOMS.md)
+- [Ternary Goldbach external-program readiness](docs/algorithms/TERNARY_GOLDBACH_EXTERNAL_PROGRAM_READINESS.md)
+- [Ternary Goldbach compact architecture registry](docs/algorithms/REGISTERED_ARCHITECTURE_INVOCATIONS.md)
+- [Ternary Goldbach compact receipt closure matrix](docs/algorithms/TERNARY_GOLDBACH_COMPACT_RECEIPT_CLOSURE.md)
+- [Ternary Goldbach 13-atom compact checker capstone](docs/algorithms/TERNARY_GOLDBACH_COMPACT_ATOM_CAPSTONE.md)
+- [Ternary Goldbach native-generated family closure](docs/algorithms/TERNARY_GOLDBACH_NATIVE_FAMILY_CLOSURE.md)
+- [Ternary Goldbach 1,371-member native-root crosswalk](docs/algorithms/TERNARY_GOLDBACH_NATIVE_MEMBER_CROSSWALK.md)
+- [Ternary Goldbach all-family aggregate architecture route](docs/algorithms/TERNARY_GOLDBACH_NATIVE_AGGREGATE_ARCHITECTURE.md)
+- [Fixed decidable-claim checker safety boundary](docs/algorithms/FIXED_DECISION_CHECKER.md)
 - [GRH POC: GPU evaluator, certificates, certified numerics, and Lean instantiation](docs/algorithms/GRH_POC.md)
 - [GRH POC benchmarks and full-run extrapolation](docs/algorithms/GRH_POC_BENCHMARKS.md)

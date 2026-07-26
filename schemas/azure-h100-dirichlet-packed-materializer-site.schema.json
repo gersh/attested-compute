@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-h100-dirichlet-packed-materializer-site.schema.json",
+  "title": "SparkInterval Dirichlet packed-sign Azure H100 materializer site",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "batch_directory", "control", "control_receipt", "gpu_verifier",
+    "input_manifest", "kind", "nras_url", "nvidia_policy", "output_root",
+    "pinset", "plan", "predecessor_receipt", "python", "runner",
+    "runner_policy", "runner_source", "schema_version"
+  ],
+  "properties": {
+    "batch_directory": {"$ref": "#/$defs/absolutePath"},
+    "control": {"$ref": "#/$defs/filePin"},
+    "control_receipt": {"$ref": "#/$defs/filePin"},
+    "gpu_verifier": {"type": "string", "minLength": 1, "maxLength": 4096},
+    "input_manifest": {"$ref": "#/$defs/filePin"},
+    "kind": {"const": "sparkinterval.azure.h100.dirichlet-packed-materializer-site.v1"},
+    "nras_url": {"type": "string", "pattern": "^https://", "maxLength": 4096},
+    "nvidia_policy": {"$ref": "#/$defs/filePin"},
+    "output_root": {"$ref": "#/$defs/absolutePath"},
+    "pinset": {"$ref": "#/$defs/filePin"},
+    "plan": {"$ref": "#/$defs/filePin"},
+    "predecessor_receipt": {"$ref": "#/$defs/filePin"},
+    "python": {"$ref": "#/$defs/filePin"},
+    "runner": {"$ref": "#/$defs/filePin"},
+    "runner_policy": {"$ref": "#/$defs/policyPin"},
+    "runner_source": {"$ref": "#/$defs/filePin"},
+    "schema_version": {"const": 1}
+  },
+  "$defs": {
+    "absolutePath": {
+      "type": "string",
+      "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"
+    },
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "policyPin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification", "path", "policy_id", "sha256", "size_bytes"
+      ],
+      "properties": {
+        "classification": {"const": "production"},
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "policy_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

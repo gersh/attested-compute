@@ -1,0 +1,51 @@
+{
+  "kind": "sparkinterval.pinned_upstream_source.v1",
+  "name": "isaac-6/goldbach-gpu segmented multi-GPU range verifier",
+  "repository": "https://github.com/isaac-6/goldbach-gpu.git",
+  "commit": "b58b2dea697cdaf09208ab6d9ea2ac1b9cce1898",
+  "license": "MIT",
+  "review_policy": {
+    "accepted_mode": "--primetest=mr only",
+    "primality_basis": "first twelve prime bases",
+    "proven_composite_threshold_exclusive": "318665857834031151167461",
+    "source": "https://arxiv.org/abs/1509.00864",
+    "required_local_hardening": [
+      "word-owner CUDA sieve for the exact odd-prime prefix through 2039 followed by full-segment one-thread-per-prime 64-bit global atomic composite marking",
+      "word-aligned ownership in the OpenMP prime bitset builder",
+      "fixed 65,536-leaf half-open checkpoint plan, eight-node scheduler concurrency, and canonical per-leaf result commitment",
+      "strict H100 device and execution-policy checks"
+    ]
+  },
+  "files": [
+    {
+      "path": "LICENSE",
+      "sha256": "90ccbf9641df6fd03427be6ac9eadc8840df8be74cb736164620a3849e72d45f",
+      "size_bytes": 1078
+    },
+    {
+      "path": "CMakeLists.txt",
+      "sha256": "85d6c590bf7505510584b74e638b4c857e6554fc9ff6a176b36f55242f4f2677",
+      "size_bytes": 3238
+    },
+    {
+      "path": "include/prime_bitset.hpp",
+      "sha256": "0fdcd1ef6033318580d8a86a38690cb4b50755503c58c72aa70405ff1e663f7e",
+      "size_bytes": 3726
+    },
+    {
+      "path": "src/goldbach.cu",
+      "sha256": "6de6e78c3d25e016a033c55da766acb446cbb66074c636840cb41fe704b16f08",
+      "size_bytes": 41488
+    },
+    {
+      "path": "src/prime_bitset.cpp",
+      "sha256": "5beca5d11682a1b9497c6d15699789b21123a03bb1bd67c2a0340def6c25b985",
+      "size_bytes": 3596
+    },
+    {
+      "path": "src/segmented_sieve.cpp",
+      "sha256": "ae1b9c2db26c0b15dace0a44b436a3f8d65a2691c8e97dfe1ea3a0a3206f078f",
+      "size_bytes": 1401
+    }
+  ]
+}

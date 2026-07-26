@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.example/schemas/azure-cpu-production-campaign.schema.json",
+  "title": "SparkInterval Azure SEV-SNP CPU production campaign",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["azure", "campaign_id", "challenge", "challenge_ttl_seconds", "handoffs", "kind", "lean_review", "managed_hsm", "outputs", "policies", "schema_version", "worker", "workload"],
+  "properties": {
+    "azure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["admin_username", "image", "location", "name_prefix", "nodes", "os_disk_size_gb", "resource_group", "sku", "ssh_public_key", "subnet_id", "subscription_id", "zone"],
+      "properties": {
+        "admin_username": {"$ref": "#/$defs/azureName"},
+        "image": {
+          "type": "string",
+          "oneOf": [
+            {"pattern": "^[^:]+:[^:]+:[^:]+:[0-9]+(?:\\.[0-9]+)*$"},
+            {"pattern": "^(?:/CommunityGalleries/[^/]+/Images/[^/]+/versions/|/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.Compute/galleries/[^/]+/images/[^/]+/versions/)[0-9]+(?:\\.[0-9]+){2}$"}
+          ]
+        },
+        "location": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$"},
+        "name_prefix": {"$ref": "#/$defs/azureName"},
+        "nodes": {"const": 1},
+        "os_disk_size_gb": {"type": "integer", "minimum": 64, "maximum": 32767},
+        "resource_group": {"$ref": "#/$defs/azureName"},
+        "sku": {"enum": ["Standard_EC96as_v6", "Standard_DC96as_v6"]},
+        "ssh_public_key": {"$ref": "#/$defs/filePin"},
+        "subnet_id": {"type": "string", "pattern": "^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.Network/virtualNetworks/[^/]+/subnets/[^/]+$"},
+        "subscription_id": {"type": "string", "minLength": 1},
+        "zone": {"type": ["string", "null"], "enum": ["1", "2", "3", null]}
+      }
+    },
+    "campaign_id": {"$ref": "#/$defs/name"},
+    "challenge": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mode", "pin", "shard_index"],
+      "properties": {
+        "mode": {"enum": ["operator_generated_fresh_v1", "pinned_portfolio_handoff_v1"]},
+        "pin": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/filePin"}]},
+        "shard_index": {"type": "integer", "minimum": 0, "maximum": 1000000000}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"mode": {"const": "operator_generated_fresh_v1"}}},
+          "then": {"properties": {"pin": {"type": "null"}, "shard_index": {"const": 0}}}
+        },
+        {
+          "if": {"properties": {"mode": {"const": "pinned_portfolio_handoff_v1"}}},
+          "then": {"properties": {"pin": {"$ref": "#/$defs/filePin"}}}
+        }
+      ]
+    },
+    "challenge_ttl_seconds": {"type": "integer", "minimum": 1, "maximum": 604800},
+    "handoffs": {
+      "type": "object", "additionalProperties": false,
+      "required": ["returned_certificate_archive", "returned_worker_completion", "worker_stage_manifest"],
+      "properties": {
+        "returned_certificate_archive": {"$ref": "#/$defs/absolutePath"},
+        "returned_worker_completion": {"$ref": "#/$defs/absolutePath"},
+        "worker_stage_manifest": {"$ref": "#/$defs/absolutePath"}
+      }
+    },
+    "kind": {"const": "sparkinterval_azure_cpu_production_campaign"},
+    "lean_review": {
+      "type": "object", "additionalProperties": false,
+      "required": ["namespace", "registered_invocation"],
+      "properties": {
+        "namespace": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+        "registered_invocation": {
+          "enum": [
+            null,
+            "cdemTableAbelProductionV2",
+            "ch25PsiLemma92ProductionV1",
+            "ch25A7BoundaryProductionV1",
+            "plattHead2e4ProductionV1"
+          ]
+        }
+      }
+    },
+    "managed_hsm": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key_id", "key_manifest", "key_uri", "public_key"],
+      "properties": {
+        "key_id": {"$ref": "#/$defs/name"},
+        "key_manifest": {"$ref": "#/$defs/filePin"},
+        "key_uri": {"type": "string", "pattern": "^https://[a-z0-9-]+\\.managedhsm\\.azure\\.net/keys/[A-Za-z0-9-]+/[0-9a-f]{32}$"},
+        "public_key": {"$ref": "#/$defs/filePin"}
+      }
+    },
+    "outputs": {
+      "type": "object", "additionalProperties": false,
+      "required": ["appraisal_report", "challenge_dir", "deployment_record", "extracted_certificate_package", "lean_candidate", "receipt", "registry_candidate", "replay_db", "review_root", "state", "transcript_report"],
+      "properties": {
+        "appraisal_report": {"$ref": "#/$defs/absolutePath"},
+        "challenge_dir": {"$ref": "#/$defs/absolutePath"},
+        "deployment_record": {"$ref": "#/$defs/absolutePath"},
+        "extracted_certificate_package": {"$ref": "#/$defs/absolutePath"},
+        "lean_candidate": {"$ref": "#/$defs/absolutePath"},
+        "receipt": {"$ref": "#/$defs/absolutePath"},
+        "registry_candidate": {"$ref": "#/$defs/absolutePath"},
+        "replay_db": {"$ref": "#/$defs/absolutePath"},
+        "review_root": {"$ref": "#/$defs/absolutePath"},
+        "state": {"$ref": "#/$defs/absolutePath"},
+        "transcript_report": {"$ref": "#/$defs/absolutePath"}
+      }
+    },
+    "policies": {
+      "type": "object", "additionalProperties": false,
+      "required": ["composite_appraisal", "evidence_verifier", "runner", "transcript_appraisal"],
+      "properties": {
+        "composite_appraisal": {"$ref": "#/$defs/policyPin"},
+        "evidence_verifier": {"$ref": "#/$defs/filePin"},
+        "runner": {"$ref": "#/$defs/policyPin"},
+        "transcript_appraisal": {"$ref": "#/$defs/policyPin"}
+      }
+    },
+    "schema_version": {"const": 1},
+    "worker": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_root", "certificate_archive", "certificate_package", "challenge", "completion_manifest", "job_spec", "maa_attestation_url", "run_package", "stage_manifest", "transcript_appraisal_policy", "workload_package"],
+      "properties": {
+        "artifact_root": {"$ref": "#/$defs/absolutePath"},
+        "certificate_archive": {"$ref": "#/$defs/absolutePath"},
+        "certificate_package": {"$ref": "#/$defs/absolutePath"},
+        "challenge": {"$ref": "#/$defs/absolutePath"},
+        "completion_manifest": {"$ref": "#/$defs/absolutePath"},
+        "job_spec": {"$ref": "#/$defs/absolutePath"},
+        "maa_attestation_url": {"type": "string", "pattern": "^https://[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\\.attest\\.azure\\.net/attest/SevSnpVm\\?api-version=2022-08-01$"},
+        "run_package": {"$ref": "#/$defs/absolutePath"},
+        "stage_manifest": {"$ref": "#/$defs/absolutePath"},
+        "transcript_appraisal_policy": {"$ref": "#/$defs/absolutePath"},
+        "workload_package": {"$ref": "#/$defs/absolutePath"}
+      }
+    },
+    "workload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_root", "job_spec", "package"],
+      "properties": {
+        "artifact_root": {"$ref": "#/$defs/absolutePath"},
+        "job_spec": {"$ref": "#/$defs/filePin"},
+        "package": {"$ref": "#/$defs/filePin"}
+      }
+    }
+  },
+  "$defs": {
+    "absolutePath": {"type": "string", "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"},
+    "azureName": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},
+    "filePin": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}
+      }
+    },
+    "name": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "policyPin": {
+      "type": "object", "additionalProperties": false,
+      "required": ["classification", "path", "policy_id", "sha256", "size_bytes"],
+      "properties": {
+        "classification": {"const": "production"},
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "policy_id": {"$ref": "#/$defs/name"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}
+      }
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

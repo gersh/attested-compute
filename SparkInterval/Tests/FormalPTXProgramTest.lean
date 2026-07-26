@@ -66,6 +66,11 @@ private def h100Program : FormalPTXProgram := {
   batch := sampleBatch
 }
 
+private def cpuProgram : FormalPTXProgram := {
+  h100Program with
+  target := .azureSEVSNPCPU
+}
+
 /-- The representative generated module passes the validator shared by both
 target-specific emission paths. -/
 private theorem sampleModule_valid : validate sampleModule = .ok () := by
@@ -74,14 +79,16 @@ private theorem sampleModule_valid : validate sampleModule = .ok () := by
 /-- DGX Spark selects the reviewed `sm_121` rendering. -/
 private theorem dgxProgram_emits :
     dgxProgram.emit = .ok (renderUncheckedFor .sm121 sampleModule) := by
-  simpa [FormalPTXProgram.emit, dgxProgram, sampleModule] using
+  simpa [FormalPTXProgram.emit, FormalPTXProgram.emitterTarget?, dgxProgram,
+    sampleModule] using
     (emitFor_of_validate (target := EmitterTarget.sm121) sampleModule_valid)
 
 /-- H100 selects the distinct reviewed `sm_90` rendering of the same typed
 instruction module. -/
 private theorem h100Program_emits :
     h100Program.emit = .ok (renderUncheckedFor .sm90 sampleModule) := by
-  simpa [FormalPTXProgram.emit, h100Program, sampleModule] using
+  simpa [FormalPTXProgram.emit, FormalPTXProgram.emitterTarget?, h100Program,
+    sampleModule] using
     (emitFor_of_validate (target := EmitterTarget.sm90) sampleModule_valid)
 
 example : dgxProgram.emit = .ok (renderUncheckedFor .sm121 sampleModule) :=
@@ -89,6 +96,11 @@ example : dgxProgram.emit = .ok (renderUncheckedFor .sm121 sampleModule) :=
 
 example : h100Program.emit = .ok (renderUncheckedFor .sm90 sampleModule) :=
   h100Program_emits
+
+/-- A CPU trusted-compute target cannot be relabeled as a PTX execution. -/
+example : cpuProgram.emit =
+    .error "formal PTX emission requires a GPU execution target" := by
+  rfl
 
 /-- The architecture directive is part of the emitted bytes, rather than
 metadata stored only beside the program. -/

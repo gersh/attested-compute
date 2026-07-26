@@ -4,6 +4,7 @@
 #include "tg_r2star_chunk.h"
 #include "tg_r2star_factor_support.h"
 
+#include "sparkinterval/measured_worker_scope.hpp"
 #include "sparkinterval/sha256.hpp"
 
 #include <array>
@@ -580,6 +581,9 @@ bool same_summary(const TgR2StarChunkSummary& left,
 
 int main(int argc, char** argv) {
   const Options options = parse_options(argc, argv);
+  if (!sparkinterval::permits_finite_work(options.count)) {
+    fail(sparkinterval::kCloudOnlyWorkloadError);
+  }
   const std::size_t count = static_cast<std::size_t>(options.count);
   const std::uint64_t upper_inclusive = options.lower + options.count - 1;
   const std::uint64_t upper_exclusive = upper_inclusive + 1;

@@ -1,0 +1,300 @@
+{
+  "authority": {
+    "architecture_execution_proved": false,
+    "authorizes_lean_theorem": false,
+    "authorizes_receipt": false,
+    "compiler_correctness_proved": false,
+    "elf_loader_correctness_proved": false,
+    "instruction_decoder_correctness_proved": false,
+    "isa_correctness_proved": false,
+    "production_certificate_opened": false,
+    "production_execution_performed": false,
+    "vst_proof_present": false
+  },
+  "cloud_policy": {
+    "blockers": [
+      "missing-pinned-discovery-container-and-runner"
+    ],
+    "cloud_only": true,
+    "execution_ready": false,
+    "generated_elf_execution_allowed": false,
+    "local_tool_invocation_allowed": false,
+    "network_policy": "operator-deny-egress-discovery-run-required",
+    "production_certificate_access_allowed": false,
+    "requires_final_image_registry_digest": true
+  },
+  "elf_gate": {
+    "all_pt_load_rows_count_permissions_recorded": true,
+    "duplicate_entry_symbol_rejected": true,
+    "dynamic_dependencies_rejected": true,
+    "entry_must_equal_unique_defined_global_function": true,
+    "interpreter_rejected": true,
+    "relocations_in_final_elf_rejected": true,
+    "undefined_final_symbols_rejected": true,
+    "writable_executable_segments_rejected": true
+  },
+  "inventory_contract": {
+    "aggregate_keys": [
+      "exact_prefix_sequence",
+      "candidate_opcode_bytes",
+      "mnemonic_and_normalized_operand_form"
+    ],
+    "decoder_authoritative_for_x86_semantics": false,
+    "direct_cfg_closure_complete_required": true,
+    "every_aggregate_form_has_gap_tags": true,
+    "every_instruction_has_gap_tags": true,
+    "exact_instruction_fields": [
+      "virtual_address",
+      "file_offset",
+      "raw_bytes",
+      "length",
+      "legacy_prefix_bytes",
+      "rex_prefix_bytes",
+      "encoding_family",
+      "candidate_opcode_bytes",
+      "mnemonic",
+      "normalized_operands",
+      "direct_targets",
+      "fallthrough"
+    ],
+    "reachability_classification": "objdump-derived-direct-cfg-closure-not-semantic-proof",
+    "required_gap_tags": [
+      "operand-size-prefix-0x66",
+      "imul-two-or-three-operand",
+      "bswap",
+      "shld",
+      "sse-or-xmm",
+      "rol-or-ror",
+      "vex",
+      "evex",
+      "unknown-encoding-form"
+    ],
+    "reject_conditions": [
+      "decoder-disagreement-with-elf-bytes",
+      "duplicate-instruction-address",
+      "indirect-call-or-jump",
+      "target-into-instruction-middle",
+      "target-outside-executable-load",
+      "unknown-control-transfer",
+      "unresolved-direct-target"
+    ]
+  },
+  "kind": "sparkinterval.sqrt218-compiler-discovery-lane.v1",
+  "manifest_sha256": "6384f75f41636f8851d8f1e65aab7dfb30a304f5464621ad8b56898659659a7e",
+  "pipeline": {
+    "commands": [
+      {
+        "argv": [
+          "ccomp",
+          "-E",
+          "-std=c11",
+          "-fnone",
+          "-Wall",
+          "-Werror",
+          "-DTG_SQ218_PURE_ENTRY_ONLY=1",
+          "-I${REPOSITORY_ROOT}/cpu_checker/sqrt218",
+          "-o",
+          "${WORK}/sqrt218_pure_entry.i",
+          "${REPOSITORY_ROOT}/proof_build/sqrt218/sqrt218_pure_entry_unit.c"
+        ],
+        "step": "preprocess"
+      },
+      {
+        "argv": [
+          "clightgen",
+          "-csyntax",
+          "-canonical-idents",
+          "-fnone",
+          "-Wall",
+          "-Werror",
+          "-o",
+          "${WORK}/Sqrt218CompCertC.v",
+          "${WORK}/sqrt218_pure_entry.i"
+        ],
+        "step": "csyntaxgen"
+      },
+      {
+        "argv": [
+          "clightgen",
+          "-clight",
+          "-normalize",
+          "-canonical-idents",
+          "-fnone",
+          "-Wall",
+          "-Werror",
+          "-dc",
+          "-dclight",
+          "-o",
+          "${WORK}/Sqrt218Clight.v",
+          "${WORK}/sqrt218_pure_entry.i"
+        ],
+        "step": "clightgen"
+      },
+      {
+        "argv": [
+          "ccomp",
+          "-S",
+          "-sdump",
+          "-dc",
+          "-dclight",
+          "-std=c11",
+          "-fnone",
+          "-Wall",
+          "-Werror",
+          "-fno-pie",
+          "-o",
+          "${WORK}/sqrt218_pure_entry.s",
+          "${WORK}/sqrt218_pure_entry.i"
+        ],
+        "step": "compcert"
+      },
+      {
+        "argv": [
+          "as",
+          "--64",
+          "--fatal-warnings",
+          "-o",
+          "${WORK}/sqrt218_pure_entry.o",
+          "${WORK}/sqrt218_pure_entry.s"
+        ],
+        "step": "assembler"
+      },
+      {
+        "argv": [
+          "ld",
+          "-m",
+          "elf_x86_64",
+          "-static",
+          "-no-pie",
+          "--no-dynamic-linker",
+          "--gc-sections",
+          "--build-id=none",
+          "--entry=tg_sq218_verify_snapshot_v2",
+          "--require-defined=tg_sq218_verify_snapshot_v2",
+          "--no-undefined",
+          "--fatal-warnings",
+          "-z",
+          "noexecstack",
+          "-z",
+          "separate-code",
+          "-z",
+          "text",
+          "-Map=${OUTPUT}/retained/sqrt218-link.map",
+          "-o",
+          "${OUTPUT}/retained/sqrt218_pure_entry.elf",
+          "${WORK}/sqrt218_pure_entry.o"
+        ],
+        "step": "linker"
+      },
+      {
+        "argv": [
+          "objdump",
+          "--disassemble",
+          "--disassemble-zeroes",
+          "--wide",
+          "--show-raw-insn",
+          "--insn-width=15",
+          "-Mintel",
+          "${OUTPUT}/retained/sqrt218_pure_entry.elf"
+        ],
+        "step": "raw_objdump"
+      }
+    ],
+    "ordered_steps": [
+      "source_closure",
+      "preprocess",
+      "csyntaxgen",
+      "clightgen",
+      "compcert",
+      "assembler",
+      "object_inspection",
+      "linker",
+      "elf_inspection",
+      "raw_objdump",
+      "direct_cfg_inventory",
+      "artifact_index"
+    ]
+  },
+  "retained_artifacts": [
+    "retained/source-closure.json",
+    "retained/sqrt218_pure_entry.i",
+    "retained/Sqrt218CompCertC.v",
+    "retained/Sqrt218Clight.v",
+    "retained/sqrt218_pure_entry.compcert.c",
+    "retained/sqrt218_pure_entry.light.c",
+    "retained/sqrt218_pure_entry.sdump",
+    "retained/sqrt218_pure_entry.s",
+    "retained/sqrt218_pure_entry.o",
+    "retained/sqrt218_pure_entry.elf",
+    "retained/sqrt218-link.map",
+    "retained/object-readelf-all.txt",
+    "retained/elf-readelf-header.txt",
+    "retained/elf-readelf-program-headers.txt",
+    "retained/elf-readelf-section-headers.txt",
+    "retained/elf-readelf-symbols.txt",
+    "retained/elf-readelf-dynamic.txt",
+    "retained/elf-readelf-relocations.txt",
+    "retained/elf-objdump-raw.txt",
+    "retained/direct-cfg-instructions.ndjson",
+    "retained/mnemonic-operand-form-inventory.json",
+    "retained/prefix-form-inventory.json",
+    "retained/opcode-form-inventory.json",
+    "retained/undefined-symbol-report.json",
+    "retained/elf-structural-audit.json",
+    "retained/artifact-index.json"
+  ],
+  "schema_version": 1,
+  "scope": {
+    "downstream_unproved_obligation": "ArchitectureExecutionSuppliesSuccessfulPureEntry",
+    "entry_symbol": "tg_sq218_verify_snapshot_v2",
+    "function_entry_elf_classification": "function-entry-analysis-only-not-linux-process-start",
+    "linux_startup_wrapper_present": false,
+    "purpose": "mm0-derived-lean4-x86-model-opcode-scoping-only",
+    "sysv_direct_call_initial_state_remains_unproved": true
+  },
+  "source_inputs": [
+    {
+      "path": "cpu_checker/sqrt218/sqrt218_cpu_checker.c",
+      "sha256": "9444117c43f4fde219d24dbc33fba29c8b59aa91a146b88b2f83ccb7add80b6a",
+      "size_bytes": 41978
+    },
+    {
+      "path": "cpu_checker/sqrt218/sqrt218_cpu_command.c",
+      "sha256": "b7aa9e740f221d1ba12913b44d05acb5587b725316e164697abfe01385c627cb",
+      "size_bytes": 16141
+    },
+    {
+      "path": "cpu_checker/sqrt218/sqrt218_cpu_checker.h",
+      "sha256": "7bbca1f910ff436517a565a975f9f014252ccd8aca48ee9e0a3d6bd4f6fdc0f4",
+      "size_bytes": 7421
+    },
+    {
+      "path": "cpu_checker/sqrt218/sqrt218_cpu_command.h",
+      "sha256": "e0a1a579122db51c4ad3d9504663175df86e509eaac80a07ae926564bfc38cf5",
+      "size_bytes": 2844
+    },
+    {
+      "path": "proof_build/sqrt218/sqrt218_pure_entry_unit.c",
+      "sha256": "7298b3cc405d40b23f6b6ac4a9ebf57bda64954ef23d9757a345fb3092f6969f",
+      "size_bytes": 652
+    }
+  ],
+  "toolchain": {
+    "binutils": {
+      "source_sha512": "b85d3bbc0e334cf67a96219d3c7c65fbf3e832b2c98a7417bf131f3645a0307057ec81cd2b29ff2563cec53e3d42f73e2c60cc5708e80d4a730efdcc6ae14ad7",
+      "source_url": "https://sourceware.org/pub/binutils/releases/binutils-2.44.tar.xz",
+      "version": "2.44"
+    },
+    "compcert": {
+      "configuration": "x86_64-linux",
+      "repository": "https://github.com/AbsInt/CompCert.git",
+      "revision": "7b1f02b09954b9b916eb2a91d283c9b5355bf172",
+      "tag": "v3.17",
+      "version": "3.17"
+    },
+    "rocq_base_image": {
+      "image": "docker.io/rocq/rocq-prover@sha256:b85a80a11bb65c7c843f91c7cbcce282f22ee397c9ca42f123d568ab6cef68b0",
+      "version": "9.1.1"
+    }
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-tg-portfolio.schema.json",
+  "title": "SparkInterval Azure ternary-Goldbach portfolio specification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "challenge_ttl_seconds",
+    "cluster_manifest",
+    "completion_profile",
+    "kind",
+    "portfolio_id",
+    "production_price_class",
+    "repository_root",
+    "run_root",
+    "schema_version",
+    "semantic_bindings",
+    "verifier_key_manifest"
+  ],
+  "properties": {
+    "challenge_ttl_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 604800
+    },
+    "cluster_manifest": { "$ref": "#/$defs/absoluteFilePin" },
+    "completion_profile": {
+      "enum": [
+        "capability-inventory-v1",
+        "all-source-retirement-v1",
+        "lowered-10pow27-theorem-completion-v1"
+      ]
+    },
+    "kind": { "const": "sparkinterval.azure.tg.portfolio-spec.v1" },
+    "portfolio_id": { "$ref": "#/$defs/name" },
+    "production_price_class": { "enum": ["pay_as_you_go", "spot"] },
+    "repository_root": { "$ref": "#/$defs/absolutePath" },
+    "run_root": { "$ref": "#/$defs/absolutePath" },
+    "schema_version": { "const": 1 },
+    "semantic_bindings": { "$ref": "#/$defs/repositoryFilePin" },
+    "verifier_key_manifest": { "$ref": "#/$defs/repositoryFilePin" }
+  },
+  "$defs": {
+    "absoluteFilePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": { "$ref": "#/$defs/absolutePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "absolutePath": {
+      "type": "string",
+      "pattern": "^/(?!\\.\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "repositoryFilePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$)).+$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

@@ -17,6 +17,9 @@ if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from tg_verifier.benchmark import BenchmarkError, build_benchmark_report  # noqa: E402
+from tg_verifier.campaign_io import (  # noqa: E402
+    require_azure_measured_worker_for_workload,
+)
 
 
 def positive(value: str) -> int:
@@ -49,8 +52,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    executable = None if args.no_gpu else args.gpu_executable
     try:
+        bounds = [args.mobius_limit, args.exact_fraction_limit]
+        if args.psi_limit is not None:
+            bounds.append(args.psi_limit)
+        if not args.no_gpu:
+            bounds.append(args.gpu_count * args.gpu_repetitions)
+        require_azure_measured_worker_for_workload(
+            exact_production=False,
+            work_bounds=tuple(bounds),
+        )
+        executable = None if args.no_gpu else args.gpu_executable
         report = build_benchmark_report(
             gpu_executable=executable,
             gpu_count=args.gpu_count,

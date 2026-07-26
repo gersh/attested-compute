@@ -21,6 +21,10 @@ from tg_verifier.psi_campaign import (  # noqa: E402
     run_campaign,
     verify_campaign,
 )
+from tg_verifier.campaign_io import (  # noqa: E402
+    CampaignIOError,
+    require_azure_measured_worker_for_workload,
+)
 
 
 def positive(value: str) -> int:
@@ -52,6 +56,16 @@ def main() -> int:
     args = build_parser().parse_args()
     try:
         if args.command == "run":
+            # --max-chunks only pauses the exact 10^13 source campaign; it
+            # does not turn a million-wide source chunk into a local sample.
+            require_azure_measured_worker_for_workload(
+                exact_production=True,
+                work_bounds=(
+                    args.chunk_span,
+                    args.segment_size,
+                    0 if args.max_chunks is None else args.max_chunks,
+                ),
+            )
             result = run_campaign(
                 args.output_dir,
                 chunk_span=args.chunk_span,
@@ -63,8 +77,16 @@ def main() -> int:
         elif args.command == "verify":
             result = verify_campaign(args.output_dir)
         else:
+            # Keep compact chain inspection local, but require measured scope
+            # before opening a campaign for fresh prime-power regeneration.
+            require_azure_measured_worker_for_workload(
+                exact_production=True,
+                work_bounds=(
+                    0 if args.max_chunks is None else args.max_chunks,
+                ),
+            )
             result = replay_campaign(args.output_dir, max_chunks=args.max_chunks)
-    except PsiCampaignError as exc:
+    except (CampaignIOError, PsiCampaignError) as exc:
         print(f"psi campaign error: {exc}", file=sys.stderr)
         return 2
     print(json.dumps(result.as_json(), sort_keys=True, indent=2))

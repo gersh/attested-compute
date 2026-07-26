@@ -1,0 +1,97 @@
+{
+  "schema": "sparkinterval.tg.pt21-bitreverse-tile9-repo-source-closure.v1",
+  "derivation": "repo-local prerequisites from the five nvcc .o.d files in the portable qualification build",
+  "files": [
+    {
+      "path": "gpu/include/sparkinterval/sha256.hpp",
+      "bytes": 6604,
+      "sha256": "efc921b90c603edc6f3a07a50280f19afa4f11a10545c612fb7d2365723b746b"
+    },
+    {
+      "path": "gpu/include/sparkinterval/tg_dirichlet_booker_smallq_certified.hpp",
+      "bytes": 12470,
+      "sha256": "cff97db9e566c2f32464e2682236963cbfef5c0843ad7051b7cb9f88b1093a24"
+    },
+    {
+      "path": "gpu/include/sparkinterval/tg_dirichlet_lattice.hpp",
+      "bytes": 3604,
+      "sha256": "1cc48d42fe9a50c2f07095cb58c0a6524681d97479c742a45a8ccdacdc3bb902"
+    },
+    {
+      "path": "gpu/include/sparkinterval/tg_platt_dd_accumulator.hpp",
+      "bytes": 4618,
+      "sha256": "daeda46237183b9de7ddc7b382c47791bcfaf94483fd0eaaaa2f8449f2d43578"
+    },
+    {
+      "path": "gpu/include/sparkinterval/tg_platt_dd_transform.hpp",
+      "bytes": 10208,
+      "sha256": "ec01f73a0e9b865a06416e97a048607802347304cc3422a53780816d5719512b"
+    },
+    {
+      "path": "gpu/include/sparkinterval/tg_platt_event_scan.hpp",
+      "bytes": 9109,
+      "sha256": "6b160fd68a2e6bafb8651ebe6c00d74735a7c1f985281ac94ee641200e059d97"
+    },
+    {
+      "path": "gpu/include/sparkinterval/tg_platt_gamma_dd_gpu.cuh",
+      "bytes": 1208,
+      "sha256": "f3cf53958c0616383f50da64f4254570a3d948cffd3494a3c1f64767a68f0ce8"
+    },
+    {
+      "path": "gpu/include/sparkinterval/tg_platt_gamma_stream_v2.hpp",
+      "bytes": 15369,
+      "sha256": "5925b41b66067c9579fe7e9d207910b066b266715aa109824e44fc098eb4d3c2"
+    },
+    {
+      "path": "gpu/include/sparkinterval/tg_platt_windowed.hpp",
+      "bytes": 10538,
+      "sha256": "6a7636969ef8b96680abd8b68b7780801acba7865c2cbe736e0e10c3a912149e"
+    },
+    {
+      "path": "gpu/platform/h100/h100_tg_platt_event_scan.cu",
+      "bytes": 77923,
+      "sha256": "2fac9d47c06bd878fe30026dc895be900fe36fb984e307c8d01661c8a4e29863"
+    },
+    {
+      "path": "gpu/platform/h100/h100_tg_platt_windowed_core.cu",
+      "bytes": 160184,
+      "sha256": "8be2e0d27204018b6864fe76a3530fb091698948704ab43c996b984d9e788253"
+    },
+    {
+      "path": "gpu/platform/h100/h100_tg_platt_windowed_dd_disk_semantic.cu",
+      "bytes": 124556,
+      "sha256": "27114981df78aa600a7effddf731950464d57694ea116bfa346201053ce061f3"
+    },
+    {
+      "path": "gpu/platform/h100/h100_tg_platt_windowed_disk_semantic.cu",
+      "bytes": 43719,
+      "sha256": "3934597da438ec096a51274dec04084b426a5f7f408e798518e2cdfc14a5927d"
+    },
+    {
+      "path": "gpu/platform/h100/h100_tg_platt_windowed_semantic.cu",
+      "bytes": 39172,
+      "sha256": "082e3f72665044952402587326ef0469d2e5abf0eef9fd2ab2b9d76a62020a72"
+    },
+    {
+      "path": "gpu/platform/h100/tg_platt_gamma_dd_gpu.cu",
+      "bytes": 23625,
+      "sha256": "9249fcc314ca5ef0ae9f0dfa3d7965a3b2d7725c96fe66db2ddc09016b2e64aa"
+    },
+    {
+      "path": "reference/tg_platt_pt21_bitreverse_tile9_qualification.cu",
+      "bytes": 963,
+      "sha256": "0dd3cab077e8836fbdbb73b595694dfebf5f669d3e97c87c82817c737a44db71"
+    },
+    {
+      "path": "reference/tg_platt_pt21_live_transform_candidate_qualification.cu",
+      "bytes": 64612,
+      "sha256": "0090b3129b1459303ce294c870f004253e292b5d595888407f3265fa73c26dce"
+    }
+  ],
+  "not_covered": [
+    "CMake generator state and compile/link command lines",
+    "CUDA, C++, Boost, GMP, and MPFR headers and libraries outside the repository",
+    "nvcc, host compiler, linker, driver, and runtime identities",
+    "compiler correctness or CUDA-to-Lean refinement"
+  ]
+}

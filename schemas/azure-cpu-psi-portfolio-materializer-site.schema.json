@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-cpu-psi-portfolio-materializer-site.schema.json",
+  "title": "SparkInterval CH25 psi Azure CPU materializer site",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["base_site", "kind", "psi", "schema_version"],
+  "properties": {
+    "base_site": {"$ref": "#/$defs/filePin"},
+    "kind": {"const": "sparkinterval.azure.cpu.psi-portfolio-materializer-site.v1"},
+    "psi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["boost_include_root", "crlibm_root", "predecessor_exports", "primesieve_root"],
+      "properties": {
+        "boost_include_root": {"$ref": "#/$defs/absolutePath"},
+        "crlibm_root": {"$ref": "#/$defs/absolutePath"},
+        "predecessor_exports": {
+          "type": "array",
+          "maxItems": 321,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["export", "group_id", "shard_index"],
+            "properties": {
+              "export": {"$ref": "#/$defs/filePin"},
+              "group_id": {"type": "string", "pattern": "^ch25-psi-two-pass-v1::[a-z0-9-]+$"},
+              "shard_index": {"type": "integer", "minimum": 0, "maximum": 319}
+            }
+          }
+        },
+        "primesieve_root": {"$ref": "#/$defs/absolutePath"}
+      }
+    },
+    "schema_version": {"const": 1}
+  },
+  "$defs": {
+    "absolutePath": {"type": "string", "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"},
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}
+      }
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

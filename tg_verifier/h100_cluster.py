@@ -1,12 +1,16 @@
 # Copyright (c) 2026 Gershon Bialer. All rights reserved.
 # SPDX-License-Identifier: MIT
 
-"""Portable, fail-closed cluster plans for the thirteen TG campaigns.
+"""Portable, fail-closed cluster plans for the TG production campaigns.
 
 The cluster layer deliberately does not reinterpret a successful process as a
-mathematical certificate.  It only binds each named full-source entry point to
-an execution class, a workspace, and a Slurm job.  Atom-specific supervisors
-remain responsible for authenticated checkpoints and semantic replay.
+mathematical certificate. It binds the thirteen source atoms to ten physical
+source-atom campaigns and retains the distinct finite-below-``10^27`` campaign
+used by the lowered analytic crossover as an eleventh campaign.  The latter is
+not relabelled as the stronger Helfgott--Platt source computation.  Every
+campaign has an execution class, workspace, and either a safe one-job adapter
+or an explicit manual phase DAG. Atom-specific supervisors remain responsible
+for authenticated checkpoints and semantic replay.
 """
 
 from __future__ import annotations
@@ -22,10 +26,10 @@ import sys
 from typing import Any, Mapping, Sequence
 
 
-SCHEMA_VERSION = 1
-MANIFEST_KIND = "sparkinterval.tg.h100_cluster_manifest.v1"
-ATTEMPT_KIND = "sparkinterval.tg.h100_cluster_attempt.v1"
-ATOM_IDS = (
+SCHEMA_VERSION = 3
+MANIFEST_KIND = "sparkinterval.tg.h100_cluster_manifest.v3"
+ATTEMPT_KIND = "sparkinterval.tg.h100_cluster_attempt.v3"
+SOURCE_ATOM_IDS = (
     "ch25-a7-boundary",
     "ch25-psi-1e13",
     "platt-head-2e4",
@@ -40,10 +44,23 @@ ATOM_IDS = (
     "platt-little-mertens-2-11",
     "platt-little-mertens-stronger",
 )
+GOLDBACH_10POW27_ATOM = "goldbach-finite-below-10pow27"
+GOLDBACH_10POW27_CAMPAIGN = "ternary-goldbach-finite-below-10pow27-v1"
+ATOM_IDS = (*SOURCE_ATOM_IDS, GOLDBACH_10POW27_ATOM)
 ZETA_Q1_ATOM = "platt-trudgian-rh-3e12"
 DIRICHLET_ATOM = "platt-dirichlet-theorem-7-1"
+HURST_PRIMARY_ATOM = "mertens-hurst"
+HURST_ATOMS = (
+    HURST_PRIMARY_ATOM,
+    "cdem-squarefree",
+    "platt-little-mertens-2-11",
+    "platt-little-mertens-stronger",
+)
 BACKEND_CLASSES = frozenset(
     {"h100_cuda", "cpu_flint_sidecar", "cpu_exact_sidecar"}
+)
+EXECUTION_MODES = frozenset(
+    {"single_job", "manual_phase_dag", "shared_certificate_alias"}
 )
 PLACEHOLDER_RE = re.compile(r"\$\{([A-Z][A-Z0-9_]*)\}")
 ATOM_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
@@ -53,6 +70,20 @@ SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 
 class ClusterPlanError(ValueError):
     """A deployment manifest or runtime binding failed closed."""
+
+
+@dataclass(frozen=True)
+class Phase:
+    phase_id: str
+    command: tuple[str, ...]
+    depends_on: tuple[str, ...]
+    scheduler_shape: str
+    array_size: int = 1
+    max_concurrent_tasks: int | None = None
+    parallel_workers_safe: bool = False
+    completion_artifact: str | None = None
+    backend_class: str | None = None
+    cpus_per_task: int | None = None
 
 
 @dataclass(frozen=True)
@@ -67,6 +98,10 @@ class Workload:
     partition_mode: str
     scalability: str
     feasibility: str
+    campaign_id: str
+    execution_mode: str = "single_job"
+    shared_owner_atom: str | None = None
+    phase_dag: tuple[Phase, ...] = ()
     dependencies: tuple[str, ...] = ()
     required_artifacts: tuple[str, ...] = ()
     postcheck: tuple[str, ...] = ()
@@ -80,26 +115,500 @@ def _workspace(atom_id: str) -> str:
     return f"${{TG_RUN_ROOT}}/{atom_id}"
 
 
-def _mobius(atom_id: str, target: str, segment_count: int) -> tuple[str, ...]:
-    return (
-        "${TG_PYTHON}",
-        _python_tool("tg_mobius_campaign.py"),
-        "run",
-        "--runner",
-        "${TG_H100_BUILD}/sparkinterval-h100-tg-mobius-segment",
-        "--output-dir",
-        _workspace(atom_id),
-        "--target",
-        target,
-        "--segment-count",
-        str(segment_count),
-        "--device",
-        "0",
+def _phase(
+    phase_id: str,
+    command: tuple[str, ...],
+    *,
+    depends_on: tuple[str, ...] = (),
+    array_size: int = 1,
+    max_concurrent_tasks: int | None = None,
+    parallel_workers_safe: bool = False,
+    completion_artifact: str | None = None,
+    backend_class: str | None = None,
+    cpus_per_task: int | None = None,
+) -> Phase:
+    if backend_class is not None and backend_class not in BACKEND_CLASSES:
+        raise ClusterPlanError("a phase backend class is not recognized")
+    if cpus_per_task is not None and cpus_per_task < 1:
+        raise ClusterPlanError("phase cpus_per_task must be positive")
+    if max_concurrent_tasks is not None:
+        if array_size == 1 or not 1 <= max_concurrent_tasks <= array_size:
+            raise ClusterPlanError(
+                "an array concurrency limit requires array_size > 1 and must "
+                "lie within the array"
+            )
+        scheduler_shape = (
+            f"array[0..{array_size - 1}]%{max_concurrent_tasks}"
+        )
+    else:
+        scheduler_shape = (
+            "single" if array_size == 1 else f"array[0..{array_size - 1}]"
+        )
+    return Phase(
+        phase_id=phase_id,
+        command=command,
+        depends_on=depends_on,
+        scheduler_shape=scheduler_shape,
+        array_size=array_size,
+        max_concurrent_tasks=max_concurrent_tasks,
+        parallel_workers_safe=parallel_workers_safe,
+        completion_artifact=completion_artifact,
+        backend_class=backend_class,
+        cpus_per_task=cpus_per_task,
     )
 
 
-# These are literal full-source entry points.  Bounded references, --max-*
-# switches, and sample modes are intentionally absent.
+def _psi_phases() -> tuple[Phase, ...]:
+    workspace = _workspace("ch25-psi-1e13")
+    tool = _python_tool("tg_psi_residual_campaign.py")
+    return (
+        _phase(
+            "initialize",
+            (
+                "${TG_PYTHON}", tool, "init",
+                "--runner", "${TG_TG_BUILD}/sparkinterval-tg-psi-residual-shard",
+                "--runner-source", "${TG_REPOSITORY}/reference/tg_psi_residual_shard.cpp",
+                "--upstream-manifest", "${TG_REPOSITORY}/specifications/PSI_UPSTREAMS.json",
+                "--output-dir", workspace,
+            ),
+            completion_artifact=f"{workspace}/campaign-config.json",
+        ),
+        _phase(
+            "summary-shards",
+            (
+                "${TG_PYTHON}", tool, "run", workspace, "summary",
+                "--worker-group-index", "${TG_ARRAY_INDEX}",
+                "--worker-group-count", "320", "--workers", "40",
+            ),
+            depends_on=("initialize",),
+            array_size=320,
+            parallel_workers_safe=True,
+        ),
+        _phase(
+            "reduce-summaries",
+            ("${TG_PYTHON}", tool, "reduce", workspace),
+            depends_on=("summary-shards",),
+            completion_artifact=f"{workspace}/derived-inputs.json",
+        ),
+        _phase(
+            "verify-shards",
+            (
+                "${TG_PYTHON}", tool, "run", workspace, "verify",
+                "--worker-group-index", "${TG_ARRAY_INDEX}",
+                "--worker-group-count", "320", "--workers", "40",
+            ),
+            depends_on=("reduce-summaries",),
+            array_size=320,
+            parallel_workers_safe=True,
+        ),
+        _phase(
+            "finalize",
+            ("${TG_PYTHON}", tool, "finalize", workspace),
+            depends_on=("verify-shards",),
+            completion_artifact=f"{workspace}/certificate.json",
+        ),
+        _phase(
+            "semantic-replay",
+            (
+                "${TG_PYTHON}", tool, "verify", workspace,
+                "--registered-result-output",
+                f"{workspace}/registered-result.txt",
+            ),
+            depends_on=("finalize",),
+            completion_artifact=f"{workspace}/registered-result.txt",
+        ),
+    )
+
+
+def _prop1224_phases() -> tuple[Phase, ...]:
+    workspace = _workspace("helfgott-prop-12-2-4")
+    tool = _python_tool("tg_prop1224_mpfr_campaign.py")
+    return (
+        _phase(
+            "mpfr-shards",
+            (
+                "${TG_PYTHON}", tool, "run-worker-group",
+                "${TG_TG_BUILD}/sparkinterval-tg-prop1224-mpfr-shard",
+                workspace, "${TG_ARRAY_INDEX}",
+                "--worker-group-count", "4", "--workers", "96",
+            ),
+            array_size=4,
+            parallel_workers_safe=True,
+        ),
+        _phase(
+            "merge-and-verify",
+            (
+                "${TG_PYTHON}", tool, "verify", workspace,
+                "--registered-result-output",
+                f"{workspace}/registered-result.txt",
+            ),
+            depends_on=("mpfr-shards",),
+            completion_artifact=f"{workspace}/registered-result.txt",
+        ),
+    )
+
+
+def _platt_zeta_phases() -> tuple[Phase, ...]:
+    workspace = _workspace(ZETA_Q1_ATOM)
+    tool = _python_tool("tg_platt_zeta_campaign.py")
+    return (
+        _phase(
+            "initialize",
+            (
+                "${TG_PYTHON}", tool, "init", workspace,
+                "--runner", "${TG_TG_BUILD}/sparkinterval-tg-platt-zeta-shard",
+                "--runner-source", "${TG_REPOSITORY}/reference/tg_platt_zeta_shard.cpp",
+                "--upstream-manifest", "${TG_REPOSITORY}/specifications/FLINT_3_6_PLATT_UPSTREAM.json",
+            ),
+            completion_artifact=f"{workspace}/campaign.json",
+        ),
+        _phase(
+            "exact-multiplicity-count",
+            ("${TG_PYTHON}", tool, "count", workspace),
+            depends_on=("initialize",),
+            completion_artifact=f"{workspace}/count.json",
+        ),
+        _phase(
+            "ordinary-low-index-prefix",
+            ("${TG_PYTHON}", tool, "prefix", workspace),
+            depends_on=("exact-multiplicity-count",),
+            completion_artifact=f"{workspace}/prefix.json",
+        ),
+        _phase(
+            "platt-turing-index-shards",
+            ("${TG_PYTHON}", tool, "run-shard", workspace, "${TG_ARRAY_INDEX}"),
+            depends_on=("ordinary-low-index-prefix",),
+            array_size=1_236_316,
+            parallel_workers_safe=True,
+        ),
+        _phase(
+            "finalize-merkle-certificate",
+            (
+                "${TG_PYTHON}", tool, "finalize", workspace,
+                "--registered-result-output",
+                f"{workspace}/registered-result.txt",
+            ),
+            depends_on=("platt-turing-index-shards",),
+            completion_artifact=f"{workspace}/registered-result.txt",
+        ),
+    )
+
+
+def _hurst_phases() -> tuple[Phase, ...]:
+    workspace = _workspace(HURST_PRIMARY_ATOM)
+    tool = _python_tool("tg_hurst_residual_campaign.py")
+    return (
+        _phase(
+            "initialize",
+            (
+                "${TG_PYTHON}", tool, "init",
+                "--runner", "${TG_TG_BUILD}/sparkinterval-tg-hurst-residual-shard",
+                "--runner-source", "${TG_REPOSITORY}/reference/tg_hurst_residual_shard.cpp",
+                "--upstream-manifest", "${TG_REPOSITORY}/specifications/HURST_MERTENS_UPSTREAM.json",
+                "--output-dir", workspace,
+            ),
+            completion_artifact=f"{workspace}/campaign-config.json",
+        ),
+        _phase(
+            "summary-shards",
+            (
+                "${TG_PYTHON}", tool, "run", workspace, "summary",
+                "--worker-group-index", "${TG_ARRAY_INDEX}",
+                "--worker-group-count", "320",
+                "--workers", "2",
+                "--runner-threads", "20",
+            ),
+            depends_on=("initialize",),
+            array_size=320,
+            parallel_workers_safe=True,
+        ),
+        _phase(
+            "reduce-summaries",
+            ("${TG_PYTHON}", tool, "reduce", workspace),
+            depends_on=("summary-shards",),
+            completion_artifact=f"{workspace}/derived-inputs.json",
+        ),
+        _phase(
+            "verify-shards",
+            (
+                "${TG_PYTHON}", tool, "run", workspace, "verify",
+                "--worker-group-index", "${TG_ARRAY_INDEX}",
+                "--worker-group-count", "320",
+                "--workers", "2",
+                "--runner-threads", "20",
+            ),
+            depends_on=("reduce-summaries",),
+            array_size=320,
+            parallel_workers_safe=True,
+        ),
+        _phase(
+            "finalize-four-residual-certificate",
+            ("${TG_PYTHON}", tool, "finalize", workspace),
+            depends_on=("verify-shards",),
+            completion_artifact=f"{workspace}/certificate.json",
+        ),
+        _phase(
+            "semantic-replay",
+            (
+                "${TG_PYTHON}", tool, "verify", workspace,
+                "--registered-result-output",
+                f"{workspace}/registered-result.txt",
+            ),
+            depends_on=("finalize-four-residual-certificate",),
+            completion_artifact=f"{workspace}/registered-result.txt",
+        ),
+    )
+
+
+def _goldbach_phases() -> tuple[Phase, ...]:
+    workspace = _workspace("helfgott-platt-theorem-4-1")
+    binary_tool = _python_tool("tg_goldbach_gpu_campaign.py")
+    ladder_tool = _python_tool("tg_goldbach_campaign.py")
+    finalizer = _python_tool("tg_goldbach_historical_finalizer.py")
+    plan = f"{workspace}/plan.json"
+    receipts = f"{workspace}/receipts"
+    aggregate = f"{workspace}/aggregate.json"
+    ladder = f"{workspace}/ternary-prime-ladder"
+    ladder_aggregate = f"{ladder}/ladder-aggregate.json"
+    combined = f"{workspace}/combined.json"
+    return (
+        _phase(
+            "create-production-plan",
+            (
+                "${TG_PYTHON}", binary_tool, "create-production-plan",
+                "--source-root", "${TG_GOLDBACH_SOURCE_ROOT}",
+                "--executable", "${TG_GOLDBACH_EXECUTABLE}",
+                "--executable-sha256", "${TG_GOLDBACH_EXECUTABLE_SHA256}",
+                "--out", plan,
+            ),
+            completion_artifact=plan,
+            backend_class="cpu_exact_sidecar",
+        ),
+        _phase(
+            "initialize-prime-ladder",
+            ("${TG_PYTHON}", ladder_tool, "init", ladder),
+            completion_artifact=f"{ladder}/manifest.json",
+            backend_class="cpu_exact_sidecar",
+        ),
+        _phase(
+            "h100-8192-groups-of-eight-checkpoint-leaves",
+            (
+                "${TG_PYTHON}", binary_tool, "run-group", plan, "${TG_ARRAY_INDEX}",
+                "--source-root", "${TG_GOLDBACH_SOURCE_ROOT}",
+                "--executable", "${TG_GOLDBACH_EXECUTABLE}",
+                "--output-dir", receipts,
+                "--cuda-visible-device", "0",
+            ),
+            depends_on=("create-production-plan",),
+            array_size=8_192,
+            max_concurrent_tasks=8,
+            parallel_workers_safe=True,
+            backend_class="h100_cuda",
+        ),
+        _phase(
+            "native-prime-ladder-range-groups",
+            (
+                "${TG_PYTHON}",
+                _python_tool("tg_goldbach_ladder_native.py"),
+                "produce-group", ladder,
+                "--runner",
+                "${TG_TG_BUILD}/sparkinterval-tg-goldbach-ladder-native",
+                "--group-index", "${TG_ARRAY_INDEX}",
+                "--group-count", "320",
+                "--local-workers", "40",
+                "--summary",
+                f"{ladder}/groups/group-${{TG_ARRAY_INDEX}}.json",
+            ),
+            depends_on=("initialize-prime-ladder",),
+            array_size=320,
+            max_concurrent_tasks=8,
+            parallel_workers_safe=True,
+            backend_class="cpu_exact_sidecar",
+            cpus_per_task=40,
+        ),
+        _phase(
+            "aggregate",
+            (
+                "${TG_PYTHON}", binary_tool, "aggregate", plan,
+                "--receipts-dir", receipts, "--out", aggregate,
+            ),
+            depends_on=("h100-8192-groups-of-eight-checkpoint-leaves",),
+            completion_artifact=aggregate,
+            backend_class="cpu_exact_sidecar",
+        ),
+        _phase(
+            "binary-semantic-replay",
+            (
+                "${TG_PYTHON}", binary_tool, "verify", plan, aggregate,
+                "--receipts-dir", receipts,
+            ),
+            depends_on=("aggregate",),
+            backend_class="cpu_exact_sidecar",
+        ),
+        _phase(
+            "reduce-prime-ladder-ranges",
+            (
+                "${TG_PYTHON}", ladder_tool, "reduce-ranges", ladder,
+                "--out", ladder_aggregate,
+            ),
+            depends_on=("native-prime-ladder-range-groups",),
+            completion_artifact=ladder_aggregate,
+            backend_class="cpu_exact_sidecar",
+        ),
+        _phase(
+            "combine-binary-and-prime-ladder",
+            (
+                "${TG_PYTHON}", finalizer, ladder,
+                "--ladder-aggregate", ladder_aggregate,
+                "--binary-plan", plan,
+                "--binary-receipts-dir", receipts,
+                "--binary-aggregate", aggregate,
+                "--combined-out", combined,
+                "--registered-result-output",
+                f"{workspace}/registered-result.txt",
+            ),
+            depends_on=("binary-semantic-replay", "reduce-prime-ladder-ranges"),
+            completion_artifact=combined,
+            backend_class="cpu_exact_sidecar",
+        ),
+    )
+
+
+def _goldbach_10pow27_phases() -> tuple[Phase, ...]:
+    """Schedule the lowered finite endpoint without changing source semantics."""
+
+    workspace = _workspace(GOLDBACH_10POW27_ATOM)
+    binary_tool = _python_tool("tg_goldbach_gpu_campaign.py")
+    campaign_tool = _python_tool("tg_goldbach_10pow27_campaign.py")
+    ladder_tool = _python_tool("tg_goldbach_campaign.py")
+    native_ladder_tool = _python_tool("tg_goldbach_ladder_native.py")
+    finalizer = _python_tool("tg_goldbach_10pow27_finalizer.py")
+    plan = f"{workspace}/binary-plan.json"
+    receipts = f"{workspace}/binary-receipts"
+    aggregate = f"{workspace}/binary-aggregate.json"
+    ladder = f"{workspace}/prime-ladder"
+    ladder_aggregate = f"{ladder}/ladder-aggregate.json"
+    combined = f"{workspace}/combined.json"
+    registered_result = f"{workspace}/registered-result.txt"
+    return (
+        _phase(
+            "create-lowered-binary-plan",
+            (
+                "${TG_PYTHON}", binary_tool, "create-analytic-10pow27-plan",
+                "--source-root", "${TG_GOLDBACH_SOURCE_ROOT}",
+                "--executable", "${TG_GOLDBACH_EXECUTABLE}",
+                "--executable-sha256", "${TG_GOLDBACH_EXECUTABLE_SHA256}",
+                "--out", plan,
+            ),
+            completion_artifact=plan,
+            backend_class="cpu_exact_sidecar",
+        ),
+        _phase(
+            "initialize-lowered-prime-ladder",
+            ("${TG_PYTHON}", campaign_tool, "init-ladder", ladder),
+            completion_artifact=f"{ladder}/manifest.json",
+            backend_class="cpu_exact_sidecar",
+        ),
+        _phase(
+            "h100-8192-groups-of-eight-lowered-checkpoint-leaves",
+            (
+                "${TG_PYTHON}", binary_tool, "run-group", plan,
+                "${TG_ARRAY_INDEX}",
+                "--source-root", "${TG_GOLDBACH_SOURCE_ROOT}",
+                "--executable", "${TG_GOLDBACH_EXECUTABLE}",
+                "--output-dir", receipts,
+                "--cuda-visible-device", "0",
+            ),
+            depends_on=("create-lowered-binary-plan",),
+            array_size=8_192,
+            max_concurrent_tasks=8,
+            parallel_workers_safe=True,
+            backend_class="h100_cuda",
+        ),
+        _phase(
+            "native-lowered-prime-ladder-range-groups",
+            (
+                "${TG_PYTHON}", native_ladder_tool, "produce-group", ladder,
+                "--runner",
+                "${TG_TG_BUILD}/sparkinterval-tg-goldbach-ladder-native",
+                "--group-index", "${TG_ARRAY_INDEX}",
+                "--group-count", "320",
+                "--local-workers", "40",
+                "--summary", f"{ladder}/groups/group-${{TG_ARRAY_INDEX}}.json",
+            ),
+            depends_on=("initialize-lowered-prime-ladder",),
+            array_size=320,
+            max_concurrent_tasks=8,
+            parallel_workers_safe=True,
+            backend_class="cpu_exact_sidecar",
+            cpus_per_task=40,
+        ),
+        _phase(
+            "aggregate-lowered-binary-leaves",
+            (
+                "${TG_PYTHON}", binary_tool, "aggregate", plan,
+                "--receipts-dir", receipts, "--out", aggregate,
+            ),
+            depends_on=(
+                "h100-8192-groups-of-eight-lowered-checkpoint-leaves",
+            ),
+            completion_artifact=aggregate,
+            backend_class="cpu_exact_sidecar",
+        ),
+        _phase(
+            "replay-lowered-binary-aggregate",
+            (
+                "${TG_PYTHON}", binary_tool, "verify", plan, aggregate,
+                "--receipts-dir", receipts,
+            ),
+            depends_on=("aggregate-lowered-binary-leaves",),
+            backend_class="cpu_exact_sidecar",
+        ),
+        _phase(
+            "reduce-lowered-prime-ladder-ranges",
+            (
+                "${TG_PYTHON}", ladder_tool, "reduce-ranges", ladder,
+                "--out", ladder_aggregate,
+            ),
+            depends_on=("native-lowered-prime-ladder-range-groups",),
+            completion_artifact=ladder_aggregate,
+            backend_class="cpu_exact_sidecar",
+        ),
+        _phase(
+            "measured-finalize-lowered-source-claim",
+            (
+                "${TG_PYTHON}", finalizer, ladder,
+                "--ladder-aggregate", ladder_aggregate,
+                "--binary-plan", plan,
+                "--binary-receipts-dir", receipts,
+                "--binary-aggregate", aggregate,
+                "--combined-out", combined,
+                "--registered-result-output", registered_result,
+            ),
+            depends_on=(
+                "replay-lowered-binary-aggregate",
+                "reduce-lowered-prime-ladder-ranges",
+            ),
+            completion_artifact=registered_result,
+            backend_class="cpu_exact_sidecar",
+        ),
+    )
+
+
+def _hurst_alias(atom_id: str) -> tuple[str, ...]:
+    del atom_id
+    return (
+        "${TG_PYTHON}",
+        _python_tool("tg_hurst_residual_campaign.py"),
+        "verify",
+        _workspace(HURST_PRIMARY_ATOM),
+    )
+
+
+# A single-job command is present only when the portable adapter can safely
+# submit the whole physical campaign as one process.  Source-scale arrays and
+# reducers are retained as explicit phase DAGs and are never flattened into a
+# misleading one-job command.
 WORKLOADS = (
     Workload(
         "ch25-a7-boundary",
@@ -109,6 +618,8 @@ WORKLOADS = (
             _python_tool("tg_verify.py"),
             "replay-a7-flint",
             "${TG_A7_TRANSCRIPT}",
+            "--registered-result-output",
+            "${TG_RUN_ROOT}/ch25-a7-boundary/registered-result.txt",
         ),
         8,
         32,
@@ -117,28 +628,23 @@ WORKLOADS = (
         "single_full_source_replay",
         "not_parallelized",
         "feasible once the exact retained boundary transcript is supplied",
+        "ch25-a7-boundary",
         required_artifacts=("${TG_A7_TRANSCRIPT}",),
     ),
     Workload(
         "ch25-psi-1e13",
         "cpu_exact_sidecar",
-        (
-            "${TG_PYTHON}",
-            _python_tool("tg_psi_campaign.py"),
-            "run",
-            _workspace("ch25-psi-1e13"),
-            "--chunk-span",
-            "1000000",
-            "--segment-size",
-            "1000000",
-        ),
-        32,
+        (),
+        40,
         128,
-        "7-00:00:00",
-        "authenticated_chunk_resume",
-        "serial_hash_chain",
-        "linear_serial_prefix",
-        "not practically scalable: the Python stream reaches 10^13 and sees hundreds of billions of primes",
+        "1-00:00:00",
+        "phase_and_shard_receipts",
+        "two_pass_fixed_shard_dag",
+        "320 worker groups cover 100000 independent summary leaves, then reduce, then 320 groups cover 100000 verify leaves",
+        "source-scale primesieve/CRlibm implementation; current Slurm adapter requires manual phase-DAG submission",
+        "ch25-psi-two-pass-v1",
+        execution_mode="manual_phase_dag",
+        phase_dag=_psi_phases(),
     ),
     Workload(
         "platt-head-2e4",
@@ -154,6 +660,8 @@ WORKLOADS = (
             "4096",
             "--precision-bits",
             "96",
+            "--registered-result-output",
+            "${TG_RUN_ROOT}/platt-head-2e4/registered-result.txt",
         ),
         16,
         64,
@@ -162,58 +670,54 @@ WORKLOADS = (
         "serial_hash_chain",
         "bounded_memory_serial_batches",
         "practical CPU/FLINT sidecar (22492 indexed positive zeros)",
+        "platt-head-2e4",
     ),
     Workload(
         ZETA_Q1_ATOM,
         "cpu_flint_sidecar",
-        (
-            "${TG_PYTHON}",
-            _python_tool("tg_zeta_campaign.py"),
-            "full",
-            _workspace(ZETA_Q1_ATOM),
-            "--profile",
-            ZETA_Q1_ATOM,
-            "--batch-size",
-            "4096",
-            "--precision-bits",
-            "96",
-        ),
-        32,
+        (),
+        40,
         256,
-        "7-00:00:00",
-        "authenticated_chunk_resume",
-        "serial_hash_chain",
-        "linear_serial_zero_isolation",
-        "prohibitive in the present FLINT implementation: more than twelve trillion indexed zero records",
+        "2-00:00:00",
+        "immutable_index_shard_receipts",
+        "fixed_platt_turing_index_array_then_merkle_finalize",
+        "1236316 independent ten-million-index FLINT Platt/Turing shards",
+        "source-range complete in form but economically prohibitive: measured throughput projects about 13.4 ideal years across eight 40-core NCC nodes",
+        "platt-trudgian-rh-3e12",
+        execution_mode="manual_phase_dag",
+        phase_dag=_platt_zeta_phases(),
     ),
     Workload(
         "helfgott-prop-12-2-4",
         "cpu_exact_sidecar",
-        (
-            "${TG_PYTHON}",
-            _python_tool("tg_prop1224_campaign.py"),
-            "run",
-            _workspace("helfgott-prop-12-2-4"),
-        ),
-        32,
+        (),
+        96,
         128,
-        "7-00:00:00",
-        "authenticated_chunk_resume",
-        "serial_hash_chain",
-        "linear_serial_q_windows",
-        "prohibitively slow in Python over 3389047618 admissible q rows",
+        "1-00:00:00",
+        "immutable_independent_leaf_receipts",
+        "four_worker_groups_then_fixed_leaf_merkle_merge",
+        "12930 independent MPFR/GMP leaves grouped into four 96-process jobs",
+        "source-scale directed MPFR/GMP implementation; two measured replays have a 0.55--3.34 hour conservative compute band plus Azure control-plane overhead on four 96-core DC96as_v6 nodes",
+        "helfgott-prop-12-2-4-mpfr-v1",
+        execution_mode="manual_phase_dag",
+        phase_dag=_prop1224_phases(),
     ),
     Workload(
         "cdem-squarefree",
-        "h100_cuda",
-        _mobius("cdem-squarefree", "squarefree", 100_000_000),
+        "cpu_exact_sidecar",
+        _hurst_alias("cdem-squarefree"),
+        4,
         16,
-        128,
-        "7-00:00:00",
-        "authenticated_chunk_resume",
-        "serial_hash_chain",
-        "h100_segment_acceleration_only",
-        "algorithmically prohibitive: a gap-free linear prefix through 10^16",
+        "01:00:00",
+        "idempotent_shared_certificate_replay",
+        "shared_certificate_alias",
+        "no arithmetic scan; replay the one four-residual Hurst certificate",
+        "same physical two-pass run as mertens-hurst and both little-Mertens atoms",
+        "hurst-four-residuals-v1",
+        execution_mode="shared_certificate_alias",
+        shared_owner_atom=HURST_PRIMARY_ATOM,
+        dependencies=(HURST_PRIMARY_ATOM,),
+        required_artifacts=(f"${{TG_RUN_ROOT}}/{HURST_PRIMARY_ATOM}/certificate.json",),
     ),
     Workload(
         "cdem-table-abel",
@@ -237,6 +741,10 @@ WORKLOADS = (
             "3600",
             "--transcript-output",
             "${TG_RUN_ROOT}/cdem-table-abel/transcript.txt",
+            "--artifact-output",
+            "${TG_RUN_ROOT}/cdem-table-abel/cdem-abel-artifact.bin",
+            "--registered-result-output",
+            "${TG_RUN_ROOT}/cdem-table-abel/registered-result.txt",
         ),
         64,
         256,
@@ -244,19 +752,25 @@ WORKLOADS = (
         "restart_current_full_scan",
         "single_openmp_scan",
         "one_node_openmp",
-        "finite five-billion-step OpenMP scan; no production checkpoint adapter",
+        "finite five-billion-step OpenMP scan with a closed Azure SEV-SNP "
+        "materializer, independent all-chunk replay, and retained Lean "
+        "artifact; the single scan restarts after interruption",
+        "cdem-table-abel",
     ),
     Workload(
         "mertens-hurst",
-        "h100_cuda",
-        _mobius("mertens-hurst", "hurst", 100_000_000),
-        16,
-        128,
-        "7-00:00:00",
-        "authenticated_chunk_resume",
-        "serial_hash_chain",
-        "h100_segment_acceleration_only",
-        "algorithmically prohibitive: a gap-free linear Mertens prefix through 10^16",
+        "cpu_exact_sidecar",
+        (),
+        40,
+        320,
+        "1-00:00:00",
+        "two_pass_phase_and_shard_receipts",
+        "shared_four_residual_two_pass_dag",
+        "320 worker groups cover 10000 independent summary leaves, then reduce, then 320 groups cover 10000 verify leaves",
+        "one source-scale two-pass Hurst/Mertens campaign supplies all four Möbius-family atoms; current adapter requires manual phase-DAG submission",
+        "hurst-four-residuals-v1",
+        execution_mode="manual_phase_dag",
+        phase_dag=_hurst_phases(),
     ),
     Workload(
         "ramare-zuniga-lemma-6-2",
@@ -273,6 +787,12 @@ WORKLOADS = (
             "1000000",
             "--device",
             "0",
+            "--arithmetic-replayer",
+            "${TG_H100_BUILD}/sparkinterval-tg-r2star-arithmetic-replay",
+            "--replay-threads",
+            "32",
+            "--registered-result-output",
+            "${TG_RUN_ROOT}/ramare-zuniga-lemma-6-2/registered-result.txt",
         ),
         16,
         128,
@@ -281,25 +801,22 @@ WORKLOADS = (
         "serial_hash_chain",
         "h100_segment_acceleration_only",
         "large but direct: a 21-billion-row exact prefix chain",
+        "ramare-zuniga-lemma-6-2",
     ),
     Workload(
         "helfgott-platt-theorem-4-1",
-        "cpu_exact_sidecar",
-        (
-            "${TG_PYTHON}",
-            _python_tool("tg_goldbach_campaign.py"),
-            "full",
-            _workspace("helfgott-platt-theorem-4-1"),
-            "--general-prime-producer",
-            "${TG_REPOSITORY}/tools/tg_pocklington_producer.py",
-        ),
-        64,
-        256,
+        "h100_cuda",
+        (),
+        16,
+        128,
         "7-00:00:00",
-        "authenticated_chunk_resume",
-        "serial_hash_chain",
-        "literal_binary_goldbach_scan",
-        "computationally astronomical: checks roughly two quintillion even inputs before the ladder",
+        "immutable_binary_leaf_and_independent_ladder_range_receipts",
+        "parallel_binary_and_native_ladder_branches_then_combined_replay",
+        "8192 fixed H100 groups each retain eight of 65536 checkpoint leaves with at most eight concurrent GPU tasks; independently, 320 CPU groups cover all 492700 ladder ranges with 40 local workers before both branches are combined",
+        "the full binary-plus-ladder DAG is implemented but has not run at source scale; the optimized GB10 binary benchmark still projects about 10.3 years across eight equal-throughput GPUs, while actual H100 throughput remains unmeasured",
+        "helfgott-platt-goldbach-gpu-v1",
+        execution_mode="manual_phase_dag",
+        phase_dag=_goldbach_phases(),
     ),
     Workload(
         DIRICHLET_ATOM,
@@ -320,7 +837,8 @@ WORKLOADS = (
         "authenticated_chunk_resume",
         "serial_hash_chain",
         "raw_l_contour_per_character",
-        "wired but unscaled: 29565923837 primitive characters and no fast Platt lattice-FFT implementation",
+        "rigorous full-domain fallback is wired but unscaled for 29547446729 primitive nonprincipal characters; the optimized primitive-only V2 path now has directed large-q batches, a fully replayed 96-MB finite-recovery seed table and fused recurrence service, an authenticated 125-GiB t-major Hurwitz-cache contract with replay repacking and a deterministic broadcast schedule, a source-wide supervisor plan pinning 56981100 real FFT batches over 3637613167 modulus/ordinate rows, an authenticated one-copy-per-row spool, a direct directed-MPFR factor/exact-rational-tail producer, and a typed 286556459000-byte source-wide row-resident CUDA input model whose bounded CUDA KAT uploads each lattice block once, plus a streaming validator for the exact 292500-modulus root catalog, a typed fixed-q FFT pipeline bundle validator, a bounded fail-closed adapter that freshly replays typed bundles in deterministic order and matches their TGDLATI1 payloads to authenticated cache rows, a persistent q-major composition/FFT/completed-L graph, and certified small-q disk arithmetic with parity-tail semantic sign reduction; however the source cache/root catalog are not populated, the row-resident TGDAFFI1 output is not wired into a persistent multi-q FFT/typed-bundle/completed-L lane, authenticated t-major zero state is not implemented, the new path is not source-scale measured or attested, and CUDA fusion/source-scale timing of the 226.996-TB small-q disk pipe, source-wide width, interpolation, exception, and Turing closure remain open",
+        "platt-dirichlet-theorem-7-1",
         dependencies=(ZETA_Q1_ATOM,),
         required_artifacts=(f"${{TG_RUN_ROOT}}/{ZETA_Q1_ATOM}/final.json",),
         postcheck=(
@@ -330,31 +848,58 @@ WORKLOADS = (
             _workspace(DIRICHLET_ATOM),
             "--q1-zeta-final",
             f"${{TG_RUN_ROOT}}/{ZETA_Q1_ATOM}/final.json",
+            "--registered-result-output",
+            f"${{TG_RUN_ROOT}}/{DIRICHLET_ATOM}/registered-result.txt",
         ),
     ),
     Workload(
         "platt-little-mertens-2-11",
-        "h100_cuda",
-        _mobius("platt-little-mertens-2-11", "2-11", 100_000_000),
+        "cpu_exact_sidecar",
+        _hurst_alias("platt-little-mertens-2-11"),
+        4,
         16,
-        128,
-        "7-00:00:00",
-        "authenticated_chunk_resume",
-        "serial_hash_chain",
-        "h100_segment_acceleration_only",
-        "large linear exact prefix through 10^12; resumable but not multi-node sharded",
+        "01:00:00",
+        "idempotent_shared_certificate_replay",
+        "shared_certificate_alias",
+        "no arithmetic scan; replay the one four-residual Hurst certificate",
+        "same physical two-pass run as mertens-hurst, squarefree, and the stronger little-Mertens atom",
+        "hurst-four-residuals-v1",
+        execution_mode="shared_certificate_alias",
+        shared_owner_atom=HURST_PRIMARY_ATOM,
+        dependencies=(HURST_PRIMARY_ATOM,),
+        required_artifacts=(f"${{TG_RUN_ROOT}}/{HURST_PRIMARY_ATOM}/certificate.json",),
     ),
     Workload(
         "platt-little-mertens-stronger",
+        "cpu_exact_sidecar",
+        _hurst_alias("platt-little-mertens-stronger"),
+        4,
+        16,
+        "01:00:00",
+        "idempotent_shared_certificate_replay",
+        "shared_certificate_alias",
+        "no arithmetic scan; replay the one four-residual Hurst certificate",
+        "same physical two-pass run as mertens-hurst, squarefree, and the 2/11 little-Mertens atom",
+        "hurst-four-residuals-v1",
+        execution_mode="shared_certificate_alias",
+        shared_owner_atom=HURST_PRIMARY_ATOM,
+        dependencies=(HURST_PRIMARY_ATOM,),
+        required_artifacts=(f"${{TG_RUN_ROOT}}/{HURST_PRIMARY_ATOM}/certificate.json",),
+    ),
+    Workload(
+        GOLDBACH_10POW27_ATOM,
         "h100_cuda",
-        _mobius("platt-little-mertens-stronger", "stronger", 100_000_000),
+        (),
         16,
         128,
         "7-00:00:00",
-        "authenticated_chunk_resume",
-        "serial_hash_chain",
-        "h100_segment_acceleration_only",
-        "direct 7727068587-step exact prefix; resumable but not multi-node sharded",
+        "immutable_binary_leaf_and_independent_ladder_range_receipts",
+        "parallel_lowered_binary_and_n45_ladder_branches_then_measured_finalizer",
+        "8192 fixed H100 groups cover 65536 lowered binary leaves while 320 CPU groups cover all 7106 n=45 ladder ranges; the terminal CPU job replays both branches",
+        "source-complete lowered finite campaign is UNRUN; all 8192 H100 groups and 326 CPU jobs have closed measured-job/export materializers, but H100 throughput is uncalibrated and no production receipts exist",
+        GOLDBACH_10POW27_CAMPAIGN,
+        execution_mode="manual_phase_dag",
+        phase_dag=_goldbach_10pow27_phases(),
     ),
 )
 WORKLOADS_BY_ID = {workload.atom_id: workload for workload in WORKLOADS}
@@ -523,9 +1068,12 @@ def validate_repository_binding(value: object) -> dict[str, Any]:
     }
     for workload in WORKLOADS:
         prefix = "${TG_REPOSITORY}/"
+        phase_tokens = tuple(
+            token for phase in workload.phase_dag for token in phase.command
+        )
         required_direct_files.update(
             token[len(prefix) :]
-            for token in (*workload.command, *workload.postcheck)
+            for token in (*workload.command, *workload.postcheck, *phase_tokens)
             if token.startswith(prefix)
         )
     missing = required_direct_files - set(paths)
@@ -564,13 +1112,51 @@ def sha256_bytes(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
+def _phase_record(
+    phase: Phase, *, inherited_backend_class: str, inherited_cpus_per_task: int
+) -> dict[str, Any]:
+    backend_class = phase.backend_class or inherited_backend_class
+    cpus_per_task = phase.cpus_per_task or inherited_cpus_per_task
+    return {
+        "phase_id": phase.phase_id,
+        "command": list(phase.command),
+        "depends_on": list(phase.depends_on),
+        "scheduler_shape": phase.scheduler_shape,
+        "array_size": phase.array_size,
+        "max_concurrent_tasks": phase.max_concurrent_tasks,
+        "parallel_workers_safe": phase.parallel_workers_safe,
+        "completion_artifact": phase.completion_artifact,
+        "backend_class": backend_class,
+        "resources": {
+            "cpus_per_task": cpus_per_task,
+            "h100_gpus": 1 if backend_class == "h100_cuda" else 0,
+        },
+    }
+
+
 def _job_record(workload: Workload) -> dict[str, Any]:
+    parallel_width = max(
+        (phase.array_size for phase in workload.phase_dag if phase.parallel_workers_safe),
+        default=1,
+    )
     return {
         "atom_id": workload.atom_id,
         "scope": "full_source",
         "sample": False,
         "backend_class": workload.backend_class,
+        "campaign_id": workload.campaign_id,
+        "execution_mode": workload.execution_mode,
+        "shared_owner_atom": workload.shared_owner_atom,
+        "single_job_adapter_supported": workload.execution_mode != "manual_phase_dag",
         "command": list(workload.command),
+        "phase_dag": [
+            _phase_record(
+                phase,
+                inherited_backend_class=workload.backend_class,
+                inherited_cpus_per_task=workload.cpus,
+            )
+            for phase in workload.phase_dag
+        ],
         "postcheck_command": list(workload.postcheck),
         "dependencies": list(workload.dependencies),
         "required_artifacts": list(workload.required_artifacts),
@@ -585,12 +1171,12 @@ def _job_record(workload: Workload) -> dict[str, Any]:
         "partitioning": {
             "portfolio_shards": 1,
             "intra_atom_mode": workload.partition_mode,
-            "parallel_intra_atom_shards": 1,
+            "parallel_intra_atom_shards": parallel_width,
             "scalability": workload.scalability,
             "reason_parallel_shards_are_one": (
-                "The retained atom certificate is a stateful gap-free chain or "
-                "single full-source replay; this adapter does not invent unsafe "
-                "independent mathematical shards."
+                None
+                if parallel_width != 1
+                else "The retained job is a single replay, a stateful chain, or a shared-certificate alias."
             ),
         },
         "resume": {
@@ -606,15 +1192,53 @@ def _job_record(workload: Workload) -> dict[str, Any]:
     }
 
 
+def _physical_campaign_records() -> list[dict[str, Any]]:
+    campaign_ids: list[str] = []
+    for workload in WORKLOADS:
+        if workload.campaign_id not in campaign_ids:
+            campaign_ids.append(workload.campaign_id)
+    records: list[dict[str, Any]] = []
+    for campaign_id in campaign_ids:
+        members = [item for item in WORKLOADS if item.campaign_id == campaign_id]
+        owners = [item for item in members if item.shared_owner_atom is None]
+        if len(owners) != 1:
+            raise ClusterPlanError(
+                f"physical campaign {campaign_id} must have exactly one owner"
+            )
+        owner = owners[0]
+        records.append(
+            {
+                "campaign_id": campaign_id,
+                "owner_atom_id": owner.atom_id,
+                "logical_atom_ids": [
+                    atom_id for atom_id in ATOM_IDS
+                    if any(item.atom_id == atom_id for item in members)
+                ],
+                "backend_class": owner.backend_class,
+                "execution_mode": owner.execution_mode,
+                "single_job_adapter_supported": owner.execution_mode == "single_job",
+                "phase_dag": [
+                    _phase_record(
+                        phase,
+                        inherited_backend_class=owner.backend_class,
+                        inherited_cpus_per_task=owner.cpus,
+                    )
+                    for phase in owner.phase_dag
+                ],
+            }
+        )
+    return records
+
+
 def build_manifest(repository_binding: Mapping[str, Any]) -> dict[str, Any]:
-    """Return a deterministic site-portable plan for exactly thirteen atoms."""
+    """Return the reviewed source-atom plus lowered-endpoint deployment plan."""
 
     binding = validate_repository_binding(dict(repository_binding))
     return {
         "schema_version": SCHEMA_VERSION,
         "kind": MANIFEST_KIND,
         "classification": "full_source_deployment_capability_not_completed_evidence",
-        "scope": "all_13_named_ternary_goldbach_external_atoms",
+        "scope": "all_13_named_external_atoms_plus_distinct_10pow27_finite_endpoint",
         "sample": False,
         "scheduler_adapter": "slurm",
         "repository_binding": binding,
@@ -631,6 +1255,7 @@ def build_manifest(repository_binding: Mapping[str, Any]) -> dict[str, Any]:
                 "TG_PYTHON": "python3",
                 "TG_CXX": "g++",
                 "TG_H100_BUILD": "${TG_REPOSITORY}/build/h100-native",
+                "TG_TG_BUILD": "${TG_REPOSITORY}/build/tg-production",
                 "TG_H100_GRES": "gpu:h100:1",
                 "TG_SLURM_REQUEUE": "0",
             },
@@ -643,14 +1268,25 @@ def build_manifest(repository_binding: Mapping[str, Any]) -> dict[str, Any]:
                 "TG_CPU_FLINT_WALLTIME",
                 "TG_CPU_EXACT_WALLTIME",
             ],
+            "manual_phase_dag_bindings": [
+                "TG_ARRAY_INDEX",
+                "TG_GOLDBACH_SOURCE_ROOT",
+                "TG_GOLDBACH_EXECUTABLE",
+                "TG_GOLDBACH_EXECUTABLE_SHA256",
+            ],
         },
         "portfolio_partitioning": {
-            "job_count": 13,
-            "concurrent_named_atom_jobs": 12,
-            "dependency_delayed_jobs": 1,
+            "logical_atom_count": len(ATOM_IDS),
+            "source_atom_count": len(SOURCE_ATOM_IDS),
+            "conditional_endpoint_campaign_count": 1,
+            "physical_campaign_count": 11,
+            "single_job_campaign_count": 5,
+            "manual_phase_dag_campaign_count": 6,
+            "shared_certificate_alias_count": 3,
+            "all_atoms_single_job_submission_supported": False,
             "policy": (
-                "partition across named atoms and backend classes; preserve each "
-                "atom supervisor's gap-free checkpoint chain"
+                "report every named atom, deduplicate shared evidence, and require "
+                "an explicit scheduler phase DAG for independently safe arrays"
             ),
         },
         "dependency_edges": [
@@ -660,8 +1296,20 @@ def build_manifest(repository_binding: Mapping[str, Any]) -> dict[str, Any]:
                 "scheduler_condition": "afterok",
                 "artifact": f"${{TG_RUN_ROOT}}/{ZETA_Q1_ATOM}/final.json",
                 "meaning": "q=1 zeta prerequisite for the Dirichlet source composition",
-            }
+            },
+            *[
+                {
+                    "from": HURST_PRIMARY_ATOM,
+                    "to": atom_id,
+                    "scheduler_condition": "certificate_present_and_semantic_replay",
+                    "artifact": f"${{TG_RUN_ROOT}}/{HURST_PRIMARY_ATOM}/certificate.json",
+                    "meaning": "logical alias of the one shared four-residual Hurst campaign",
+                }
+                for atom_id in HURST_ATOMS
+                if atom_id != HURST_PRIMARY_ATOM
+            ],
         ],
+        "physical_campaigns": _physical_campaign_records(),
         "jobs": [_job_record(workload) for workload in WORKLOADS],
         "promotion_policy": {
             "sample_receipts_accepted": False,
@@ -680,8 +1328,11 @@ def validate_manifest(value: object) -> dict[str, Any]:
     if value.get("sample") is not False:
         raise ClusterPlanError("cluster manifest must be explicitly non-sample")
     jobs = value.get("jobs")
-    if not isinstance(jobs, list) or len(jobs) != 13:
-        raise ClusterPlanError("cluster manifest must contain exactly thirteen jobs")
+    if not isinstance(jobs, list) or len(jobs) != len(ATOM_IDS):
+        raise ClusterPlanError(
+            "cluster manifest must contain the thirteen source jobs and the "
+            "distinct lowered finite-endpoint job"
+        )
     ids: list[str] = []
     for index, job in enumerate(jobs):
         if not isinstance(job, dict):
@@ -694,11 +1345,20 @@ def validate_manifest(value: object) -> dict[str, Any]:
             raise ClusterPlanError(f"{atom_id} is not an explicit full-source job")
         if job.get("backend_class") not in BACKEND_CLASSES:
             raise ClusterPlanError(f"{atom_id} has an invalid backend class")
+        execution_mode = job.get("execution_mode")
+        if execution_mode not in EXECUTION_MODES:
+            raise ClusterPlanError(f"{atom_id} has an invalid execution mode")
         command = job.get("command")
-        if not isinstance(command, list) or not command or not all(
+        if not isinstance(command, list) or not all(
             isinstance(token, str) and token for token in command
         ):
             raise ClusterPlanError(f"{atom_id} has an invalid argument vector")
+        if execution_mode == "manual_phase_dag" and command:
+            raise ClusterPlanError(
+                f"{atom_id} must not flatten its phase DAG into one command"
+            )
+        if execution_mode != "manual_phase_dag" and not command:
+            raise ClusterPlanError(f"{atom_id} has no executable argument vector")
         forbidden = {
             "bounded_sample",
             "sample",
@@ -709,6 +1369,43 @@ def validate_manifest(value: object) -> dict[str, Any]:
         }
         if forbidden.intersection(command):
             raise ClusterPlanError(f"{atom_id} command contains a sample/pause switch")
+        phase_dag = job.get("phase_dag")
+        if not isinstance(phase_dag, list):
+            raise ClusterPlanError(f"{atom_id} phase DAG must be an array")
+        if execution_mode == "manual_phase_dag" and not phase_dag:
+            raise ClusterPlanError(f"{atom_id} omits its required phase DAG")
+        if execution_mode != "manual_phase_dag" and phase_dag:
+            raise ClusterPlanError(f"{atom_id} unexpectedly has a phase DAG")
+        phase_ids: list[str] = []
+        for phase_index, phase in enumerate(phase_dag):
+            if not isinstance(phase, dict):
+                raise ClusterPlanError(
+                    f"{atom_id} phase {phase_index} must be an object"
+                )
+            phase_id = phase.get("phase_id")
+            phase_command = phase.get("command")
+            depends_on = phase.get("depends_on")
+            if (
+                not isinstance(phase_id, str)
+                or not phase_id
+                or not isinstance(phase_command, list)
+                or not phase_command
+                or not all(isinstance(token, str) and token for token in phase_command)
+                or not isinstance(depends_on, list)
+                or not all(isinstance(item, str) and item for item in depends_on)
+            ):
+                raise ClusterPlanError(f"{atom_id} phase {phase_index} is malformed")
+            if any(item not in phase_ids for item in depends_on):
+                raise ClusterPlanError(
+                    f"{atom_id} phase {phase_id} has a forward or unknown dependency"
+                )
+            if forbidden.intersection(phase_command):
+                raise ClusterPlanError(
+                    f"{atom_id} phase {phase_id} contains a sample/pause switch"
+                )
+            phase_ids.append(phase_id)
+        if len(phase_ids) != len(set(phase_ids)):
+            raise ClusterPlanError(f"{atom_id} has duplicate phase ids")
         postcheck = job.get("postcheck_command")
         if not isinstance(postcheck, list) or not all(
             isinstance(token, str) and token for token in postcheck
@@ -718,8 +1415,21 @@ def validate_manifest(value: object) -> dict[str, Any]:
             raise ClusterPlanError(
                 f"{atom_id} postcheck contains a sample/pause switch"
             )
-    if tuple(ids) != ATOM_IDS or len(set(ids)) != 13:
-        raise ClusterPlanError("cluster job ids differ from the reviewed thirteen")
+    if tuple(ids) != ATOM_IDS or len(set(ids)) != len(ATOM_IDS):
+        raise ClusterPlanError("cluster job ids differ from the reviewed workload set")
+    campaigns = value.get("physical_campaigns")
+    if not isinstance(campaigns, list) or len(campaigns) != 11:
+        raise ClusterPlanError("cluster manifest must contain eleven physical campaigns")
+    covered = [
+        atom_id
+        for campaign in campaigns
+        if isinstance(campaign, dict)
+        for atom_id in campaign.get("logical_atom_ids", [])
+    ]
+    if sorted(covered) != sorted(ATOM_IDS) or len(covered) != len(set(covered)):
+        raise ClusterPlanError(
+            "physical campaigns do not cover every reviewed workload exactly once"
+        )
     repository_binding = validate_repository_binding(value.get("repository_binding"))
     expected = build_manifest(repository_binding)
     if value != expected:
@@ -823,29 +1533,6 @@ tg_validate_journal() {{
   }}
 }}
 
-tg_validate_complete_portfolio() {{
-  local journal="$1" atom zeta_job dependency count
-  tg_validate_journal "${{journal}}" 1 || return $?
-  count="$(awk 'END {{ print NR - 1 }}' "${{journal}}")" || return $?
-  if [[ "${{count}}" != "13" ]]; then
-    echo "submission journal does not contain exactly thirteen jobs" >&2
-    return 74
-  fi
-  for atom in {' '.join(ATOM_IDS)}; do
-    tg_journal_job "${{journal}}" "${{atom}}" >/dev/null || {{
-      echo "submission journal omits atom: ${{atom}}" >&2
-      return 74
-    }}
-  done
-  zeta_job="$(tg_journal_job "${{journal}}" {ZETA_Q1_ATOM})" || return $?
-  dependency="$(awk -F '\t' -v atom='{DIRICHLET_ATOM}' \
-    '$1 == atom {{ print $3 }}' "${{journal}}")" || return $?
-  if [[ -z "${{zeta_job}}" || "${{dependency}}" != "${{zeta_job}}" ]]; then
-    echo "Dirichlet journal dependency does not equal the q=1 zeta job id" >&2
-    return 74
-  fi
-}}
-
 tg_journal_job() {{
   local journal="$1" atom="$2"
   awk -F '\t' -v atom="${{atom}}" '$1 == atom {{ value=$2 }} END {{
@@ -942,78 +1629,28 @@ script_dir="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
 
 
 def render_submit_script(manifest: Mapping[str, Any]) -> bytes:
-    # q=1 is submitted first and Dirichlet is submitted only with its afterok
-    # dependency.  All other atoms are independent portfolio shards.
-    ordered = [ZETA_Q1_ATOM] + [
-        atom for atom in ATOM_IDS if atom not in {ZETA_Q1_ATOM, DIRICHLET_ATOM}
-    ]
-    class_by_id = {job["atom_id"]: job["backend_class"] for job in manifest["jobs"]}
-    lines = [
-        "#!/usr/bin/env bash",
-        "# Generated by tools/tg_h100_cluster.py; do not edit.",
-        "set -euo pipefail",
-        ': "${TG_REPOSITORY:?set TG_REPOSITORY}"',
-        ': "${TG_RUN_ROOT:?set TG_RUN_ROOT}"',
-        ': "${TG_A7_TRANSCRIPT:?set TG_A7_TRANSCRIPT}"',
-        ': "${TG_H100_PARTITION:?set TG_H100_PARTITION}"',
-        ': "${TG_CPU_FLINT_PARTITION:?set TG_CPU_FLINT_PARTITION}"',
-        ': "${TG_CPU_EXACT_PARTITION:?set TG_CPU_EXACT_PARTITION}"',
-        'script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"',
-        'source "${script_dir}/common.sh"',
-        "tg_require_submit_environment",
-        "tg_acquire_submission_lock",
-        'mkdir -p "${TG_RUN_ROOT}"',
-        'journal="${TG_RUN_ROOT}/slurm-submission.tsv"',
-        'tg_init_journal "${journal}"',
-        'tg_validate_journal "${journal}" 1',
-        "submit_atom() {",
-        '  local atom="$1" partition="$2" backend="$3" dependency="${4:-}" known raw job_id',
-        '  if known="$(tg_journal_job "${journal}" "${atom}")"; then',
-        '    printf \'%s\' "${known}"',
-        "    return 0",
-        "  fi",
-        '  [[ -z "${dependency}" || "${dependency}" =~ ^[0-9]+$ ]] || {',
-        '    echo "dependency must be a numeric Slurm job id" >&2; return 64;',
-        "  }",
-        "  local args=(--parsable --export=ALL --partition=\"${partition}\")",
-        '  tg_add_site_args "${backend}" || return $?',
-        '  tg_add_log_args "${atom}" || return $?',
-        '  if [[ -n "${dependency}" ]]; then args+=(--dependency="afterok:${dependency}"); fi',
-        '  raw="$(sbatch "${args[@]}" "${script_dir}/jobs/${atom}.sbatch")" || return $?',
-        '  job_id="$(tg_normalize_job_id "${raw}")" || return $?',
-        '  tg_record_job "${journal}" "${atom}" "${job_id}" "${dependency}" || return $?',
-        '  printf \'%s\' "${job_id}"',
-        "}",
-    ]
-    for atom_id in ordered:
-        var = _partition_variable(class_by_id[atom_id])
-        backend = class_by_id[atom_id]
-        if atom_id == ZETA_Q1_ATOM:
-            lines.append(
-                f'zeta_job="$(submit_atom {atom_id} "${{{var}}}" {backend})"'
-            )
-        else:
-            lines.append(
-                f'submit_atom {atom_id} "${{{var}}}" {backend} >/dev/null'
-            )
-    var = _partition_variable(class_by_id[DIRICHLET_ATOM])
-    backend = class_by_id[DIRICHLET_ATOM]
-    lines.extend(
-        [
-            f'submit_atom {DIRICHLET_ATOM} "${{{var}}}" {backend} "${{zeta_job}}" >/dev/null',
-            'tg_validate_complete_portfolio "${journal}"',
-            'echo "submission journal contains all thirteen jobs: ${journal}"',
-        ]
-    )
-    return ("\n".join(lines) + "\n").encode("utf-8")
+    del manifest
+    return b"""#!/usr/bin/env bash
+# Generated by tools/tg_h100_cluster.py; do not edit.
+set -euo pipefail
+echo "all-workloads submission is disabled: six physical campaigns require explicit Slurm phase DAGs" >&2
+echo "translate the reviewed manual-phase-dags/*.json files into site-specific arrays and afterok reductions" >&2
+echo "the adapter refuses to flatten psi, Platt zeta, Proposition 12.2.4, Hurst, historical Goldbach, or lowered 10^27 Goldbach into one job" >&2
+exit 78
+"""
 
 
 def render_submit_one_script(manifest: Mapping[str, Any]) -> bytes:
     cases = []
     for job in manifest["jobs"]:
-        cases.append(
-            f"  {job['atom_id']}) partition=\"${{{_partition_variable(job['backend_class'])}:?}}\"; backend={job['backend_class']} ;;"
-        )
+        if job["single_job_adapter_supported"]:
+            cases.append(
+                f"  {job['atom_id']}) partition=\"${{{_partition_variable(job['backend_class'])}:?}}\"; backend={job['backend_class']}; supported=1 ;;"
+            )
+        else:
+            cases.append(
+                f"  {job['atom_id']}) supported=0 ;;"
+            )
     text = """#!/usr/bin/env bash
 # Generated by tools/tg_h100_cluster.py; do not edit.
 set -euo pipefail
@@ -1023,10 +1660,15 @@ if [[ $# -lt 1 || $# -gt 2 ]]; then
 fi
 atom="$1"
 dependency="${2:-}"
+supported=0
 case "${atom}" in
 """ + "\n".join(cases) + """
   *) echo "unknown atom id: ${atom}" >&2; exit 64 ;;
 esac
+if [[ "${supported}" != 1 ]]; then
+  echo "${atom} requires the explicit manual phase DAG; no single Slurm job was generated" >&2
+  exit 78
+fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${script_dir}/common.sh"
 tg_require_submit_environment
@@ -1055,7 +1697,23 @@ def expected_adapter_files(manifest: Mapping[str, Any]) -> dict[str, bytes]:
     files = {
         f"slurm/jobs/{job['atom_id']}.sbatch": render_job_script(job)
         for job in manifest["jobs"]
+        if job["single_job_adapter_supported"]
     }
+    files.update(
+        {
+            f"manual-phase-dags/{job['atom_id']}.json": canonical_json_bytes(
+                {
+                    "atom_id": job["atom_id"],
+                    "campaign_id": job["campaign_id"],
+                    "classification": "manual_site_scheduler_translation_required",
+                    "phase_dag": job["phase_dag"],
+                    "single_job_adapter_supported": False,
+                }
+            )
+            for job in manifest["jobs"]
+            if job["execution_mode"] == "manual_phase_dag"
+        }
+    )
     files["slurm/submit.sh"] = render_submit_script(manifest)
     files["slurm/submit-one.sh"] = render_submit_one_script(manifest)
     files["slurm/common.sh"] = render_slurm_common_script()
@@ -1076,7 +1734,7 @@ def _write_deployment_manifest(
         path = directory / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
-        path.chmod(0o755)
+        path.chmod(0o755 if relative.startswith("slurm/") else 0o644)
     digest = sha256_bytes(raw)
     (directory / "manifest.sha256").write_text(
         f"{digest}  manifest.json\n", encoding="ascii"
@@ -1086,7 +1744,12 @@ def _write_deployment_manifest(
         "classification": "portable_full_source_deployment_plan_not_execution",
         "directory": str(directory),
         "manifest_sha256": digest,
-        "job_count": 13,
+        "logical_atom_count": len(ATOM_IDS),
+        "source_atom_count": len(SOURCE_ATOM_IDS),
+        "conditional_endpoint_campaign_count": 1,
+        "physical_campaign_count": 11,
+        "single_job_adapter_count": 8,
+        "manual_phase_dag_count": 6,
         "sample": False,
         "campaigns_completed": 0,
         "lean_atoms_discharged": 0,
@@ -1128,7 +1791,12 @@ def verify_deployment(
         "accepted": True,
         "classification": "deployment_plan_and_adapter_integrity_only",
         "manifest_sha256": digest,
-        "job_count": 13,
+        "logical_atom_count": len(ATOM_IDS),
+        "source_atom_count": len(SOURCE_ATOM_IDS),
+        "conditional_endpoint_campaign_count": 1,
+        "physical_campaign_count": 11,
+        "single_job_adapter_count": 8,
+        "manual_phase_dag_count": 6,
         "sample": False,
         "repository_commit_and_full_file_closure_verified": repository_verified,
         "campaigns_completed": 0,
@@ -1168,6 +1836,7 @@ def resolve_command(
     repository = env.get("TG_REPOSITORY")
     if repository:
         env.setdefault("TG_H100_BUILD", f"{repository}/build/h100-native")
+        env.setdefault("TG_TG_BUILD", f"{repository}/build/tg-production")
     return tuple(_expand_token(token, env) for token in job["command"])
 
 
@@ -1180,6 +1849,7 @@ def resolve_postcheck_command(
     repository = env.get("TG_REPOSITORY")
     if repository:
         env.setdefault("TG_H100_BUILD", f"{repository}/build/h100-native")
+        env.setdefault("TG_TG_BUILD", f"{repository}/build/tg-production")
     return tuple(
         _expand_token(token, env) for token in job["postcheck_command"]
     )
@@ -1205,6 +1875,11 @@ def execute_job(
         job = next(job for job in manifest["jobs"] if job["atom_id"] == atom_id)
     except StopIteration as error:
         raise ClusterPlanError(f"unknown atom id: {atom_id}") from error
+    if job["execution_mode"] == "manual_phase_dag":
+        raise ClusterPlanError(
+            f"{atom_id} requires the explicit phase DAG in manual-phase-dags/; "
+            "the one-job executor refuses to flatten it"
+        )
     command = resolve_command(job, environment)
     postcheck_command = resolve_postcheck_command(job, environment)
     env = dict(os.environ if environment is None else environment)
@@ -1313,14 +1988,28 @@ def execute_job(
 
 
 def capability_report() -> dict[str, Any]:
-    counts = {backend: 0 for backend in sorted(BACKEND_CLASSES)}
+    logical_counts = {backend: 0 for backend in sorted(BACKEND_CLASSES)}
     for workload in WORKLOADS:
-        counts[workload.backend_class] += 1
+        logical_counts[workload.backend_class] += 1
+    physical = _physical_campaign_records()
+    physical_counts = {backend: 0 for backend in sorted(BACKEND_CLASSES)}
+    for campaign in physical:
+        physical_counts[campaign["backend_class"]] += 1
     return {
         "schema_version": SCHEMA_VERSION,
         "classification": "cluster_execution_capability_not_completed_evidence",
-        "job_count": len(WORKLOADS),
-        "backend_counts": counts,
+        "logical_atom_count": len(WORKLOADS),
+        "source_atom_count": len(SOURCE_ATOM_IDS),
+        "conditional_endpoint_campaign_count": 1,
+        "physical_campaign_count": len(physical),
+        "logical_backend_counts": logical_counts,
+        "physical_backend_counts": physical_counts,
+        "all_atoms_single_job_submission_supported": False,
+        "manual_phase_dag_campaigns": [
+            campaign["campaign_id"]
+            for campaign in physical
+            if campaign["execution_mode"] == "manual_phase_dag"
+        ],
         "q1_zeta_dependency": {
             "producer": ZETA_Q1_ATOM,
             "consumer": DIRICHLET_ATOM,
@@ -1332,6 +2021,9 @@ def capability_report() -> dict[str, Any]:
         "jobs": [
             {
                 "atom_id": item.atom_id,
+                "campaign_id": item.campaign_id,
+                "execution_mode": item.execution_mode,
+                "shared_owner_atom": item.shared_owner_atom,
                 "backend_class": item.backend_class,
                 "resume_mode": item.resume_mode,
                 "scalability": item.scalability,

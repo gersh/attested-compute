@@ -1,0 +1,308 @@
+{
+  "schema_version": 1,
+  "kind": "sparkinterval.ternary-goldbach.external-atom-bridge-status.v1",
+  "classification": "conditional-bridge-stage-crosswalk-not-proof-receipt-or-retirement",
+  "authority": {
+    "root_declaration": "Math.Problems.TernaryGoldbach.ternary_goldbach",
+    "statement_trace_relative_to_claude_math": ".lake/build/lib/lean/Math/Problems/TernaryGoldbach/Statement.trace",
+    "statement_trace_sha256": "8bd5568c220496a20ac0faff69b33df0b4b70e32978164a97d78bbc93f6cdffa",
+    "citation_inventory_relative_to_claude_math": "problems/ternary-goldbach/citations/inventory.json",
+    "citation_inventory_sha256": "d86b0b9fa6fab62032452318b15a1674daaed166a8c92ced40be70ca617839ac",
+    "external_catalog": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOMS.json",
+    "external_catalog_sha256": "204949b03f342024868667db7b87c4fed600ca2b3951e274e65f2f437dfc5373",
+    "compact_registry": "SparkInterval/Execution/CompactArchitectureRegistry.lean",
+    "compact_registry_sha256": "52d675f7a91a2214c063a3a17d64d8b9fe7a3fb1d3b45329f08d1e5ed373e26a",
+    "compact_capstone": "SparkInterval/TernaryGoldbach/CompactExternalAtomCapstone.lean",
+    "compact_capstone_sha256": "6416dea6f068c85c33987614531bb92ae9dc2dee3a30cedda93980c7584cc136",
+    "registered_capstone": "SparkInterval/TernaryGoldbach/CompactExternalAtomRegisteredCapstone.lean",
+    "registered_capstone_sha256": "4d17f4c305808147899c912510e64f54ffa1e353b3bd8d688e8c8bebf71936a5",
+    "claude_math_bridge": "Math/Problems/TernaryGoldbach/CompactExternalAtomSourceInputs.lean",
+    "claude_math_bridge_sha256": "95b91b981942bcc9d360132d872d7aa56b17771fee46b10f5e1c7747f8a0a00c"
+  },
+  "stage_meanings": {
+    "source_theorem_mapped": "An ordinary Lean theorem maps the exact producer downstream proposition to the exact claude_math source-shaped input. This does not supply the proposition.",
+    "checker_acceptance_mapped": "An ordinary Lean theorem maps all ten exact canonical checker acceptances to the thirteen source inputs, subject to the explicit Platt-head table-identification premises. This does not establish an acceptance.",
+    "registered_physical_outcome_mapped": "An ordinary theorem maps the ten closed CompactArchitectureRegistry physical outcomes, together with ten explicit universal executable-refinement premises, to all thirteen checker-derived claims. It does not assert either the outcomes or refinements.",
+    "exact_executable_refinement_present": "The exact reviewed executable, compiler/linker/loader boundary, and formal CPU or H100 semantics have been proved to refine the corresponding native checker.",
+    "reviewed_receipt_present": "A successful reviewed run is installed in the closed CompactArchitectureRegistry selector.",
+    "live_provider_switched": "claude_math's live provider imports this bridge instead of the named source axiom.",
+    "fresh_retirement_confirmed": "A fresh post-switch theorem axiom print no longer contains the named source declaration."
+  },
+  "shared_witnesses": {
+    "source_theorem_mapping": "Math.Problems.TernaryGoldbach.CompactExternalAtomSourceInputs.sourceInputs_of_exactTableDownstreamClaims",
+    "checker_acceptance_mapping": "Math.Problems.TernaryGoldbach.CompactExternalAtomSourceInputs.sourceInputs_of_canonicalAcceptances",
+    "checker_to_claim_mapping": "SparkInterval.TernaryGoldbach.CompactExternalAtomCapstone.exactTableDownstreamClaim_of_canonicalAcceptances",
+    "registered_physical_mapping": "Math.Problems.TernaryGoldbach.CompactExternalAtomSourceInputs.sourceInputs_of_registeredPhysicalOutcomes",
+    "source_mapping_public_axioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "checker_mapping_public_axioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "registered_physical_mapping_public_axioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "explicit_table_obligations": [
+      "SparkInterval.TernaryGoldbach.CompactExternalAtomCapstone.ZetaHeadTableIdentificationObligation targetTable",
+      "Math.Problems.TernaryGoldbach.CompactExternalAtomSourceInputs.PlattHeadTableBridge targetTable"
+    ]
+  },
+  "summary": {
+    "atom_count": 13,
+    "physical_campaign_count": 10,
+    "source_theorem_mapped": 13,
+    "checker_acceptance_mapped": 13,
+    "registered_physical_outcome_mapped": 13,
+    "exact_executable_refinement_present": 0,
+    "reviewed_receipt_present": 0,
+    "live_provider_switched": 0,
+    "fresh_retirement_confirmed": 0
+  },
+  "atoms": [
+    {
+      "atom_id": "ch25-a7-boundary",
+      "lean_declaration": "AnalyticNT.ChebyshevPsi.finite_check_ch25_lemA7_arb_boundary_source",
+      "gpu_constructor": "ch25A7Boundary",
+      "source_inputs_field": "ch25A7Boundary",
+      "physical_campaign_id": "ch25-a7-boundary",
+      "registry_invocation": "ch25A7BoundaryProductionV1",
+      "source_specific_obligations": [
+        "The A7 definition comparison uses the retained Platt-head enumeration to classify the low-height zeros before replacing the regularized boundary function by the producer function."
+      ],
+      "stages": {
+        "source_theorem_mapped": true,
+        "checker_acceptance_mapped": true,
+        "registered_physical_outcome_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "atom_id": "ch25-psi-1e13",
+      "lean_declaration": "AnalyticNT.ChebyshevPsi.finite_check_ch25_lemma_9_2_psi_source",
+      "gpu_constructor": "ch25Psi1e13",
+      "source_inputs_field": "ch25Psi1e13",
+      "physical_campaign_id": "ch25-psi-two-pass-v1",
+      "registry_invocation": "ch25PsiLemma92ProductionV1",
+      "source_specific_obligations": [],
+      "stages": {
+        "source_theorem_mapped": true,
+        "checker_acceptance_mapped": true,
+        "registered_physical_outcome_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "atom_id": "platt-head-2e4",
+      "lean_declaration": "AnalyticNT.ChebyshevPsi.finite_check_platt_zero_enumeration_2e4_source",
+      "gpu_constructor": "plattHead2e4",
+      "source_inputs_field": "plattHead2e4",
+      "physical_campaign_id": "platt-head-2e4",
+      "registry_invocation": "plattHead2e4ProductionV1",
+      "source_specific_obligations": [
+        "Prove ZetaHeadTableIdentificationObligation for the selected producer table; SHA-256 equality is not used as table equality.",
+        "Prove PlattHeadTableBridge from that exact table to the retained claude_math rows."
+      ],
+      "stages": {
+        "source_theorem_mapped": true,
+        "checker_acceptance_mapped": true,
+        "registered_physical_outcome_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "atom_id": "platt-trudgian-rh-3e12",
+      "lean_declaration": "AnalyticNT.ChebyshevPsi.finite_check_platt_trudgian_rh_zeta_3e12",
+      "gpu_constructor": "plattTrudgianRH3e12",
+      "source_inputs_field": "plattTrudgianRH3e12",
+      "physical_campaign_id": "platt-trudgian-rh-3e12",
+      "registry_invocation": "plattTrudgianFiniteRHProductionV1",
+      "source_specific_obligations": [],
+      "stages": {
+        "source_theorem_mapped": true,
+        "checker_acceptance_mapped": true,
+        "registered_physical_outcome_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "atom_id": "helfgott-prop-12-2-4",
+      "lean_declaration": "AnalyticNT.LargeSieve.finite_check_helfgott_prop_12_2_4_computation_source",
+      "gpu_constructor": "helfgottProp1224",
+      "source_inputs_field": "helfgottProp1224",
+      "physical_campaign_id": "helfgott-prop-12-2-4-mpfr-v1",
+      "registry_invocation": "helfgottProp1224ProductionV1",
+      "source_specific_obligations": [],
+      "stages": {
+        "source_theorem_mapped": true,
+        "checker_acceptance_mapped": true,
+        "registered_physical_outcome_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "atom_id": "cdem-squarefree",
+      "lean_declaration": "MathExtras.CohenDressElMarraki.reproducibleSquarefree_verifier_output",
+      "gpu_constructor": "cdemSquarefree",
+      "source_inputs_field": "cdemSquarefree",
+      "physical_campaign_id": "hurst-four-residuals-v1",
+      "registry_invocation": "hurstSharedFourResidualProductionV2",
+      "source_specific_obligations": [],
+      "stages": {
+        "source_theorem_mapped": true,
+        "checker_acceptance_mapped": true,
+        "registered_physical_outcome_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "atom_id": "cdem-table-abel",
+      "lean_declaration": "MathExtras.CohenDressElMarraki.reproducibleTable_abel_verifier_output",
+      "gpu_constructor": "cdemTableAbel",
+      "source_inputs_field": "cdemTableAbel",
+      "physical_campaign_id": "cdem-table-abel",
+      "registry_invocation": "cdemTableAbelProductionV2",
+      "source_specific_obligations": [],
+      "stages": {
+        "source_theorem_mapped": true,
+        "checker_acceptance_mapped": true,
+        "registered_physical_outcome_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "atom_id": "mertens-hurst",
+      "lean_declaration": "MathExtras.EffectiveMertensDecay.mertensM_hurst_sqrt_source",
+      "gpu_constructor": "mertensHurst",
+      "source_inputs_field": "mertensHurst",
+      "physical_campaign_id": "hurst-four-residuals-v1",
+      "registry_invocation": "hurstSharedFourResidualProductionV2",
+      "source_specific_obligations": [],
+      "stages": {
+        "source_theorem_mapped": true,
+        "checker_acceptance_mapped": true,
+        "registered_physical_outcome_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "atom_id": "ramare-zuniga-lemma-6-2",
+      "lean_declaration": "MathExtras.RamareMertens2025.ramare_zuniga_2024_lemma_6_2_source",
+      "gpu_constructor": "ramareZunigaLemma62",
+      "source_inputs_field": "ramareZunigaLemma62",
+      "physical_campaign_id": "ramare-zuniga-lemma-6-2",
+      "registry_invocation": "ramareZunigaLemma62ProductionV1",
+      "source_specific_obligations": [],
+      "stages": {
+        "source_theorem_mapped": true,
+        "checker_acceptance_mapped": true,
+        "registered_physical_outcome_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "atom_id": "helfgott-platt-theorem-4-1",
+      "lean_declaration": "Math.Problems.TernaryGoldbach.helfgott_platt_theorem_4_1_source",
+      "gpu_constructor": "helfgottPlattTheorem41",
+      "source_inputs_field": "helfgottPlattTheorem41",
+      "physical_campaign_id": "helfgott-platt-goldbach-gpu-v1",
+      "registry_invocation": "helfgottPlattGoldbachProductionV1",
+      "source_specific_obligations": [],
+      "stages": {
+        "source_theorem_mapped": true,
+        "checker_acceptance_mapped": true,
+        "registered_physical_outcome_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "atom_id": "platt-dirichlet-theorem-7-1",
+      "lean_declaration": "MathExtras.Helfgott.MajorArcsStart.platt_theorem_7_1_dirichlet_verification_source",
+      "gpu_constructor": "plattDirichletTheorem71",
+      "source_inputs_field": "plattDirichletTheorem71",
+      "physical_campaign_id": "platt-dirichlet-theorem-7-1",
+      "registry_invocation": "plattDirichletTheorem71ProductionV1",
+      "source_specific_obligations": [],
+      "stages": {
+        "source_theorem_mapped": true,
+        "checker_acceptance_mapped": true,
+        "registered_physical_outcome_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "atom_id": "platt-little-mertens-2-11",
+      "lean_declaration": "MathExtras.Helfgott.Section24.residual_platt_2_11",
+      "gpu_constructor": "plattLittleMertens211",
+      "source_inputs_field": "plattLittleMertens211",
+      "physical_campaign_id": "hurst-four-residuals-v1",
+      "registry_invocation": "hurstSharedFourResidualProductionV2",
+      "source_specific_obligations": [],
+      "stages": {
+        "source_theorem_mapped": true,
+        "checker_acceptance_mapped": true,
+        "registered_physical_outcome_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "atom_id": "platt-little-mertens-stronger",
+      "lean_declaration": "MathExtras.Helfgott.Section24.residual_platt_stronger_range",
+      "gpu_constructor": "plattLittleMertensStronger",
+      "source_inputs_field": "plattLittleMertensStronger",
+      "physical_campaign_id": "hurst-four-residuals-v1",
+      "registry_invocation": "hurstSharedFourResidualProductionV2",
+      "source_specific_obligations": [],
+      "stages": {
+        "source_theorem_mapped": true,
+        "checker_acceptance_mapped": true,
+        "registered_physical_outcome_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    }
+  ]
+}

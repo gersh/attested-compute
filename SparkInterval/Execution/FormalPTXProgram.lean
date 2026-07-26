@@ -45,12 +45,20 @@ structure FormalPTXProgram where
 
 namespace FormalPTXProgram
 
+/-- GPU emitter selected by an execution target.  CPU-only confidential runs
+have no PTX target and are rejected rather than being silently mapped to one. -/
+def emitterTarget? : ExecutionTarget → Option SparkInterval.PTX.EmitterTarget
+  | .dgxSparkSM121 => some .sm121
+  | .nvidiaH100SM90 => some .sm90
+  | .azureSEVSNPCPU => none
+
 /-- Emit the exact typed module through the validated production emitter. -/
 def emit (program : FormalPTXProgram) : Except String String :=
-  let target := match program.target with
-    | .dgxSparkSM121 => SparkInterval.PTX.EmitterTarget.sm121
-    | .nvidiaH100SM90 => SparkInterval.PTX.EmitterTarget.sm90
-  SparkInterval.PTX.emitFor target (SparkInterval.PTX.buildModule program.batch)
+  match emitterTarget? program.target with
+  | some target =>
+      SparkInterval.PTX.emitFor target
+        (SparkInterval.PTX.buildModule program.batch)
+  | none => .error "formal PTX emission requires a GPU execution target"
 
 /-- Check that the run statement names this exact validated emitted PTX text
 and the complete caller-selected input/deployment identity.
@@ -142,13 +150,19 @@ the deterministic rendering of the exact typed module. -/
 theorem emitted_eq_renderUnchecked {program : FormalPTXProgram}
     {ptx : String}
     (emission : program.emit = .ok ptx) :
-    ptx = SparkInterval.PTX.renderUncheckedFor
-      (match program.target with
-        | .dgxSparkSM121 => SparkInterval.PTX.EmitterTarget.sm121
-        | .nvidiaH100SM90 => SparkInterval.PTX.EmitterTarget.sm90)
-      (SparkInterval.PTX.buildModule program.batch) := by
+    ∃ target : SparkInterval.PTX.EmitterTarget,
+      emitterTarget? program.target = some target ∧
+      ptx = SparkInterval.PTX.renderUncheckedFor target
+        (SparkInterval.PTX.buildModule program.batch) := by
   unfold emit at emission
-  split at emission <;> exact (SparkInterval.PTX.emitFor_success emission).2
+  cases htarget : emitterTarget? program.target with
+  | none =>
+      simp [htarget] at emission
+  | some target =>
+      have hemit : SparkInterval.PTX.emitFor target
+          (SparkInterval.PTX.buildModule program.batch) = .ok ptx := by
+        simpa [htarget] using emission
+      exact ⟨target, rfl, (SparkInterval.PTX.emitFor_success hemit).2⟩
 
 end FormalPTXProgram
 

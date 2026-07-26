@@ -1,0 +1,68 @@
+.version 9.0
+.target sm_90
+.address_size 64
+
+.visible .global .align 4 .u32 sparkinterval_generated_abi_version = 1;
+.visible .global .align 4 .u32 sparkinterval_generated_variable_count = 0;
+
+.visible .entry sparkinterval_generated(
+	.param .u64 sparkinterval_generated_param_rows,
+	.param .u64 sparkinterval_generated_param_outputs,
+	.param .u64 sparkinterval_generated_param_row_count
+)
+{
+	.reg .pred %p<1>;
+	.reg .b16 %rs<4>;
+	.reg .u32 %r<3>;
+	.reg .b64 %rd<12>;
+	.reg .b64 %fd<4>;
+	mov.u32 %r0, %ctaid.x;
+	mov.u32 %r1, %ntid.x;
+	mul.wide.u32 %rd0, %r0, %r1;
+	mov.u32 %r2, %tid.x;
+	cvt.u64.u32 %rd1, %r2;
+	add.u64 %rd2, %rd0, %rd1;
+	ld.param.u64 %rd3, [sparkinterval_generated_param_row_count];
+	setp.ge.u64 %p0, %rd2, %rd3;
+	@%p0 bra $L1;
+	ld.param.u64 %rd4, [sparkinterval_generated_param_rows];
+	ld.param.u64 %rd5, [sparkinterval_generated_param_outputs];
+	cvta.to.global.u64 %rd6, %rd4;
+	cvta.to.global.u64 %rd7, %rd5;
+	mul.lo.u64 %rd8, %rd2, 0;
+	add.u64 %rd9, %rd6, %rd8;
+	mul.lo.u64 %rd10, %rd2, 24;
+	add.u64 %rd11, %rd7, %rd10;
+	mov.b64 %fd0, 0x3ff0000000000000;
+	mov.b64 %fd1, 0x3ff0000000000000;
+	mov.u16 %rs0, 0;
+	mov.u16 %rs1, 0;
+	st.global.b64 [%rd11+0], %fd0;
+	st.global.b64 [%rd11+8], %fd1;
+	st.global.u8 [%rd11+16], %rs0;
+	st.global.u8 [%rd11+17], %rs1;
+	st.global.u8 [%rd11+18], %rs1;
+	st.global.u8 [%rd11+19], %rs1;
+	st.global.u8 [%rd11+20], %rs1;
+	st.global.u8 [%rd11+21], %rs1;
+	st.global.u8 [%rd11+22], %rs1;
+	st.global.u8 [%rd11+23], %rs1;
+	bra $L1;
+$L0:
+	mov.b64 %fd2, 0xfff0000000000000;
+	mov.b64 %fd3, 0x7ff0000000000000;
+	mov.u16 %rs2, 2;
+	mov.u16 %rs3, 0;
+	st.global.b64 [%rd11+0], %fd2;
+	st.global.b64 [%rd11+8], %fd3;
+	st.global.u8 [%rd11+16], %rs2;
+	st.global.u8 [%rd11+17], %rs3;
+	st.global.u8 [%rd11+18], %rs3;
+	st.global.u8 [%rd11+19], %rs3;
+	st.global.u8 [%rd11+20], %rs3;
+	st.global.u8 [%rd11+21], %rs3;
+	st.global.u8 [%rd11+22], %rs3;
+	st.global.u8 [%rd11+23], %rs3;
+$L1:
+	ret;
+}

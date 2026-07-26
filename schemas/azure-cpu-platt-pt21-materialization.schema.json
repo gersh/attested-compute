@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-cpu-platt-pt21-materialization.schema.json",
+  "title": "SparkInterval PT21 Azure CPU materialization manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["accepted", "challenge_pin", "classification", "cpu_operator_config", "economic_production_gate_passed", "execution_completed", "execution_contract_id", "execution_contract_sha256", "factory_id", "full_source_shard_count", "handoff", "job_spec", "kind", "lean_theorem_produced", "package", "phase_id", "portfolio_shard_config", "predecessors", "registered_invocation", "runtime", "schema_version", "semantic_terminal", "shard_index", "source_run_receipt_produced", "transcript_policy", "under_one_week_and_10000_usd"],
+  "properties": {
+    "accepted": {"const": false},
+    "challenge_pin": {"$ref": "#/$defs/filePin"},
+    "classification": {"const": "source_reviewed_unscaled_pt21_operator_validated_materialization_not_execution_evidence"},
+    "cpu_operator_config": {"$ref": "#/$defs/filePin"},
+    "economic_production_gate_passed": {"const": false},
+    "execution_completed": {"const": false},
+    "execution_contract_id": {"const": "reference-cpu-flint-3.6-v1"},
+    "execution_contract_sha256": {"const": "ad280f4795d0bf9f6172a8be3b104075b2eace86ebbe74d387a41d377b551176"},
+    "factory_id": {"type": "string", "pattern": "^platt_pt21_[a-z0-9-]+_[0-9]{7}_reference_cpu_v1$"},
+    "full_source_shard_count": {"const": 1236316},
+    "handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entry", "file_count", "kind", "mode", "schema_version", "shard_coverage", "target_phase", "target_shard_index", "total_bytes", "tree_sha256"],
+      "properties": {
+        "entry": {"type": ["object", "null"]},
+        "file_count": {"type": "integer", "minimum": 0, "maximum": 1236317},
+        "kind": {"const": "sparkinterval.azure.platt-pt21-phase-handoff.v1"},
+        "mode": {"enum": ["empty", "single-predecessor", "full-finalization"]},
+        "schema_version": {"const": 1},
+        "shard_coverage": {"type": ["object", "null"]},
+        "target_phase": {"$ref": "#/$defs/phase"},
+        "target_shard_index": {"type": "integer", "minimum": 0, "maximum": 1236315},
+        "total_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+        "tree_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "job_spec": {"$ref": "#/$defs/filePin"},
+    "kind": {"const": "sparkinterval.azure.cpu.platt-pt21-materialization.v1"},
+    "lean_theorem_produced": {"const": false},
+    "package": {"$ref": "#/$defs/filePin"},
+    "phase_id": {"$ref": "#/$defs/phase"},
+    "portfolio_shard_config": {"$ref": "#/$defs/filePin"},
+    "predecessors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authenticated_predecessor_count", "entry", "shard_coverage"],
+      "properties": {
+        "authenticated_predecessor_count": {"type": "integer", "minimum": 0, "maximum": 1236317},
+        "entry": {"type": ["object", "null"]},
+        "shard_coverage": {"type": ["object", "null"]}
+      }
+    },
+    "registered_invocation": {"enum": [null, "plattTrudgianFiniteRHProductionV1"]},
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution_contract_id", "execution_contract_sha256", "flint", "manifest", "python", "runner"],
+      "properties": {
+        "execution_contract_id": {"const": "reference-cpu-flint-3.6-v1"},
+        "execution_contract_sha256": {"const": "ad280f4795d0bf9f6172a8be3b104075b2eace86ebbe74d387a41d377b551176"},
+        "flint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["commit", "tracked_tree_sha256", "version"],
+          "properties": {
+            "commit": {"const": "8d5454b96761fafe4d5a9da76a369a602f500f49"},
+            "tracked_tree_sha256": {"const": "06b194b828a12c6b6c34d5c1653cadd7d9f3f3356d8f3257a293f9ccf1beade1"},
+            "version": {"const": "3.6.0"}
+          }
+        },
+        "manifest": {"$ref": "#/$defs/filePin"},
+        "python": {"$ref": "#/$defs/filePin"},
+        "runner": {"$ref": "#/$defs/filePin"}
+      }
+    },
+    "schema_version": {"const": 1},
+    "semantic_terminal": {"type": "boolean"},
+    "shard_index": {"type": "integer", "minimum": 0, "maximum": 1236315},
+    "source_run_receipt_produced": {"const": false},
+    "transcript_policy": {"$ref": "#/$defs/filePin"},
+    "under_one_week_and_10000_usd": {"const": false}
+  },
+  "$defs": {
+    "absolutePath": {
+      "type": "string",
+      "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"
+    },
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}
+      }
+    },
+    "phase": {
+      "enum": ["initialize", "exact-multiplicity-count", "ordinary-low-index-prefix", "platt-turing-index-shards", "finalize-merkle-certificate"]
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

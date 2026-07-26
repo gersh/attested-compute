@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gersh.github.io/gpu_prover/schemas/platt-pt21-block-closure.schema.json",
+  "title": "PT21 source-shaped three-stream block artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "block",
+    "height_lower",
+    "height_upper",
+    "required_sign_packet_sha256",
+    "streams",
+    "paired_turing",
+    "producer_bracket_policy",
+    "lean_conversion"
+  ],
+  "properties": {
+    "schema": {"const": "sparkinterval.tg.platt-pt21-block-closure.v1"},
+    "block": {"type": "integer", "minimum": 0, "maximum": 2966443782},
+    "height_lower": {"type": "integer"},
+    "height_upper": {"type": "integer"},
+    "required_sign_packet_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "streams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["main", "left_flank", "right_flank"],
+      "properties": {
+        "main": {"$ref": "#/$defs/eventStream"},
+        "left_flank": {"$ref": "#/$defs/eventStream"},
+        "right_flank": {"$ref": "#/$defs/eventStream"}
+      }
+    },
+    "paired_turing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lower_count",
+        "upper_count",
+        "main_isolated_slots",
+        "left_ceiling_unique",
+        "right_floor_unique",
+        "endpoint_parity_matches",
+        "closure_equation_holds"
+      ],
+      "properties": {
+        "lower_count": {"type": "integer", "minimum": 0},
+        "upper_count": {"type": "integer", "minimum": 0},
+        "main_isolated_slots": {"type": "integer", "minimum": 0},
+        "left_ceiling_unique": {"const": true},
+        "right_floor_unique": {"const": true},
+        "endpoint_parity_matches": {"const": true},
+        "closure_equation_holds": {"const": true}
+      }
+    },
+    "producer_bracket_policy": {
+      "const": {
+        "touching_endpoints_allowed": true,
+        "interior_overlap_allowed": false,
+        "block_boundary_endpoints_allowed": true
+      }
+    },
+    "lean_conversion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "blockers"],
+      "properties": {
+        "available": {"const": false},
+        "blockers": {
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "enum": [
+              "enriched_endpoint_enclosure_packet_missing",
+              "analytic_realization_missing"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "eventStream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sample_range", "brackets", "slot_count", "turing_weight"],
+      "properties": {
+        "sample_range": {
+          "type": "array",
+          "prefixItems": [{"type": "integer"}, {"type": "integer"}],
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "brackets": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/bracket"}
+        },
+        "slot_count": {"type": "integer", "minimum": 0},
+        "turing_weight": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["numerator", "denominator"],
+          "properties": {
+            "numerator": {"type": "integer"},
+            "denominator": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    },
+    "bracket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lower_sample",
+        "upper_sample",
+        "lower_sign",
+        "upper_sign",
+        "resolver"
+      ],
+      "properties": {
+        "lower_sample": {"type": "integer"},
+        "upper_sample": {"type": "integer"},
+        "lower_sign": {"enum": [-1, 1]},
+        "upper_sign": {"enum": [-1, 1]},
+        "resolver": {
+          "enum": [
+            "direct",
+            "stationary_left",
+            "stationary_right",
+            "pinned_arb_fallback"
+          ]
+        }
+      }
+    }
+  }
+}

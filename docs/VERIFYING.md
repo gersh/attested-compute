@@ -1,20 +1,39 @@
 # Verifier guide
 
 This guide starts from the claim a verifier wants to establish. SparkInterval
-has three independent evidence paths:
+keeps these evidence paths independent:
 
 | Goal | Use | What it does not establish |
 | --- | --- | --- |
 | Check a mathematical result without trusting its producer | Full Lean result certificate | Who or what produced the certificate |
 | Inspect the proof about generated code | Lean typed-machine and compiler theorems | That emitted PTX, SASS, or a physical GPU implements the model |
 | Authenticate an execution record | Run-bundle verification, optionally with a DGX operator signature | Mathematical soundness; a DGX signature is not hardware evidence |
+| Authenticate an Azure confidential CPU/H100 run | Fresh challenge, independent Azure/NVIDIA appraisal, signed receipt, and reviewed source registry | Arbitrary user-space causality or mathematical correctness without measured-runner and algorithm-soundness proofs |
 | Use an accepted run in later Lean proofs | Closed `RegisteredInvocation`, exact statement check, private evidence import, and the sole run-certificate axiom | Universal backend correctness or future-run behavior; only a proved soundness theorem may turn `Runs` into mathematics |
 
-H100 confidential-computing acceptance is not operational in this repository.
-The offline artifacts and policy plumbing cannot produce accepted hardware
-evidence.
+The Azure collector, independent-appraisal adapter, receipt signer interface,
+source-pinned registry generator, and generated Lean consumer are operational
+as tools. The tracked receipt registry is empty and the checked-in key is
+development-only. No production appraiser/key, real Azure run, or accepted
+hardware evidence is included.
 
 Run relative commands in this guide from the repository root.
+
+Repository verification does not replay the production ternary-Goldbach
+campaigns. Local and CI work is limited to proof compilation, static
+closure/receipt checks, and tiny known-answer inputs; production arithmetic
+belongs to the measured Azure jobs described below.
+
+For the quick control-plane check, before any proof compilation, run:
+
+```bash
+make local-static
+```
+
+This checks every cloud-only workload guard, the Sqrt218 source callgraph,
+and the compact proof-build, launcher-boundary, launcher-build, and compiler
+discovery manifests. It does not compile or execute a native worker, open a
+production certificate, or reconstruct an architecture trace.
 
 ## 1. Pin the source and toolchain
 
@@ -39,19 +58,86 @@ The expected revision is also declared in `lakefile.toml`. Record the Lean,
 Lake, Python, CMake, CUDA, driver, and operating-system versions whenever they
 are part of the claim being checked.
 
-## 2. Build the Lean library safely
+## 2. Build the compact Lean proof root safely
 
 ```bash
 ./tools/safe_lake_build.py
 ```
 
-The planner builds local Lean modules serially, holds one plan-wide lock,
-detects source changes during the plan, and uses the resource limits described
-in [Memory-safe builds](MEMORY_SAFE_BUILDS.md). Do not substitute bare
-`lake build` or `lake env lean`: those commands bypass repository-wide
-serialization and can schedule several stale modules concurrently.
+The no-argument planner builds the explicit `SparkIntervalCompact` import
+closure serially, holds one plan-wide lock, detects source changes during the
+plan, and uses the resource limits described in
+[Memory-safe builds](MEMORY_SAFE_BUILDS.md). Bare `lake build` now selects the
+same compact default target, but it lacks the wrapper's plan lock, source
+snapshot, and aggregate cgroup limit.
+
+For a focused source change, pass the exact dotted module name to the safe
+planner. A dotted module such as
+`SparkInterval.Execution.X86ELFExactPureEntry` names one source closure;
+`SparkInterval.Execution` is itself a production aggregate, while
+`SparkInterval` is the broad library target. Both pull in unrelated
+multi-megabyte generated tables, and the safe planner refuses their
+materialized closure outside the measured Azure scope.
+
+Run the static boundary audit independently of Lean:
+
+```bash
+python3 tools/audit_local_lean_boundary.py
+```
+
+It recomputes the complete compact import closure, verifies the Lake default,
+rejects any direct or transitive path to `SparkInterval.Generated`,
+`RegisteredAlgorithm`, the run-certificate/registered/signed/trusted receipt
+stack, production-named modules, or replay/trace modules, and enforces the
+documented source byte/line budget. In particular, the legacy
+`PlattHeadQ128` and `CDEMAbelProduction` literal certificates remain outside
+the local proof root.
+
+At this source revision the closure is exactly **123 local modules, 1,518,295
+source bytes, and 39,106 source lines**. Its enforced ceilings are 2,097,152
+bytes and 50,000 lines. The closure includes the closed 13-atom architecture
+registry, all ten external-campaign checker adapters, the three-fold Ramaré
+native-family fallback, the closed 15-family/1,371-root aggregate invocation
+catalog, the fixed-decision checker, the fail-closed native aggregate
+capstone, the all-atom capstone,
+`CompactArchitectureReceipt`, `X86StaticBinaryCertificate`,
+`CX86ELFComposition`, `CX86StaticCertificateComposition`, and the V2
+`ExecutionClosureIdentity`; it excludes
+`SparkInterval.Execution.RegisteredAlgorithm`,
+`SparkInterval.Execution.RunCertificate`,
+`SparkInterval.Generated.PlattHeadQ128`, and
+`SparkInterval.Generated.CDEMAbelProduction`.
+
+The broad source-materialized library is available only through
+`--full-production-library` / `make lean-production`. Both fail before source
+planning unless the measured Azure worker scope is present. That environment
+scope is an accidental-dispatch guard, not attestation evidence.
 
 ## 3. Audit proof dependencies
+
+First audit the closed accounting for every trust root in the last fresh
+ternary-Goldbach capstone:
+
+```bash
+python3 tools/audit_tg_full_trust_boundary.py
+python3 tools/audit_tg_full_trust_boundary.py \
+  --claude-math-root ../claude_math
+```
+
+The first command joins the production-data-free external and native-family
+catalogs. The second additionally pins and parses the retained
+`Statement.trace`, and requires all 1,387 reported roots to match exactly.
+Neither command replays a finite computation.
+
+For the local source and compact-closure gate:
+
+```bash
+make audit
+```
+
+The fixed full-production axiom report is an Azure qualification operation,
+because importing its aggregate environment materializes the legacy
+production tables. Inside the measured qualification worker, retain:
 
 ```bash
 mkdir -p build/verification
@@ -65,17 +151,23 @@ boundary. The Lean audit file then prints `#print axioms` for the public
 mathematical, certificate, compiler, and typed-machine theorems.
 
 The command also checks the printed reports automatically. It requires exactly
-145 core declaration reports, including the full-row endpoint bridge,
+159 core declaration reports, including the full-row endpoint bridge,
 resumable endpoint/chunk checkers, positive reflection, symmetric-count
 handoff, and multiplicity-aware zeta count
 bridge and 14 for the pinned NVIDIA PTX source,
 clause, arithmetic, typed-step, and partial-module refinement surface, and
 permits only `propext`, `Classical.choice`, and `Quot.sound` in that group. It
-separately requires exactly 13 selected execution-bridge reports. That group
+separately requires exactly 16 selected execution-bridge reports. That group
 permits the same foundations plus only `accepted_run_certificate_sound`.
 A missing report, an extra report, or any unapproved dependency fails the
 audit. Retain the output so the checked declaration surface and dependencies
 remain inspectable with the verification record.
+
+For a dated cold-project/warm-dependency timing of this audit together with
+the Python and native validation phases, see the
+[local repository qualification benchmark](AZURE_PERFORMANCE_SIZING.md#local-repository-qualification-benchmark).
+That timing is not an estimate for recomputing the thirteen source-scale
+external atoms.
 
 The fixed audit surface does not include a certificate module generated later
 for a particular witness. That generated file prints its own concrete theorem
@@ -86,12 +178,98 @@ proof-reflection dependency, not a project execution assumption. See
 
 The sole permitted project execution axiom is
 [`accepted_run_certificate_sound`](../SparkInterval/Execution/Trusted/RunCertificate.lean).
-`dgx_operator_signed_run_sound` and `h100_attested_run_sound` are compatibility
-theorems proved from it, not separate axioms.
+Its premise is the exact source-admitted `checkTrustedCompute` policy. The
+legacy DGX-signature and H100 structural checks are diagnostic only;
+`RunCertificate.check` rejects their constructors, and the corresponding
+`*_not_admitted` theorems prove that they cannot reach the axiom.
 `accepted_registered_run_sound` is also a proved projection: after
-`RegisteredInvocation.statementCheck`, it exposes that closed invocation's
-fixed `Runs` relation. The sole axiom is not used by the mathematical
-certificate checker or generated typed-machine soundness theorems.
+`RegisteredInvocation.statementCheck` has recomputed the canonical source
+hashes and accepted the invocation-specific canonical result language, it
+exposes that closed invocation's fixed `Runs` relation. The sole axiom is not
+used by the mathematical certificate checker or generated typed-machine
+soundness theorems.
+
+### Audit concrete receipt use
+
+The ordinary axiom report names the single generic execution boundary. To see
+which exact receipts a particular theorem uses, import the certificate audit
+commands and inspect the theorem itself:
+
+```lean
+import SparkInterval.Audit.TrustedComputeCertificates
+
+#print certificates SomeNamespace.someTheorem
+#audit certificates SomeNamespace.someTheorem
+```
+
+`#print certificates` is diagnostic: it prints the complete root-axiom set,
+whether the execution axiom is reachable, every concrete receipt as
+`sha256:<64 lowercase hex digits>`, and the proof-dependency path to the
+receipt-binding declaration. It ends with a machine-readable
+`certificate-audit-v1` status:
+
+- `AXIOM_FREE` means the execution axiom is unreachable;
+- `COVERED` means every path to it is mediated by a closed wrapper carrying a
+  literal, canonical receipt hash; and
+- `FAIL_UNATTRIBUTED` means at least one path is generic or otherwise lacks a
+  valid concrete receipt binding.
+
+An additional `FAIL_UNEXPECTED_AXIOMS` status reports any root axiom outside
+the three disclosed Lean foundations and the one execution axiom.
+`#audit certificates` emits the same details but deliberately fails
+elaboration for either failing status. Use the auditing form as the acceptance
+gate and retain its output with the reviewed receipt.
+
+Generated trusted-compute consumers use
+`acceptedRunCertificateForReceipt`. The kernel checks its equality proof, so
+the literal hash displayed by the audit is the hash selected by the
+certificate's `.trustedCompute` attestation. The wrapper is proved through the
+same `accepted_run_certificate_sound`; it creates no per-receipt axiom.
+Generic conditional theorems that expose the bridge before a receipt exists
+properly print `FAIL_UNATTRIBUTED`. A concrete generated consumer must use the
+hash-binding wrapper before it can report `COVERED`.
+
+Discover receipt sites across the loaded project environment, including
+declarations that are not downstream of a root someone happened to query:
+
+```lean
+#print project certificates
+#audit project certificates
+```
+
+The project report groups concrete sites by canonical receipt SHA-256, names
+each instantiating declaration, and lists every declaration that directly
+calls the generic execution axiom. Direct calls are checked against a closed
+reviewed bridge list. The auditing form rejects malformed wrappers, new direct
+callers, concrete anchors that do not pass the per-root audit, and unexpected
+project axioms. Its stable `project-certificate-audit-v1` line includes unique
+hash and site counts. Zero sites is a valid result while the reviewed registry
+is empty.
+
+These commands inspect the loaded kernel environment, not unimported files.
+The repository gate therefore runs the audit from
+`SparkInterval/Tests/ProjectCertificateAudit.lean`, which imports the aggregate
+`SparkInterval.Execution` production certificate API. Audit project axiom
+declarations directly as well:
+
+```lean
+import SparkInterval.Blueprint
+import SparkInterval.Audit.TrustedComputeCertificates
+
+#audit project axioms
+```
+
+This rejects any project axiom other than
+`accepted_run_certificate_sound`, including an axiom spelled as `constant`.
+Imports in the audit file define its project surface; the Azure qualification
+lane runs `tools/audit_axioms.sh` for the aggregate environment and fixed
+public-theorem checks, while `make audit` remains the ordinary local
+whole-tree source/compact-boundary gate. Receipt attribution is a proof-term audit, not
+cryptographic verification. In particular, hand-admitting a registry entry is
+trust-equivalent at the execution boundary to accepting that external
+receipt. The tracked registry is empty, so no current production theorem can
+show `COVERED`; the checked-in generic bridge examples are expected to remain
+unattributed until a reviewed receipt is imported.
 
 ## 4. Verify a full Lean result certificate
 
@@ -192,17 +370,14 @@ artifact-checked local record. The result remains `local_unattested`, and the
 verifier reports `hardware_evidence: false`. It does not prove that a GPU ran
 or that the signed statement is truthful.
 
-Lean can turn such a claim into `RunCertificate.ProducedOutcome` only through
-`accepted_run_certificate_sound`, the sole run-certificate axiom, which adds
-trust in the operator's truthfulness. Its `.historical` field supplies
-`AlgorithmReturned`; its `.registered` field supplies fixed formal `Runs`
-semantics only after a closed `RegisteredInvocation.statementCheck` succeeds.
-`accepted_registered_run_sound` and `dgx_operator_signed_run_sound` are proved
-projections around that boundary. The Python signature verifier is
-implemented, but an importer that converts its exact canonical output into
-Lean's private positive-evidence capability is not. There is therefore no
-current end-to-end command that makes a signed JSON bundle discharge this Lean
-premise.
+Lean does not turn this DGX claim into `RunCertificate.ProducedOutcome`.
+`RunCertificate.check` unconditionally rejects `.dgxOperatorSignature`, and
+`dgx_operator_signature_not_admitted` proves that even a positive structural
+diagnostic cannot reach `accepted_run_certificate_sound`. The Python verifier
+therefore supplies operator provenance only, not `AlgorithmReturned`, fixed
+formal `Runs` semantics, or a theorem-producing Lean premise. The separate
+Azure source-receipt route is described in section 7; only that route can
+produce an accepted trusted-compute certificate.
 
 Once that premise is available, the aggregate [`SparkInterval.Execution`](../SparkInterval/Execution.lean)
 API exposes `SignedResultCertificate`. Its `checkUpperBound_sound` and
@@ -236,8 +411,7 @@ its statement check binds the formal algorithm definition and exact canonical
 input, parameter, and domain digests. A successful theorem yields
 `invocation.Runs certificate.resultCertificate`.
 
-The one current example is
-`RegisteredInvocation.cubicSumDivThree20000V1`. From an accepted matching
+The CPU example is `RegisteredInvocation.cubicSumDivThree20000V1`. From an accepted matching
 certificate, `certifyCubicSumDivThree20000` proves the exact canonical output
 `13334666700000000` and
 `RegisteredAlgorithm.cubicSumDivThree 20000 = 13334666700000000`. Its
@@ -246,9 +420,17 @@ and `cubicSumDivThreeMachine` divides once. Axiom-free Lean theorems prove the
 machine result, agreement with the rational sum, and that every cube and
 accumulator step stays below `2^64`. These symbolic proofs have no
 `native_decide` dependency. They do not prove that GPU opcodes implement the
-machine. Because the private-evidence importer is absent, the repository
-supplies the theorem and negative/conditional tests but no accepted signed
-bundle instance.
+machine. The tracked trusted-compute registry has no matching receipt, so the
+repository supplies the theorem and negative/conditional tests but no
+accepted signed-bundle instance.
+
+The GPU example is `RegisteredInvocation.h100FormalPtxConstantOneV1`, a
+one-row, zero-variable `sm_90` deployment pilot. The axiom-free
+`h100FormalPtxConstantOnePTX_eq_formalEmitter` theorem identifies its
+registered PTX with the formal emitter's output for the closed `[1,1]` batch.
+`certifyH100FormalPtxConstantOne` derives the exact compact output, endpoint
+decodings, and that formal-program identity from an accepted matching
+certificate. The tracked registry likewise supplies no accepted instance.
 
 For application handoff, prefer `checkUpperBoundForAlgorithm_sound` or
 `checkSumUpperBoundForAlgorithm_sound`. They additionally prove that the
@@ -278,7 +460,7 @@ and the exact-rational family sign/adjacent-order check. The combined
 PTX outcome. Its `ProducedOutcome` uses
 `accepted_run_certificate_sound`; none of the parser, arithmetic, shape, or
 family facts follow from attestation or from the registered projection. No
-zeta checker is currently a constructor of the closed registry.
+zeta checker is currently a constructor of the closed algorithm registry.
 
 `SignedZetaEndpointPayload.verifyFiniteHeight` is the final conditional
 handoff. It additionally requires a proved `HardyZModel`, explicit
@@ -302,12 +484,12 @@ This composition also does not connect the current division-capable zeta CUDA
 runner to the polynomial typed-PTX theorem. It proves only the predicate
 actually checked by the supplied full certificate.
 
-There is no compatible retained bundle to feed this API today. A wire run
-statement records an output artifact path, size, and hash, not the output text;
-a future importer must verify and read that exact file to construct the Lean
-result binding. The generated-cubin workflow's output is `results.bin`, while
-the zeta workflow's output is `zeta-report.json`. Neither has the canonical
-full-certificate schema required by `SignedResultCertificate`.
+There is no compatible retained accepted bundle to feed this API today. A wire
+run statement records an output artifact path, size, and hash, not the output
+text. The Azure receipt importer verifies and reads that exact file before
+committing its UTF-8 contents, but the generated-cubin workflow's output is
+`results.bin` and the zeta workflow's output is `zeta-report.json`. Neither has
+the canonical full-certificate schema required by `SignedResultCertificate`.
 
 The formal-AST-to-emitted-PTX identity is therefore available only through
 that dedicated path and hash convention. Generated-cubin bundles currently
@@ -315,34 +497,125 @@ define `algorithmHash` as the cubin digest, while `FormalPTXProgram` defines it
 as the digest of `renderUncheckedFor target (buildModule batch)`. Wire bundles
 can also bind a `gpu_ptx` artifact, but the Lean `ArtifactHashes` type does not
 retain that PTX digest. Do not reinterpret the cubin digest as the formal PTX
-digest. A production importer and a proof connecting the separately bound
-cubin to the emitted PTX are still missing;
+digest. A proof connecting the separately bound cubin to the emitted PTX is
+still missing;
 `ptxas`/SASS/driver/hardware refinement remains external.
 
-## 7. Interpret H100 artifacts fail-closed
+## 7. Verify and source-admit Azure trusted compute
 
-The following self-tests cross-build and inspect real `compute_90` PTX and
-`sm_90` cubins without querying or executing an H100:
+The offline H100 self-tests still make only an artifact claim:
 
 ```bash
 ./tests/test_h100_offline.sh
 ./tests/test_h100_interval_batch_offline.sh
 ```
 
-[`tools/run_h100_cc_acceptance.sh`](../tools/run_h100_cc_acceptance.sh) is a
-deliberate stub that exits 78 and cannot accept a result. The production
-run-bundle policy can call a separately supplied attestation-verifier
-executable, but this repository supplies neither a production NVIDIA evidence
-verifier nor a positive Lean evidence importer. Offline, mock, and local
-records cannot satisfy `checkH100Attestation`.
+They neither query a device nor produce attestation. The legacy
+`run_h100_cc_acceptance.sh` provider also remains a deliberate fail-closed
+stub. Production Azure evidence uses the distinct trusted-compute route below.
 
-An accepted H100 premise would yield `ProducedOutcome` through the same
-`accepted_run_certificate_sound` axiom; `h100_attested_run_sound` is a proved
-historical compatibility wrapper. If a complete closed invocation check also
-succeeds, `accepted_registered_run_sound` yields its fixed `Runs` semantics.
-No H100 workload is thereby registered automatically: a reviewed registry
-constructor, result decoder, and ordinary application-soundness theorem remain
-necessary.
+First create a fresh challenge on the relying-party machine and preflight the
+exact target. Use `azure/cpu_cvm.py` instead when the finite job needs only
+confidential CPU/FLINT/Arb execution:
+
+```bash
+python3 azure/create_attestation_challenges.py \
+  --campaign-id reviewed-run-01 --count 1 \
+  --output-dir build/reviewed-run-01-challenges
+
+python3 azure/ncc_h100.py preflight \
+  --subscription "$AZURE_SUBSCRIPTION_ID" \
+  --location eastus2 --nodes 1
+```
+
+Follow the [Azure operator guide](AZURE_CONFIDENTIAL_COMPUTE.md) to deploy a
+private `Standard_NCC40ads_H100_v5` VM, stage a reviewed content-addressed
+runner, run the finite computation, produce its exact canonical bundle and
+UTF-8 output, and collect post-run evidence. The collector requires a pinned
+MAA endpoint and binds the off-VM challenge and wire-statement digest into MAA,
+NVIDIA, and vTPM evidence:
+
+```bash
+sudo python3 attestation/collect_azure_ncc_evidence.py \
+  --challenge /secure-input/shard-000.challenge.json \
+  --backend azure_ncc40ads_h100_v5 \
+  --statement-file /run/shard-000/statement.json \
+  --statement-sha256 "$STATEMENT_SHA256" \
+  --maa-attestation-url "$PINNED_MAA_ATTESTATION_URL" \
+  --output-dir /run/shard-000/azure-evidence
+```
+
+Collection is not acceptance. Outside the worker VM, appraise the returned
+pack with a canonical policy whose Azure and NVIDIA executables and policy
+files are independently reviewed and SHA-256 pinned:
+
+```bash
+attestation/verify_azure_ncc_evidence.py \
+  --evidence-pack /returned/shard-000/azure-evidence \
+  --policy /reviewed-policy/composite-policy.json \
+  --backend azure_ncc40ads_h100_v5 \
+  --expected-challenge-file /retained-off-vm/shard-000.challenge.json \
+  --expected-start-challenge-sha256 "$START_CHALLENGE_SHA256" \
+  --expected-result-binding-sha256 "$RESULT_BINDING_SHA256"
+```
+
+The retained challenge path must name the original canonical file kept outside
+the worker, not a returned copy. The adapter requires the entire returned
+challenge object to equal it and rechecks that file after appraisal. It must
+cryptographically validate MAA/SEV-SNP/vTPM evidence and,
+for H100, NVIDIA certificate, RIM, revocation, EAT, nonce, security-state, and
+validity claims. It recomputes the complete artifact closure and does not trust
+collector booleans. Its successful normalized output still does not prove
+that arbitrary user-space code caused the result: the accepted platform policy
+must cover an immutable measured runner and executable closure, using IMA,
+dm-verity, or an equivalently reviewed mechanism.
+
+Issue the compact receipt with a production Azure Managed HSM key. The
+[Managed HSM signing guide](AZURE_MANAGED_HSM_SIGNING.md) contains the exact
+key provisioning, attestation, pinning, and signer command. Do not use the
+checked-in bootstrap key or `--allow-development-key` for a production
+admission. The receipt issuer invokes the evidence verifier again and binds its
+binary and policy hashes, validity interval, run bundle, output, challenge,
+and result-binding digest before signing.
+
+Supply the original retained challenge and one shared durable issuer ledger as
+`--retained-challenge ... --replay-db ...`. The issuer atomically burns the
+nonce/challenge/statement/backend tuple before appraisal; failures stay spent.
+It installs output without replacing an existing path, fsyncs it, and only then
+marks the row signed. The production key manifest and Lean policy must also pin
+the exact backend, target-profile digest, trust-profile digest, verifier binary,
+and appraisal-policy tuple. A valid signature under an unapproved tuple or
+development-classified key is rejected.
+
+Finally add the production public-key pin and reviewed receipt to source, then
+compile the generated consumer:
+
+```bash
+python3 tools/generate_trusted_compute_registry.py \
+  /returned/shard-000/trusted-compute-receipt.json \
+  --out SparkInterval/Execution/TrustedComputeRegistry.lean
+git diff -- SparkInterval/Execution/TrustedComputeRegistry.lean
+
+mkdir -p build/trusted-compute
+python3 tools/generate_trusted_compute_lean.py \
+  /returned/shard-000/trusted-compute-receipt.json \
+  --namespace ReviewedAzureRun \
+  --out build/trusted-compute/ReviewedAzureRun.lean
+./tools/safe_lean.sh build/trusted-compute/ReviewedAzureRun.lean
+```
+
+The generated `accepted` theorem uses ordinary kernel reduction for exact
+source-registry membership and structural binding. Only
+`producedOutcome` crosses `accepted_run_certificate_sound`, the sole project
+execution axiom. Its registered projection is useful only if the receipt also
+matches a constructor of the closed `RegisteredInvocation` type; an ordinary
+Lean theorem from that invocation's fixed `Runs` semantics to the application
+claim is still required. A signature or receipt cannot select an arbitrary
+proposition.
+
+The tracked `TrustedComputeRegistry.lean` is empty. These commands describe
+the implemented admission process; they do not document a run that this
+repository has actually performed.
 
 ## Public theorem map
 
@@ -361,9 +634,13 @@ necessary.
 | Modeled no-write return path | `runBuildModule_outOfRange` | [`GeneratedKernelOutOfRangeRefinement.lean`](../SparkInterval/PTX/GeneratedKernelOutOfRangeRefinement.lean#L115) |
 | Full certificate | `FullCertificate.check_sound`, `checkUpperBound_sound`, `checkSumUpperBound_sound` | [`Full.lean`](../SparkInterval/Certificate/Full.lean#L122) |
 | Serialized certificate | `impliesTheorem`, `impliesSumTheorem` | [`Format.lean`](../SparkInterval/Certificate/Format.lean#L367) |
-| Unified accepted run | `accepted_run_certificate_sound`; DGX/H100 compatibility theorems derive from it | [`Trusted/RunCertificate.lean`](../SparkInterval/Execution/Trusted/RunCertificate.lean) |
-| Closed registered semantics | `RegisteredInvocation.statementCheck_sound`, `accepted_registered_run_sound`, `outcomeCheckForRegisteredInvocation_sound` | [`RegisteredAlgorithm.lean`](../SparkInterval/Execution/RegisteredAlgorithm.lean), [`Trusted/RunCertificate.lean`](../SparkInterval/Execution/Trusted/RunCertificate.lean), [`SignedResultCertificateComposition.lean`](../SparkInterval/Execution/SignedResultCertificateComposition.lean) |
+| Source-admitted accepted run | `accepted_run_certificate_sound`; its premise is exactly `checkTrustedCompute` | [`Trusted/RunCertificate.lean`](../SparkInterval/Execution/Trusted/RunCertificate.lean) |
+| Source-pinned Azure receipt | `checkTrustedCompute`; exact lookup, claim, backend, and evidence bindings reduce before the unified axiom | [`TrustedComputePolicy.lean`](../SparkInterval/Execution/TrustedComputePolicy.lean), [`TrustedComputeRegistry.lean`](../SparkInterval/Execution/TrustedComputeRegistry.lean) |
+| Legacy DGX/H100 structures | `dgx_operator_signature_not_admitted`, `h100_attestation_not_admitted`; positive diagnostics remain rejected by `RunCertificate.check` | [`Trusted/DGXOperatorSignature.lean`](../SparkInterval/Execution/Trusted/DGXOperatorSignature.lean), [`Trusted/H100Attestation.lean`](../SparkInterval/Execution/Trusted/H100Attestation.lean) |
+| Closed registered semantics | `RegisteredInvocation.statementCheck_sound`, `RegisteredInvocation.certificateBindingCheck`, `accepted_registered_run_sound`, `outcomeCheckForRegisteredInvocation_sound` | [`RegisteredAlgorithm.lean`](../SparkInterval/Execution/RegisteredAlgorithm.lean), [`Trusted/RunCertificate.lean`](../SparkInterval/Execution/Trusted/RunCertificate.lean), [`SignedResultCertificateComposition.lean`](../SparkInterval/Execution/SignedResultCertificateComposition.lean) |
 | Registered cubic-sum result and u64 bounds | `cubicSumDivThreeMachine_20000`, `cubicSumDivThreeMachine_sound_20000`, `cube_lt_u64`, `cubicNumeratorLoop_lt_u64`, `cubicNumeratorStep_lt_u64`, `SignedResultCertificate.certifyCubicSumDivThree20000` | [`RegisteredAlgorithm.lean`](../SparkInterval/Execution/RegisteredAlgorithm.lean), [`RegisteredCubicSumCertificate.lean`](../SparkInterval/Execution/RegisteredCubicSumCertificate.lean) |
+| Registered H100 formal-PTX pilot | `h100FormalPtxConstantOnePTX_eq_formalEmitter`, `SignedResultCertificate.certifyH100FormalPtxConstantOne` | [`RegisteredH100FormalPtxPilot.lean`](../SparkInterval/Execution/RegisteredH100FormalPtxPilot.lean) |
+| Registered shared Hurst V2 result | `checked_full_source_claims_of_local`, `checked_real_source_claims_of_local`, `hurstSharedFourResidualProductionV2_realClaims`, `SignedResultCertificate.certifyHurstSharedFourResidual`; primitive local rows reconstruct global prefixes, then five real inequalities follow from one exact successful full-range run | [`RegisteredAlgorithm.lean`](../SparkInterval/Execution/RegisteredAlgorithm.lean), [`RegisteredHurstSharedCertificate.lean`](../SparkInterval/Execution/RegisteredHurstSharedCertificate.lean), [`HurstSourceSemantics.lean`](../SparkInterval/TernaryGoldbach/HurstSourceSemantics.lean) |
 | Exact returned certificate | `SignedResultCertificate.outcomeCheck_sound`, `outcomeCheckForAlgorithm_sound` | [`SignedResultCertificateComposition.lean`](../SparkInterval/Execution/SignedResultCertificateComposition.lean) |
 | Checked returned certificate | `SignedResultCertificate.checkUpperBound_sound`, `checkSumUpperBound_sound`, `checkUpperBoundForAlgorithm_sound`, `checkSumUpperBoundForAlgorithm_sound` | [`SignedResultCertificateComposition.lean`](../SparkInterval/Execution/SignedResultCertificateComposition.lean) |
 | Signed typed zeta payload | `SignedZetaEndpointPayload.payloadCheck_sound`, `check_sound`, `CertifiedForFormalPTX.statementResult_parses`, `check_exists_zeroCertificate` | [`SignedZetaEndpointPayload.lean`](../SparkInterval/Execution/SignedZetaEndpointPayload.lean) |
@@ -407,7 +684,16 @@ After checking the relevant evidence, it is accurate to say:
   `13334666700000000`, agreement with the rational sum, and u64 safety of each
   step without `native_decide`,” when the registered cubic theorems apply.
   State separately that this is not a GPU-opcode theorem and that no positive
-  evidence importer or accepted instance is supplied.
+  Azure receipt or other accepted instance is supplied.
+- “The pinned relying-party key signed this exact, independently appraised
+  Azure receipt, and the reviewed Lean source registry contains its exact
+  normalized claim,” only after independently auditing the appraisers,
+  policies, key attestation, validity and replay checks, measured runner,
+  signature, and generated registry diff.
+- “Ordinary Lean reduction checked this source-admitted receipt's exact
+  registry membership and structural statement binding; the sole execution
+  axiom supplies this one run's `ProducedOutcome`,” when the generated
+  `accepted` and `producedOutcome` theorems apply.
 - “Lean canonically parsed the returned full endpoint certificate and checked
   every arithmetic row, paired-singleton shape, strict endpoint sign, and
   adjacent family ordering,” when `SignedZetaEndpointPayload.check_sound`
@@ -438,6 +724,8 @@ Do not say:
 - that a clause citation or the finite/non-NaN arithmetic refinement is a
   formal semantics for the complete emitted PTX program;
 - that a DGX signature proves a GPU execution;
+- that an Azure/AMD/NVIDIA token, TPM PCR extension, or HSM signature proves
+  arbitrary user-space causality or mathematical soundness;
 - that a signature, attestation envelope, algorithm ID/hash, or caller-chosen
   proposition by itself establishes `RegisteredInvocation.Runs`;
 - that an offline or mock H100 record is hardware-attested;

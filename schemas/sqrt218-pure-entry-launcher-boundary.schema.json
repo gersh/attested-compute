@@ -1,0 +1,237 @@
+{
+  "$id": "https://sparkinterval.invalid/schemas/sqrt218-pure-entry-launcher-boundary.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A metadata-only, non-authorizing record of the unreviewed Sqrt218 pure-entry launcher prototype, absent built artifact, and exact ABI, memory, observation, cloud, and formal-proof obligations.",
+  "properties": {
+    "abi": {
+      "const": {
+        "arguments": [
+          {
+            "c_type": "const uint8_t *",
+            "name": "input",
+            "region": "input",
+            "register": "RDI"
+          },
+          {
+            "c_type": "uint64_t",
+            "name": "input_length",
+            "register": "RSI",
+            "value": "exact-input-artifact-size"
+          },
+          {
+            "c_type": "uint8_t *",
+            "name": "result",
+            "region": "result",
+            "register": "RDX"
+          },
+          {
+            "c_type": "uint32_t *",
+            "name": "status",
+            "region": "status",
+            "register": "RCX"
+          }
+        ],
+        "callee_saved_registers": [
+          "RBX",
+          "RBP",
+          "R12",
+          "R13",
+          "R14",
+          "R15"
+        ],
+        "direction_flag_clear_on_entry": true,
+        "return_register": "RAX",
+        "return_type": "int",
+        "stack_alignment_at_function_entry": {
+          "modulus_bytes": 16,
+          "remainder_bytes": 8
+        }
+      }
+    },
+    "authority": {
+      "const": {
+        "architecture_execution_proved": false,
+        "authorizes_lean_theorem": false,
+        "production_execution_performed": false,
+        "receipt_may_be_issued": false
+      }
+    },
+    "cloud_binding": {
+      "const": {
+        "attestation_bindings_required": [
+          "off-vm-challenge",
+          "job-binding-sha256",
+          "launcher-sha256-and-size",
+          "pure-entry-elf-sha256-and-size",
+          "input-sha256-and-size",
+          "exact-120-byte-result-sha256-and-size",
+          "status-u32",
+          "return-observer-record",
+          "vm-image-measurement",
+          "cpu-vendor-family-model-stepping",
+          "cpu-microcode-version",
+          "sev-snp-report",
+          "vtpm-pcr23-quote"
+        ],
+        "backend": "azure_sevsnp_cpu",
+        "custom_launch_mode_required": "sqrt218-static-pure-entry-loader-v1",
+        "existing_popen_execve_mode_acceptable": false,
+        "target_profile": "azure_sevsnp_cpu"
+      }
+    },
+    "current_implementation": {
+      "const": {
+        "cloud_build_manifest": {
+          "kind": "sparkinterval.sqrt218-cloud-launcher-build.v1",
+          "manifest_sha256": "fc4cdac2d81d66b40e453059b738073f771a9f77fde932e2e9855d49ea7f6e1d",
+          "path": "launcher_build/sqrt218/cloud-launcher-build.v1.json"
+        },
+        "concrete_launcher_source": "launcher_build/sqrt218/sqrt218_pure_entry_launcher.c",
+        "concrete_trampoline_source": "launcher_build/sqrt218/sqrt218_pure_entry_trampoline.S",
+        "launcher_artifact": {
+          "path": null,
+          "sha256": null,
+          "size_bytes": null
+        },
+        "launcher_prototype_present": true,
+        "launcher_prototype_formally_refined": false,
+        "launcher_source_reviewed": false,
+        "measured_runner_launch_mode": "normal-process-popen",
+        "measured_runner_satisfies_contract": false
+      }
+    },
+    "formal_connection": {
+      "const": {
+        "architecture_model": "SparkInterval.Execution.Architecture.X86ELF.PureEntryModel",
+        "architecture_obligation": "ArchitectureExecutionSuppliesSuccessfulPureEntry",
+        "execution_closure_identity_binds_launch_contract": true,
+        "execution_closure_identity_binds_launcher_artifact": true,
+        "initializer_refinement_present": false,
+        "lean_initializer_field": "PureEntryModel.initializeEntry",
+        "lean_observer_field": "PureEntryModel.returnedWith",
+        "observer_refinement_present": false,
+        "physical_admission_rule_present": false,
+        "signed_lean_launcher_binding_present": false
+      }
+    },
+    "kind": {
+      "const": "sparkinterval.sqrt218-pure-entry-launcher-boundary.v1"
+    },
+    "local_validation": {
+      "const": {
+        "artifact_bytes_opened": false,
+        "compiler_or_toolchain_invoked": false,
+        "elf_or_launcher_executed": false,
+        "manifest_metadata_only": true,
+        "production_arithmetic_performed": false,
+        "production_certificate_opened": false
+      }
+    },
+    "manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "memory": {
+      "const": {
+        "all_regions_pairwise_disjoint": true,
+        "elf_load_segments": {
+          "exact_file_bytes_required": true,
+          "fixed_virtual_addresses_required": true,
+          "no_unapplied_relocations": true,
+          "no_writable_executable_segment": true,
+          "program_header_permissions_enforced": true
+        },
+        "input": {
+          "contents": "exact-input-artifact-bytes",
+          "permission_during_entry": "read-only-non-executable",
+          "sha256_binding_required": true,
+          "size": "exact-input-artifact-size",
+          "unchanged_after_return_required": true
+        },
+        "result": {
+          "final_contents": "exact-retained-result-bytes",
+          "initial_contents": "all-zero",
+          "permission_during_entry": "read-write-non-executable",
+          "sha256_binding_required": true,
+          "size_bytes": 120
+        },
+        "stack": {
+          "guard_pages_required": true,
+          "permission": "read-write-non-executable",
+          "size_binding_required": true
+        },
+        "status": {
+          "accepted_value": 0,
+          "encoding": "little-endian-uint32",
+          "initial_contents": "all-zero",
+          "permission_during_entry": "read-write-non-executable",
+          "size_bytes": 4
+        }
+      }
+    },
+    "pure_entry": {
+      "const": {
+        "calling_convention": "System V AMD64 ABI",
+        "dynamic_interpreter_allowed": false,
+        "elf_machine": "EM_X86_64",
+        "entry_is_linux_process_start": false,
+        "entry_symbol": "tg_sq218_verify_snapshot_v2",
+        "execve_allowed": false,
+        "function_signature": "int(const uint8_t *, uint64_t, uint8_t[120], uint32_t *)",
+        "object_type": "ET_EXEC",
+        "position_independent": false
+      }
+    },
+    "return_observer": {
+      "const": {
+        "accept_only_if": [
+          "normal-return-to-measured-sentinel",
+          "eax-int32-return-equals-one",
+          "status-buffer-little-endian-u32-equals-zero",
+          "result-buffer-is-exactly-120-bytes",
+          "input-bytes-unchanged",
+          "no-signal-fault-or-timeout-and-exactly-one-launcher-attempt"
+        ],
+        "observer_executes_before_unmeasured_code": true,
+        "result_retained_without_transformation": true,
+        "return_address_points_into_measured_launcher_text": true,
+        "return_sentinel_address_binding_required": true
+      }
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "status": {
+      "const": {
+        "blockers": [
+          "unreviewed-pure-entry-loader-launcher-prototype",
+          "cloud-built-launcher-artifact-not-yet-pinned",
+          "v2-launcher-and-control-identity-not-yet-instantiated-by-reviewed-receipt",
+          "missing-launcher-to-lean-initializer-observer-refinement",
+          "missing-exact-elf-loader-and-x86-execution-proof",
+          "missing-appraised-azure-launch-receipt"
+        ],
+        "execution_ready": false,
+        "production_ready": false
+      }
+    }
+  },
+  "required": [
+    "abi",
+    "authority",
+    "cloud_binding",
+    "current_implementation",
+    "formal_connection",
+    "kind",
+    "local_validation",
+    "manifest_sha256",
+    "memory",
+    "pure_entry",
+    "return_observer",
+    "schema_version",
+    "status"
+  ],
+  "title": "Sqrt218 pure-entry launcher boundary",
+  "type": "object"
+}

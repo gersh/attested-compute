@@ -1,0 +1,537 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/sqrt218-compiler-evidence-manifest.schema.json",
+  "title": "Sqrt218 fixed-V2 CPU compiler-evidence manifest",
+  "description": "A compact canonical evidence index. Schema validity records metadata shape only: it does not prove any named artifact, authorize a Lean theorem or receipt, appraise an attestation, or execute/replay the production computation. Cross-field digest equalities and the canonical body self-hash are additionally enforced by tg_verifier.sqrt218_compiler_evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "authority",
+    "build_chain",
+    "contracts",
+    "kind",
+    "manifest_sha256",
+    "residual_trust",
+    "schema_version"
+  ],
+  "properties": {
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorizes_lean_theorem",
+        "authorizes_receipt",
+        "classification",
+        "compiler_correctness_established_by_manifest",
+        "machine_code_refinement_established_by_manifest",
+        "production_execution_performed",
+        "validation_scope"
+      ],
+      "properties": {
+        "authorizes_lean_theorem": {"const": false},
+        "authorizes_receipt": {"const": false},
+        "classification": {
+          "const": "evidence-index-only-not-proof-or-authority"
+        },
+        "compiler_correctness_established_by_manifest": {"const": false},
+        "machine_code_refinement_established_by_manifest": {"const": false},
+        "production_execution_performed": {"const": false},
+        "validation_scope": {
+          "const": "canonical-shape-digests-and-chain-consistency-only"
+        }
+      }
+    },
+    "build_chain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assembler",
+        "c_translation",
+        "compcert",
+        "elf",
+        "formal_architecture",
+        "linker",
+        "valex",
+        "vst"
+      ],
+      "properties": {
+        "assembler": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "command_sha256",
+            "executable",
+            "exit_code",
+            "input_assembly_sha256",
+            "output_object",
+            "tool_id",
+            "version"
+          ],
+          "properties": {
+            "command_sha256": {"$ref": "#/$defs/sha256"},
+            "executable": {"$ref": "#/$defs/artifact"},
+            "exit_code": {"const": 0},
+            "input_assembly_sha256": {"$ref": "#/$defs/sha256"},
+            "output_object": {"$ref": "#/$defs/artifact"},
+            "tool_id": {"$ref": "#/$defs/identifier"},
+            "version": {"$ref": "#/$defs/version"}
+          }
+        },
+        "c_translation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "clight_ast",
+            "compcert_c_ast",
+            "preprocessed_source",
+            "source"
+          ],
+          "properties": {
+            "clight_ast": {"$ref": "#/$defs/artifact"},
+            "compcert_c_ast": {"$ref": "#/$defs/artifact"},
+            "preprocessed_source": {"$ref": "#/$defs/artifact"},
+            "source": {"$ref": "#/$defs/artifact"}
+          }
+        },
+        "compcert": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "abstract_assembly",
+            "clight_ast_sha256",
+            "command_sha256",
+            "compcert_c_ast_sha256",
+            "compiler_id",
+            "configuration",
+            "executable",
+            "exit_code",
+            "preprocessed_input_sha256",
+            "source_revision",
+            "textual_assembly",
+            "version"
+          ],
+          "properties": {
+            "abstract_assembly": {"$ref": "#/$defs/artifact"},
+            "clight_ast_sha256": {"$ref": "#/$defs/sha256"},
+            "command_sha256": {"$ref": "#/$defs/sha256"},
+            "compcert_c_ast_sha256": {"$ref": "#/$defs/sha256"},
+            "compiler_id": {"$ref": "#/$defs/identifier"},
+            "configuration": {"$ref": "#/$defs/artifact"},
+            "executable": {"$ref": "#/$defs/artifact"},
+            "exit_code": {"const": 0},
+            "preprocessed_input_sha256": {"$ref": "#/$defs/sha256"},
+            "source_revision": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{7,64}$"
+            },
+            "textual_assembly": {"$ref": "#/$defs/artifact"},
+            "version": {"$ref": "#/$defs/version"}
+          }
+        },
+        "elf": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "architecture",
+            "dependencies_report_sha256",
+            "elf_class",
+            "elf_header_sha256",
+            "endianness",
+            "entry_symbol",
+            "entry_virtual_address_hex",
+            "file",
+            "file_type",
+            "has_writable_executable_segment",
+            "interpreter_present",
+            "link_map_sha256",
+            "needed_libraries",
+            "nx_stack",
+            "pie",
+            "program_headers_sha256",
+            "section_headers_sha256",
+            "static_linked",
+            "symbols_sha256"
+          ],
+          "properties": {
+            "architecture": {"const": "x86_64"},
+            "dependencies_report_sha256": {"$ref": "#/$defs/sha256"},
+            "elf_class": {"const": "ELF64"},
+            "elf_header_sha256": {"$ref": "#/$defs/sha256"},
+            "endianness": {"const": "little"},
+            "entry_symbol": {"$ref": "#/$defs/identifier"},
+            "entry_virtual_address_hex": {
+              "type": "string",
+              "pattern": "^(?!0000000000000000$)[0-9a-f]{16}$"
+            },
+            "file": {"$ref": "#/$defs/artifact"},
+            "file_type": {"const": "ET_EXEC"},
+            "has_writable_executable_segment": {"const": false},
+            "interpreter_present": {"const": false},
+            "link_map_sha256": {"$ref": "#/$defs/sha256"},
+            "needed_libraries": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "nx_stack": {"const": true},
+            "pie": {"const": false},
+            "program_headers_sha256": {"$ref": "#/$defs/sha256"},
+            "section_headers_sha256": {"$ref": "#/$defs/sha256"},
+            "static_linked": {"const": true},
+            "symbols_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "formal_architecture": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "architecture",
+            "entry_symbol",
+            "entry_virtual_address_hex",
+            "lean_model_declaration_id",
+            "model_id",
+            "model_sha256",
+            "sysv_abi_contract_sha256"
+          ],
+          "properties": {
+            "architecture": {"const": "x86_64"},
+            "entry_symbol": {"$ref": "#/$defs/identifier"},
+            "entry_virtual_address_hex": {
+              "type": "string",
+              "pattern": "^(?!0000000000000000$)[0-9a-f]{16}$"
+            },
+            "lean_model_declaration_id": {"$ref": "#/$defs/identifier"},
+            "model_id": {"$ref": "#/$defs/identifier"},
+            "model_sha256": {"$ref": "#/$defs/sha256"},
+            "sysv_abi_contract_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "linker": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "command_sha256",
+            "executable",
+            "exit_code",
+            "input_objects",
+            "link_map",
+            "output_elf_sha256",
+            "tool_id",
+            "version"
+          ],
+          "properties": {
+            "command_sha256": {"$ref": "#/$defs/sha256"},
+            "executable": {"$ref": "#/$defs/artifact"},
+            "exit_code": {"const": 0},
+            "input_objects": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 256,
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/artifact"}
+            },
+            "link_map": {"$ref": "#/$defs/artifact"},
+            "output_elf_sha256": {"$ref": "#/$defs/sha256"},
+            "tool_id": {"$ref": "#/$defs/identifier"},
+            "version": {"$ref": "#/$defs/version"}
+          }
+        },
+        "valex": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["reason", "status"],
+              "properties": {
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "status": {"enum": ["not_run", "unsupported"]}
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "command_sha256",
+                "exit_code",
+                "report",
+                "status",
+                "tool",
+                "validated_assembly_sha256",
+                "version"
+              ],
+              "properties": {
+                "command_sha256": {"$ref": "#/$defs/sha256"},
+                "exit_code": {"const": 0},
+                "report": {"$ref": "#/$defs/artifact"},
+                "status": {"const": "passed"},
+                "tool": {"$ref": "#/$defs/artifact"},
+                "validated_assembly_sha256": {"$ref": "#/$defs/sha256"},
+                "version": {"$ref": "#/$defs/version"}
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "command_sha256",
+                "exit_code",
+                "report",
+                "status",
+                "tool",
+                "validated_assembly_sha256",
+                "version"
+              ],
+              "properties": {
+                "command_sha256": {"$ref": "#/$defs/sha256"},
+                "exit_code": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9223372036854775807
+                },
+                "report": {"$ref": "#/$defs/artifact"},
+                "status": {"const": "failed"},
+                "tool": {"$ref": "#/$defs/artifact"},
+                "validated_assembly_sha256": {"$ref": "#/$defs/sha256"},
+                "version": {"$ref": "#/$defs/version"}
+              }
+            }
+          ]
+        },
+        "vst": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "assumptions_report",
+            "proof_bundle",
+            "rocqchk",
+            "specification_id",
+            "verification_theorem_id",
+            "verified_function_id"
+          ],
+          "properties": {
+            "assumptions_report": {"$ref": "#/$defs/artifact"},
+            "proof_bundle": {"$ref": "#/$defs/artifact"},
+            "rocqchk": {"$ref": "#/$defs/rocqchk"},
+            "specification_id": {"$ref": "#/$defs/identifier"},
+            "verification_theorem_id": {"$ref": "#/$defs/identifier"},
+            "verified_function_id": {"$ref": "#/$defs/identifier"}
+          }
+        }
+      }
+    },
+    "contracts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cross_prover_map", "lean", "neutral", "rocq"],
+      "properties": {
+        "cross_prover_map": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mapping_id", "mapping_sha256", "status"],
+          "properties": {
+            "mapping_id": {"$ref": "#/$defs/identifier"},
+            "mapping_sha256": {"$ref": "#/$defs/sha256"},
+            "status": {
+              "enum": [
+                "not_reviewed",
+                "reviewed_not_machine_checked",
+                "machine_checked_external_evidence"
+              ]
+            }
+          }
+        },
+        "lean": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "declaration_id",
+            "neutral_contract_id",
+            "neutral_contract_sha256",
+            "source_sha256",
+            "statement_sha256"
+          ],
+          "properties": {
+            "declaration_id": {"$ref": "#/$defs/identifier"},
+            "neutral_contract_id": {"$ref": "#/$defs/identifier"},
+            "neutral_contract_sha256": {"$ref": "#/$defs/sha256"},
+            "source_sha256": {"$ref": "#/$defs/sha256"},
+            "statement_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "neutral": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["contract_id", "contract_sha256", "format"],
+          "properties": {
+            "contract_id": {"$ref": "#/$defs/identifier"},
+            "contract_sha256": {"$ref": "#/$defs/sha256"},
+            "format": {"$ref": "#/$defs/identifier"}
+          }
+        },
+        "rocq": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "neutral_contract_id",
+            "neutral_contract_sha256",
+            "source_sha256",
+            "statement_sha256",
+            "theorem_id"
+          ],
+          "properties": {
+            "neutral_contract_id": {"$ref": "#/$defs/identifier"},
+            "neutral_contract_sha256": {"$ref": "#/$defs/sha256"},
+            "source_sha256": {"$ref": "#/$defs/sha256"},
+            "statement_sha256": {"$ref": "#/$defs/sha256"},
+            "theorem_id": {"$ref": "#/$defs/identifier"}
+          }
+        }
+      }
+    },
+    "kind": {
+      "const": "sparkinterval.sqrt218-compiler-evidence-manifest.v2"
+    },
+    "manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "residual_trust": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["boundary_id", "note", "status"],
+        "properties": {
+          "boundary_id": {
+            "enum": [
+              "azure_attestation_appraisal",
+              "compcert_extraction_and_compiler_executable",
+              "cross_prover_contract_equivalence",
+              "preprocessing_and_clight_generation",
+              "rocq_kernel_vst_compcert_assumptions",
+              "signing_key_registry_and_lean_admission",
+              "system_assembler_linker_and_elf_tools",
+              "x86_64_abi_loader_and_os_runtime",
+              "x86_64_cpu_conformance"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "status": {
+            "enum": [
+              "mitigated_not_eliminated",
+              "out_of_scope",
+              "trusted",
+              "unproved"
+            ]
+          }
+        }
+      }
+    },
+    "schema_version": {"const": 2}
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "sha256", "size_bytes"],
+      "properties": {
+        "artifact_id": {"$ref": "#/$defs/identifier"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9._:/+@-]{0,191}$"
+    },
+    "rocqchk": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reason", "status"],
+          "properties": {
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "status": {"const": "not_run"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "command_sha256",
+            "executable",
+            "exit_code",
+            "status",
+            "stderr",
+            "stdout",
+            "version"
+          ],
+          "properties": {
+            "command_sha256": {"$ref": "#/$defs/sha256"},
+            "executable": {"$ref": "#/$defs/artifact"},
+            "exit_code": {"const": 0},
+            "status": {"const": "passed"},
+            "stderr": {"$ref": "#/$defs/artifact"},
+            "stdout": {"$ref": "#/$defs/artifact"},
+            "version": {"$ref": "#/$defs/version"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "command_sha256",
+            "executable",
+            "exit_code",
+            "status",
+            "stderr",
+            "stdout",
+            "version"
+          ],
+          "properties": {
+            "command_sha256": {"$ref": "#/$defs/sha256"},
+            "executable": {"$ref": "#/$defs/artifact"},
+            "exit_code": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            "status": {"const": "failed"},
+            "stderr": {"$ref": "#/$defs/artifact"},
+            "stdout": {"$ref": "#/$defs/artifact"},
+            "version": {"$ref": "#/$defs/version"}
+          }
+        }
+      ]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "not": {
+        "const": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  }
+}

@@ -17,6 +17,7 @@ from create_run_bundle import (
     BUNDLE_KIND,
     SCHEMA_VERSION,
     ALGORITHM_ID_RE,
+    BACKEND_KINDS,
     BundleError,
     GPU_EXECUTION_ROLES,
     PROFILE_ID_RE,
@@ -36,8 +37,14 @@ from create_run_bundle import (
 
 INTEGRITY_POLICY = "integrity"
 DGX_OPERATOR_SIGNED_POLICY = "dgx_operator_signed"
+HARDWARE_PRODUCTION_POLICY = "hardware_production"
 H100_PRODUCTION_POLICY = "h100_production"
-POLICIES = (INTEGRITY_POLICY, DGX_OPERATOR_SIGNED_POLICY, H100_PRODUCTION_POLICY)
+POLICIES = (
+    INTEGRITY_POLICY,
+    DGX_OPERATOR_SIGNED_POLICY,
+    HARDWARE_PRODUCTION_POLICY,
+    H100_PRODUCTION_POLICY,
+)
 DEFAULT_PROFILES_DIR = Path(__file__).resolve().parent.parent / "profiles"
 
 
@@ -261,10 +268,13 @@ def verify_bundle(
 
     ``dgx_operator_signed`` requires artifact bytes, replay state, a detached
     Ed25519 signature, and a separately pinned operator public key.  It remains
-    local evidence and never sets ``hardware_evidence``.  ``h100_production``
-    fails closed unless artifact bytes are present, replay state is supplied,
-    and ``attestation_validator`` confirms the NVIDIA evidence and report-data
-    binding.  Merely selecting a policy or profile is never sufficient.
+    local evidence and never sets ``hardware_evidence``.
+    ``hardware_production`` fails closed for either CPU or GPU targets unless
+    artifact bytes are present, replay state is supplied, and
+    ``attestation_validator`` confirms the platform evidence and report-data
+    binding.  ``h100_production`` is the backward-compatible H100-specific
+    form of that policy.  Merely selecting a policy or profile is never
+    sufficient.
     """
 
     if policy not in POLICIES:
@@ -302,6 +312,7 @@ def verify_bundle(
         {
             "target_profile",
             "trust_profile",
+            "backend_kind",
             "algorithm",
             "input_artifact",
             "parameters",
@@ -334,6 +345,11 @@ def verify_bundle(
     trust_profile = _resolve_profile_reference(
         statement["trust_profile"], "trust", catalog
     )
+    backend_kind = statement["backend_kind"]
+    if not isinstance(backend_kind, str) or backend_kind not in BACKEND_KINDS:
+        _fail("run statement backend_kind must be cpu or gpu")
+    if backend_kind != target_profile["backend_kind"]:
+        _fail("run statement backend_kind does not match the bound target profile")
 
     algorithm = _exact_object(
         statement["algorithm"],
@@ -380,8 +396,11 @@ def verify_bundle(
     build_roles = {item["role"] for item in build_records}
     if "host_executable" not in build_roles:
         _fail("build artifacts do not bind the exact host_executable")
-    if not build_roles & GPU_EXECUTION_ROLES:
-        _fail("build artifacts do not bind a GPU execution image")
+    has_gpu_image = bool(build_roles & GPU_EXECUTION_ROLES)
+    if backend_kind == "gpu" and not has_gpu_image:
+        _fail("GPU target build artifacts do not bind a GPU execution image")
+    if backend_kind == "cpu" and has_gpu_image:
+        _fail("CPU target build artifacts contain a GPU execution image")
     if input_record["path"] == output_record["path"]:
         _fail("input and output artifacts must use distinct paths")
 
@@ -441,23 +460,29 @@ def verify_bundle(
     elif operator_signature is not None or trusted_operator_public_key is not None:
         _fail("operator signature inputs require policy dgx_operator_signed")
 
-    if policy == H100_PRODUCTION_POLICY:
-        if target_profile["profile_id"] != "h100_sm90":
+    if policy in (HARDWARE_PRODUCTION_POLICY, H100_PRODUCTION_POLICY):
+        h100_specific = policy == H100_PRODUCTION_POLICY
+        policy_name = "H100 production" if h100_specific else "hardware production"
+        if h100_specific and target_profile["profile_id"] != "h100_sm90":
             _fail("H100 production policy requires target profile h100_sm90")
-        if trust_profile["profile_id"] != "h100_hardware_attested":
+        if h100_specific and trust_profile["profile_id"] != "h100_hardware_attested":
             _fail(
                 "H100 production policy rejects local and mock trust profiles as hardware evidence"
             )
         if evidence["evidence_class"] != "hardware_attested":
-            _fail("H100 production policy requires hardware_attested evidence")
+            _fail(f"{policy_name} policy requires hardware_attested evidence")
         if not trust_profile["production_hardware_evidence"]:
             _fail("the trust profile is not authorized for production hardware evidence")
         if resolved_root is None or attestation_path is None:
-            _fail("H100 production policy requires all artifact bytes, including attestation")
+            _fail(
+                f"{policy_name} policy requires all artifact bytes, including attestation"
+            )
         if seen_nonces is None:
-            _fail("H100 production policy requires persistent replay protection")
+            _fail(f"{policy_name} policy requires persistent replay protection")
         if attestation_validator is None:
-            _fail("no trusted H100 attestation verifier is configured")
+            if h100_specific:
+                _fail("no trusted H100 attestation verifier is configured")
+            _fail("no trusted hardware-production attestation verifier is configured")
         assert hardware_record is not None
         try:
             valid_attestation = attestation_validator(
@@ -466,9 +491,17 @@ def verify_bundle(
                 top["statement_sha256"],
             )
         except Exception as exc:
-            _fail(f"H100 attestation verifier failed: {exc}")
+            if h100_specific:
+                _fail(f"H100 attestation verifier failed: {exc}")
+            _fail(f"hardware-production attestation verifier failed: {exc}")
         if valid_attestation is not True:
-            _fail("H100 attestation verifier rejected the evidence or report-data binding")
+            if h100_specific:
+                _fail(
+                    "H100 attestation verifier rejected the evidence or report-data binding"
+                )
+            _fail(
+                "hardware-production attestation verifier rejected the evidence or report-data binding"
+            )
         hardware_evidence = True
 
     if seen_nonces is not None:
@@ -477,7 +510,7 @@ def verify_bundle(
     if operator_signature_result is not None:
         assurance = operator_signing.ASSURANCE
     elif hardware_evidence:
-        assurance = "h100_hardware_attested"
+        assurance = trust_profile["profile_id"]
     elif evidence["evidence_class"] == "mock_attested":
         assurance = "mock_only_not_hardware_evidence"
     elif evidence["evidence_class"] == "local_unattested":
@@ -492,6 +525,7 @@ def verify_bundle(
         "bundle_sha256": top["bundle_sha256"],
         "target_profile": target_profile["profile_id"],
         "trust_profile": trust_profile["profile_id"],
+        "backend_kind": backend_kind,
         "evidence_class": evidence["evidence_class"],
         "artifacts_verified": resolved_root is not None,
         "hardware_evidence": hardware_evidence,
@@ -586,11 +620,14 @@ def _argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--policy", choices=POLICIES, default=INTEGRITY_POLICY)
     parser.add_argument(
         "--replay-db",
-        help="SQLite nonce registry; required for dgx_operator_signed and h100_production",
+        help=(
+            "SQLite nonce registry; required for dgx_operator_signed, "
+            "hardware_production, and h100_production"
+        ),
     )
     parser.add_argument(
         "--attestation-verifier",
-        help="trusted external NVIDIA evidence verifier executable",
+        help="trusted external platform-attestation evidence verifier executable",
     )
     parser.add_argument(
         "--operator-signature",

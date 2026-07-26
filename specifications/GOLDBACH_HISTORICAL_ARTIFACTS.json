@@ -1,0 +1,75 @@
+{
+  "kind": "sparkinterval.historical_artifact_inventory.v1",
+  "review_date": "2026-07-22",
+  "receipt_eligible": false,
+  "status": "partial_public_summary_only",
+  "artifacts": [
+    {
+      "role": "oliveira_e_silva_author_summary",
+      "origin": "author_site_capture_in_internet_archive",
+      "original_url": "https://sweet.ua.pt/tos/goldbach/t0.txt.gz",
+      "archive_url": "https://web.archive.org/web/20160119111827id_/http://sweet.ua.pt/tos/goldbach/t0.txt.gz",
+      "archive_timestamp": "20160119111827",
+      "archive_cdx_sha1_base32": "OJ22U62I6YI2UVRCI7SATJPJZMVW5YH5",
+      "compressed_sha256": "fa5e73f253154342e2d13ad095f32bab4a1670c517baaf9b3da42751f8010fce",
+      "compressed_size_bytes": 24812,
+      "uncompressed_sha256": "c3030137b247f6895bb003b413ac33285456d7821e680e1ec653b3de364c60ed",
+      "uncompressed_size_bytes": 81850,
+      "semantic_scope": "aggregate counts and first occurrences only; not the per-shard corpus"
+    },
+    {
+      "role": "oliveira_e_silva_proof_of_concept_prime_sieve",
+      "origin": "author_site_capture_in_internet_archive",
+      "original_url": "http://sweet.ua.pt/tos/software/prime_sieve.tgz",
+      "archive_url": "https://web.archive.org/web/20161219223325id_/http://sweet.ua.pt/tos/software/prime_sieve.tgz",
+      "archive_timestamp": "20161219223325",
+      "compressed_sha256": "cf77510ffcf2af76500a7c1426fd8541d168880f67481aba2757ff8f0594782f",
+      "compressed_size_bytes": 12690,
+      "semantic_scope": "proof-of-concept segmented sieve; not the production Goldbach worker"
+    },
+    {
+      "role": "oliveira_e_silva_prime_count_table_at_1e15_steps",
+      "origin": "author_site_capture_in_internet_archive",
+      "original_url": "http://sweet.ua.pt/tos/primes/1d15.txt.gz",
+      "archive_url": "https://web.archive.org/web/20160320130437id_/http://sweet.ua.pt/tos/primes/1d15.txt.gz",
+      "archive_timestamp": "20160320130437",
+      "archive_cdx_sha1_base32": "OOJTNZABGO6VQHWFOCQDNMVZIN2X4EGC",
+      "compressed_sha256": "60b1a2f0fc6df08fafe2072d4af5242141f4f09ed1620485c83535cf50cfba6e",
+      "compressed_size_bytes": 209459,
+      "uncompressed_sha256": "38675d49cdae7613084d3b6578b02940cd5c73197cfa45e477059695bcf6b4f9",
+      "uncompressed_size_bytes": 540645,
+      "semantic_scope": "coarse pi(k*10^15) table; corroborates prime counts but omits per-10^12 and residue-class records"
+    },
+    {
+      "role": "oliveira_e_silva_twin_prime_byproduct_at_1e15_steps",
+      "origin": "author_site_capture_in_internet_archive",
+      "original_url": "http://sweet.ua.pt/tos/primes/2d15.txt.gz",
+      "archive_url": "https://web.archive.org/web/20160319204642id_/http://sweet.ua.pt/tos/primes/2d15.txt.gz",
+      "archive_timestamp": "20160319204642",
+      "archive_cdx_sha1_base32": "R5OL7JGCDT2AM5ZI5R3XCDCUFCL5C3HL",
+      "compressed_sha256": "f05651263bb57e026d6665c7720b62d5d36dd49f5524fc30712fb57de6191b9f",
+      "compressed_size_bytes": 79424,
+      "uncompressed_sha256": "de120bf7cc4e9e271b973e24c1077e3b299b405080937ed701237f58fcd42bed",
+      "uncompressed_size_bytes": 196723,
+      "semantic_scope": "twin-prime counts produced as a Goldbach-project byproduct; not Goldbach coverage evidence"
+    },
+    {
+      "role": "helfgott_platt_arxiv_v2_source",
+      "origin": "arxiv",
+      "url": "https://export.arxiv.org/e-print/1305.3062v2",
+      "compressed_sha256": "376ec723223d4f014e55f80263137b88800c3a71d6c021cdab0a476b171bf408",
+      "semantic_scope": "article TeX only; no producer, checker, ladder, or ECPP artifact"
+    }
+  ],
+  "not_verified_public": [
+    "Oliveira e Silva production Goldbach worker source or binary",
+    "Oliveira e Silva 27 GB corpus of 4000 files covering 4000000 shards",
+    "Oliveira e Silva corpus SHA-256 manifest and exact file/CRC specification",
+    "Oliveira e Silva per-10^12 prime-count table and per-10^15 mod-120 residue-class table",
+    "Helfgott-Platt C/GMP producer source",
+    "Helfgott-Platt independent C++/CLN checker source",
+    "Helfgott-Platt per-range k/a and general-prime files",
+    "Helfgott-Platt 130917 general-prime ECPP certificate corpus",
+    "Helfgott-Platt 492700-range completion/checksum ledger"
+  ]
+}

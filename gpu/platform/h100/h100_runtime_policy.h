@@ -10,7 +10,16 @@
 
 #include <cuda_runtime_api.h>
 
+#include "tg_mobius_persistent_device_policy.h"
+
 namespace sparkinterval::h100 {
+
+inline constexpr bool is_h100_sm90(
+    std::string_view name, int major, int minor) noexcept {
+  return sparkinterval::tg::persistent_device_matches(
+      sparkinterval::tg::PersistentDeviceClass::kNvidiaH100Sm90,
+      name, major, minor);
+}
 
 [[noreturn]] inline void fail(const std::string& message, int status = 4) {
   std::cerr << message << '\n';
@@ -66,8 +75,10 @@ inline void require_device(int device) {
              cudaGetErrorString(status),
          3);
   }
-  if (properties.major != 9 || properties.minor != 0 ||
-      std::string_view(properties.name).find("H100") == std::string_view::npos) {
+  if (!is_h100_sm90(
+          std::string_view(properties.name),
+          properties.major,
+          properties.minor)) {
     fail("expected an NVIDIA H100 with compute capability 9.0");
   }
 }

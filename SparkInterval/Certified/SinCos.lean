@@ -1,3 +1,6 @@
+/- Copyright (c) 2026 Gershon Bialer. All rights reserved.
+SPDX-License-Identifier: MIT -/
+
 import SparkInterval.Certified.Rounding
 
 /-!
@@ -42,7 +45,16 @@ def sinCosBase (x : ℚ) : RatInterval × RatInterval :=
 theorem sinCosBase_fst_containsReal {x : ℚ} (hx : |x| ≤ 1) :
     (sinCosBase x).1.ContainsReal (Real.sin (x : ℝ)) := by
   have hxR : |(x : ℝ)| ≤ 1 := by exact_mod_cast hx
-  have h := Real.sin_bound hxR
+  have hpow : |(x : ℝ)| ^ 5 ≤ |(x : ℝ)| ^ 4 := by
+    have hmul := mul_le_mul_of_nonneg_left hxR
+      (pow_nonneg (abs_nonneg (x : ℝ)) 4)
+    simpa [pow_succ, mul_comm] using hmul
+  have hbudget :
+      |(x : ℝ)| ^ 5 / 100 ≤ |(x : ℝ)| ^ 4 * (5 / 96) := by
+    have hnonneg : 0 ≤ |(x : ℝ)| ^ 5 :=
+      pow_nonneg (abs_nonneg (x : ℝ)) 5
+    nlinarith
+  have h := (Real.sin_bound hxR).trans hbudget
   have habs : |(x : ℝ)| ^ 4 = (x : ℝ) ^ 4 := by
     rw [pow_abs, abs_of_nonneg (by positivity : (0 : ℝ) ≤ (x : ℝ) ^ 4)]
   rw [habs] at h
@@ -298,4 +310,3 @@ theorem sinCosInterval_containsReal {depth prec : ℕ} {I : RatInterval}
         ((Real.abs_cos_sub_cos_le _ _).trans hd)⟩
 
 end SparkInterval.Certified
-

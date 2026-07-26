@@ -23,19 +23,23 @@ wrappers. Do not replace them with bare parallel `lake` or `lean` commands; see
 The first example checks a concrete interval enclosure. The second proves
 Mathlib's exact `riemannZeta 2 = pi^2 / 6` identity. The third demonstrates the
 explicit execution-trust boundary; it does not manufacture execution evidence.
-Both the DGX and H100 compatibility entry points depend on the sole
-`accepted_run_certificate_sound` axiom. The fourth demonstrates the
-signed-result API: `outcomeCheck_sound` proves the exact historical returned
-certificate and hash binding. `outcomeCheckForRegisteredInvocation_sound`
-additionally exposes fixed formal `Runs` semantics after a closed invocation
-check; `accepted_registered_run_sound` is a proved projection of the same sole
-axiom. The generic checked-certificate variants independently add certificate
+Only the source-admitted `checkTrustedCompute` route can reach the sole
+`accepted_run_certificate_sound` axiom; the legacy DGX and H100 structural
+checks are diagnostics rejected by `RunCertificate.check`. The fourth
+demonstrates the signed-result API: `outcomeCheck_sound` proves the exact
+historical returned certificate and hash binding.
+`outcomeCheckForRegisteredInvocation_sound` additionally exposes fixed formal
+`Runs` semantics after a closed invocation check;
+`accepted_registered_run_sound` is a proved projection of the same sole axiom.
+The generic checked-certificate variants independently add certificate
 mathematics. The fifth specializes that interface to the complete registered
-cubic-sum computation. None of these examples is a concrete signed-bundle importer, a
-universal determinism result, or a general proof that a physical backend
-implements the formal semantics.
+cubic-sum computation. None of these checked-in examples is an admitted
+physical run, a universal determinism result, or a general proof that a
+physical backend implements the formal semantics. The separate Azure tools can
+generate a concrete consumer only after source review admits a genuine signed
+receipt.
 
-The closed registry currently contains one tutorial invocation:
+The closed algorithm/invocation registry currently contains the CPU tutorial
 `cubicSumDivThree20000V1`, representing the exact rational sum
 `sum (x = 0 .. 20000) (x^3 / 3)`. Its operational model accumulates integer
 cubes with `cubicNumeratorLoop`, then `cubicSumDivThreeMachine` divides once.
@@ -46,7 +50,13 @@ neither `native_decide` nor a 20,001-row result certificate; they do not prove
 that GPU opcodes implement the model. `certifyCubicSumDivThree20000` recovers
 the canonical output and mathematical equality from a matching accepted
 certificate. That theorem remains conditional on private evidence because no
-wire-to-Lean importer is implemented.
+matching receipt is present in the tracked trusted-compute registry.
+
+It also contains the one-row `h100FormalPtxConstantOneV1` `sm_90` pilot. Lean
+definitionally links its registered PTX bytes to the formal emitter for the
+closed constant `[1,1]` batch and proves both output endpoint words decode to
+rational one. This exercises the H100 packaging and theorem-import boundary;
+it is not a production finite computation, and it has no admitted receipt.
 
 ## Full Lean result certificate
 
@@ -168,6 +178,48 @@ by that key, while the bundle remains `local_unattested` and reports
 `hardware_evidence: false`. Reusing the nonce with the same replay database is
 rejected. See [Run-bundle format](FORMAT.md#detached-dgx-operator-signatures).
 
+## Azure confidential trusted-compute receipt
+
+Use the Azure route when the claim needs independently appraised hardware
+provenance rather than a local operator endorsement. There are two separate
+execution profiles:
+
+- `azure_sevsnp_cpu` with `azure_sevsnp_hardware_attested`, deployed by
+  `azure/cpu_cvm.py`, for CPU/FLINT/Arb and exact replay jobs; and
+- `azure_ncc40ads_h100_v5` with
+  `azure_ncc_sevsnp_vtpm_nvidia_cc_attested`, deployed by
+  `azure/ncc_h100.py`, for one confidential H100 per VM.
+
+The CPU deployment adapter admits only the reviewed
+`Standard_EC96as_v6` (default) and `Standard_DC96as_v6` shapes. The H100
+adapter admits exactly `Standard_NCC40ads_H100_v5`; it does not generalize an
+attestation result across other SKUs.
+
+The full workflow is in
+[Azure confidential CPU/H100 execution](AZURE_CONFIDENTIAL_COMPUTE.md):
+create a challenge off-VM, preflight and deploy the exact VM, run a reviewed
+measured executable closure, collect statement-bound evidence, appraise it
+outside the worker with hash-pinned Azure and NVIDIA verifiers, sign the
+normalized receipt with a production Managed HSM key while atomically burning
+the off-VM challenge in the shared issuer replay ledger, and review the
+generated Lean registry entry. The [Managed HSM guide](AZURE_MANAGED_HSM_SIGNING.md)
+covers key setup and key-attestation review; the
+[verifier guide](VERIFYING.md#7-verify-and-source-admit-azure-trusted-compute)
+shows the source-import and generated-Lean commands.
+
+The collector is not the appraiser, attestation does not prove arbitrary
+user-space causality, and the HSM signature does not prove the mathematics.
+Production policy must measure the runner and executable closure. Lean then
+checks exact source-registry membership and claim binding before the one
+`accepted_run_certificate_sound` axiom supplies a per-run outcome. Only a
+matching closed `RegisteredInvocation` and its separate Lean soundness theorem
+can turn that outcome into an application theorem.
+
+No production Azure run is represented in this repository: the tracked receipt
+registry is empty and its only checked-in key is development-only. The
+[performance sizing note](AZURE_PERFORMANCE_SIZING.md) records DGX Spark
+measurements for planning; those are not H100 confidential-mode benchmarks.
+
 ## Real-integer zeta POC
 
 The same verifier supports the strict `dgx_spark_sm121` and `h100_sm90`
@@ -240,19 +292,21 @@ This selects
 the H100-specific algorithm definition and `sm_90` audit, and rejects a
 mislabelled device or target profile. The detached operator-signature policy
 is intentionally DGX-specific and cannot be applied to this H100 bundle.
-H100 confidential-computing acceptance is a separate, currently fail-closed
-policy; this POC does not collect its evidence.
+H100 confidential-computing acceptance is a separate Azure trusted-compute
+policy; this local POC does not collect its evidence.
 
-At the Lean boundary, a future trusted importer would construct one
-`RunCertificate` from the exact verified statement and private evidence
-capability. If `RunCertificate.check` accepts it, the sole project axiom states
-that this particular named run returned its statement's exact result and
-supplies fixed `Runs` semantics for any matching closed registered invocation.
-The current real-zeta tutorial is not registered for either target. For a full
-result-certificate payload, `SignedResultCertificate.outcomeCheck_sound`
-proves exact payload/hash binding, and the upper-bound or sum checkers add
-independently checked mathematics. No current command imports a zeta bundle
-into that private Lean capability.
+At the Lean boundary, the Azure trusted-compute importer can construct a
+source-pinned `RunCertificate` consumer from an exact verified Azure receipt.
+The local `h100_sm90` bundle above is not eligible: it must be rerun under the
+exact Azure target/trust profiles with the measured-runner and evidence
+workflow. If `RunCertificate.check` then accepts the source-admitted receipt,
+the sole project axiom states that this particular named run returned its exact
+result and supplies fixed `Runs` semantics for any matching closed registered
+invocation. The current real-zeta tutorial is not registered for either target.
+For a full result-certificate payload,
+`SignedResultCertificate.outcomeCheck_sound` proves exact payload/hash binding,
+and the upper-bound or sum checkers add independently checked mathematics. No
+zeta receipt is admitted today.
 
 ## GRH finite-verification POC
 
@@ -398,11 +452,14 @@ Do not run both sets merely to validate the same output. `CUDA_ROOT`, `NVCC`,
 `NVDISASM`, `CUOBJDUMP`, and `CXX` can select an alternate installed toolchain.
 These workflows create real `compute_90` PTX and `sm_90` cubin/SASS, but do not
 query an H100, execute a kernel, return an arithmetic result, or produce
-attestation. Production confidential-computing acceptance remains fail-closed.
-Any future H100-positive importer uses the same `RunCertificate` checker and
-same sole execution axiom as DGX; `h100_attested_run_sound` is only a
-historical compatibility theorem, and `accepted_registered_run_sound` is the
-derived closed-registry projection. See the [H100 guide](H100.md).
+attestation. These artifact-only commands remain ineligible for
+confidential-computing acceptance. The separate Azure H100 importer produces a
+source-admitted trusted-compute receipt; this is the only H100 route through
+`RunCertificate.check` and the sole execution axiom. The legacy
+`.h100Hardware` structure is diagnostic and cannot cross that boundary.
+`accepted_registered_run_sound` is the derived closed-registry projection.
+See the [H100 guide](H100.md) and
+[Azure guide](AZURE_CONFIDENTIAL_COMPUTE.md).
 
 ## Interpreting results
 

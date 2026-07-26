@@ -6,10 +6,11 @@ built concurrently. SparkInterval therefore uses three independent limits:
 
 1. `lakefile.toml` passes `-j1 -M8192` to batch Lean processes and
    `-j1 -M4096` to the Lean language server. The `-M` values are MiB.
-2. `tools/safe_lake_build.py` orders all local modules by their import graph,
-   fixes Lake's own task pool at `LEAN_NUM_THREADS=1`, and requests one local
-   module at a time. Lake may still overlap a few already-launched compiler
-   processes while satisfying a stale transitive dependency closure. A
+2. `tools/safe_lake_build.py` orders the selected local import closure,
+   including the package-neutral `TGComputeContracts` modules, fixes Lake's
+   own task pool at `LEAN_NUM_THREADS=1`, and requests one local module at a
+   time. Lake may still overlap a few already-launched compiler processes
+   while satisfying a stale transitive dependency closure. A
    full-plan lock prevents separate planners from interleaving their
    dependency closures and remains held through every module and executable
    target. A second planner prints that it is waiting instead of appearing to
@@ -27,14 +28,41 @@ routine work:
 ./tools/safe_lake_build.py SparkInterval.PTX.InstructionRefinement
 ./tools/safe_lake_build.py --target sparkinterval-gen
 ./tools/safe_lake_build.py SparkInterval.PTX.StructuralCompilerCorrect
-./tools/safe_lake_build.py --blueprint-json
 make lean
 ```
 
+With no arguments, the safe planner and `make lean` select only
+`SparkIntervalCompact`. Bare `lake build` has the same compact default target,
+although the wrapper remains preferred because it also supplies the plan
+lock, source snapshot, and aggregate memory cap. The compact root contains the
+data-independent source, C-refinement, ELF/ABI, physical-identity, and compact
+receipt-composition proofs. `tools/audit_local_lean_boundary.py` checks its
+complete transitive import closure, rejects generated/registered/receipt-
+replay modules, and enforces an explicit source-size budget.
+The current audited closure is 123 local modules, 1,518,295 source bytes, and
+39,106 source lines; the checked ceilings are 2 MiB and 50,000 lines. The
+increase from the former one-MiB ceiling is deliberate: the default now
+contains the source-shaped checker-to-claim adapters for all ten physical
+ternary-Goldbach campaigns and their 13-atom capstone, while still excluding
+all generated production tables and replay data.
+
+The broad `SparkInterval` glob contains materialized production certificates,
+including `SparkInterval.Generated.PlattHeadQ128`,
+`SparkInterval.Generated.CDEMAbelProduction`, and their closed `by decide`
+checks through `SparkInterval.Execution.RegisteredAlgorithm`. It is not a
+default or routine local build. The only planner route is the deliberately
+named `--full-production-library` option, also exposed as
+`make lean-production`; that route fails before source planning unless the
+measured Azure worker scope is present. The scope variables prevent accidental
+dispatch only. They are not attestation evidence and do not authorize a Lean
+theorem or a trusted-compute receipt.
+
 The `--blueprint-json` and `--blueprint-tex` modes build the single curated
-`SparkInterval.Blueprint` LeanArchitect facet after its local dependency
-closure. They retain the same complete-plan lock, source snapshot, serial
-module ordering, and aggregate memory cap. See the
+`SparkInterval.Blueprint` LeanArchitect facet after its dependency closure.
+That historical blueprint imports the production registry and both generated
+tables, so these modes pass through the same measured-Azure scope guard as the
+full production library. They retain the same complete-plan lock, source
+snapshot, serial module ordering, and aggregate memory cap. See the
 [proof-blueprint guide](PROOF_BLUEPRINT.md); do not replace these modes with a
 direct `lake build :blueprintJson` command.
 
@@ -64,13 +92,14 @@ module argument or `--target` to `safe_lake_build.py` instead.
 The planner does not trust a dependency graph computed before it obtained the
 full-plan lock. After acquiring the lock (including after waiting for another
 planner), it rereads the local Lean sources and reconstructs the import graph
-from the captured bytes. It snapshots the complete local module-name/path set
-and the SHA-256 content digest of every source in the selected dependency
-closure. The module set and selected content are checked before and after each
-module build and executable target. If a source is added, removed, moved, or
-changed during the plan, the planner reports the drift, asks for a restart,
-and exits with status 66. A plan assembled from mixed source revisions cannot
-report success.
+from the captured bytes. The graph includes `SparkInterval`,
+`TGComputeContracts`, and the top-level compact root. It snapshots the complete
+local module-name/path set and the SHA-256 content digest of every source in
+the selected dependency closure. The module set and selected content are
+checked before and after each module build and executable target. If a source
+is added, removed, moved, or changed during the plan, the planner reports the
+drift, asks for a restart, and exits with status 66. A plan assembled from
+mixed source revisions cannot report success.
 
 Each authorized Lake step inherits the planner's open descriptor for the
 full-plan lock. `with_memory_limit.sh` verifies that descriptor refers to the

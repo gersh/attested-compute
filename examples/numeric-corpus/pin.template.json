@@ -1,0 +1,23 @@
+{
+  "expected": {
+    "claim_id": "example.square_table",
+    "claim_version": 1,
+    "corpus_id": "example.square_table.rows",
+    "corpus_version": 1,
+    "payload_file_count": 2,
+    "payload_root_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "payload_total_size_bytes": 48,
+    "source_root_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "statement_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "kind": "sparkinterval.pinned_numeric_corpus.v1",
+  "pin_id": "example.square_table.pin",
+  "repository": {
+    "commit": "0000000000000000000000000000000000000000",
+    "manifest_path": "corpus/manifest.json",
+    "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "manifest_size_bytes": 4096,
+    "url": "https://example.com/example/numeric-corpus.git"
+  },
+  "schema_version": 1
+}

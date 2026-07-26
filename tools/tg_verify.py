@@ -21,7 +21,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from typing import Any
+from typing import Any, Mapping
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -50,17 +50,24 @@ from tg_verifier.catalog import (  # noqa: E402
     CATALOG_SOURCE_COMMIT,
     CatalogError,
 )
+from tg_verifier.campaign_io import (  # noqa: E402
+    require_azure_measured_worker_for_workload,
+)
 from tg_verifier.cdem_chunk_replay import (  # noqa: E402
     CDEM_CHUNK_REPLAYER_DEFAULT_SOURCE,
     CdemChunkReplayError,
     replay_cdem_production_transcript,
 )
+from tg_verifier.cdem_abel_artifact import write_artifact_exclusive  # noqa: E402
 from tg_verifier.evidence import (  # noqa: E402
+    CDEM_REGISTERED_RESULT,
+    CDEM_REGISTERED_RESULT_SHA256,
     EvidenceError,
     RAMARE_RETAINED_FOCUSED_SHA256,
     RAMARE_RETAINED_RAW_SHA256,
     compare_claude_math_inventory,
     load_decimal_json,
+    verify_cdem_abel_text,
     verify_cdem_abel_transcript,
     verify_ramare_zuniga_report,
 )
@@ -158,6 +165,10 @@ def command_sync_inventory(args: argparse.Namespace) -> int:
 
 
 def command_verify_a7(args: argparse.Namespace) -> int:
+    require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+    )
     _emit(
         verify_a7_boundary_file(
             args.artifact, require_retained_identity=args.retained
@@ -167,14 +178,91 @@ def command_verify_a7(args: argparse.Namespace) -> int:
     return 0
 
 
-def command_replay_a7(args: argparse.Namespace) -> int:
-    _emit(
-        replay_a7_flint(
-            args.artifact,
-            require_retained_identity=not args.allow_unpinned,
-        ),
-        pretty=args.pretty,
+_A7_RETAINED_ARTIFACT_SHA256 = (
+    "ccc11cecdc398c9d0a9bcf2b1bd4994399557985fe17bc216f0a40eb8eb49f29"
+)
+_A7_REGISTERED_RESULT = b"true"
+_A7_REGISTERED_RESULT_SHA256 = (
+    "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+)
+
+
+def _write_a7_registered_result(
+    replay: Mapping[str, Any], output: Path
+) -> dict[str, Any]:
+    """Exclusively write the closed A.7 result after a full pinned replay.
+
+    The result is derived from the replay report, never accepted from a
+    caller. Requiring the retained artifact identity here prevents
+    ``--allow-unpinned`` from producing bytes eligible for the registered
+    production invocation.
+    """
+
+    required_true = (
+        "artifact_bytes_match_pinned_sha256",
+        "four_edge_dyadic_cover_verified",
+        "every_leaf_flint_box_recomputed",
+        "every_exact_leaf_endpoint_matched",
+        "all_denominator_and_zeta_nonvanishing_guards_checked",
+        "strict_norm_square_bound_verified_under_flint_semantics",
+        "external_analytic_verification_complete",
     )
+    if (
+        replay.get("accepted") is not True
+        or replay.get("artifact_kind") != "ch25_a7_boundary"
+        or replay.get("verification_class")
+        != "complete_external_flint_arb_leaf_replay"
+        or replay.get("artifact_sha256") != _A7_RETAINED_ARTIFACT_SHA256
+        or replay.get("python_flint_version") != "0.9.0"
+        or replay.get("flint_version") != "3.6.0"
+        or replay.get("flint_release") != 30_600
+        or replay.get("leaf_count") != 16_191
+        or any(replay.get(field) is not True for field in required_true)
+        or replay.get("ordinary_kernel_lean_proof") is not False
+        or replay.get("mathlib_zeta_realization_theorem_present") is not False
+        or replay.get("lean_atom_discharged") is not False
+    ):
+        raise EvidenceError(
+            "checked A.7 replay differs from the closed registered invocation"
+        )
+    if hashlib.sha256(_A7_REGISTERED_RESULT).hexdigest() != (
+        _A7_REGISTERED_RESULT_SHA256
+    ):
+        raise EvidenceError("internal A.7 registered-result identity differs")
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with output.open("xb") as stream:
+            stream.write(_A7_REGISTERED_RESULT)
+    except FileExistsError as error:
+        raise EvidenceError(
+            f"refusing to overwrite an existing A.7 result artifact: {output}"
+        ) from error
+    return {
+        "path": str(output.resolve()),
+        "sha256": _A7_REGISTERED_RESULT_SHA256,
+        "bytes": len(_A7_REGISTERED_RESULT),
+        "format": "literal_ascii_true_no_newline_v1",
+    }
+
+
+def command_replay_a7(args: argparse.Namespace) -> int:
+    require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+    )
+    replay = replay_a7_flint(
+        args.artifact,
+        require_retained_identity=not args.allow_unpinned,
+    )
+    if args.registered_result_output is not None:
+        replay = {
+            **replay,
+            "registered_result_artifact": _write_a7_registered_result(
+                replay, args.registered_result_output
+            ),
+        }
+    _emit(replay, pretty=args.pretty)
     return 0
 
 
@@ -201,12 +289,20 @@ def command_verify_ramare(args: argparse.Namespace) -> int:
 
 
 def command_verify_cdem(args: argparse.Namespace) -> int:
+    require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+    )
     result = verify_cdem_abel_transcript(args.artifact)
     _emit(result.as_json(), pretty=args.pretty)
     return 0
 
 
 def command_run_cdem(args: argparse.Namespace) -> int:
+    require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+    )
     receipt, transcript = build_and_run_cdem_abel(
         args.source,
         compiler=args.compiler,
@@ -226,6 +322,12 @@ def command_run_cdem(args: argparse.Namespace) -> int:
 def command_replay_cdem_chunks(args: argparse.Namespace) -> int:
     """Independently replay selected or all bounded-memory Abel chunks."""
 
+    # A single production chunk spans about 10^12 recurrence rows.  The
+    # number of selected chunks is therefore not a valid tiny-KAT bound.
+    require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+    )
     receipt = replay_cdem_production_transcript(
         args.transcript,
         indices=args.index,
@@ -239,9 +341,52 @@ def command_replay_cdem_chunks(args: argparse.Namespace) -> int:
     return 0
 
 
+def _write_cdem_registered_result(transcript: str, output: Path) -> dict[str, Any]:
+    """Write the exact closed-registry result derived from checked output.
+
+    This helper deliberately accepts the producer transcript, not a caller-
+    supplied result string.  The production command invokes it only after the
+    separate all-chunk replay has returned successfully.  Exclusive creation
+    also prevents a pre-existing result artifact from being silently reused.
+    """
+
+    checked = verify_cdem_abel_text(transcript)
+    registered_result = checked.metrics.get("registered_result")
+    registered_result_sha256 = checked.metrics.get("registered_result_sha256")
+    if registered_result != CDEM_REGISTERED_RESULT:
+        raise EvidenceError("checked CDEM result differs from the closed Lean registry")
+    if registered_result_sha256 != CDEM_REGISTERED_RESULT_SHA256:
+        raise EvidenceError("checked CDEM result hash differs from the closed Lean registry")
+    try:
+        payload = registered_result.encode("ascii")
+    except (AttributeError, UnicodeEncodeError) as error:
+        raise EvidenceError("checked CDEM registered result is not ASCII text") from error
+    if hashlib.sha256(payload).hexdigest() != CDEM_REGISTERED_RESULT_SHA256:
+        raise EvidenceError("CDEM registered-result bytes have an unexpected SHA-256")
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with output.open("xb") as stream:
+            stream.write(payload)
+    except FileExistsError as error:
+        raise EvidenceError(
+            f"refusing to overwrite an existing CDEM result artifact: {output}"
+        ) from error
+    return {
+        "path": str(output.resolve()),
+        "sha256": CDEM_REGISTERED_RESULT_SHA256,
+        "bytes": len(payload),
+        "format": "canonical_decimal_natural_no_newline_v1",
+    }
+
+
 def command_run_cdem_full(args: argparse.Namespace) -> int:
     """Run the reviewed producer and the separate all-chunk implementation."""
 
+    require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+    )
     receipt, transcript = build_and_run_cdem_abel(
         args.source,
         compiler=args.compiler,
@@ -260,6 +405,16 @@ def command_run_cdem_full(args: argparse.Namespace) -> int:
         compile_max_seconds=args.compile_max_seconds,
         chunk_max_seconds=args.chunk_max_seconds,
     )
+    closed_artifact = None
+    if getattr(args, "artifact_output", None) is not None:
+        closed_artifact = write_artifact_exclusive(
+            transcript, args.artifact_output
+        )
+    registered_result_artifact = None
+    if args.registered_result_output is not None:
+        registered_result_artifact = _write_cdem_registered_result(
+            transcript, args.registered_result_output
+        )
     _emit(
         {
             "schema_version": 1,
@@ -267,6 +422,8 @@ def command_run_cdem_full(args: argparse.Namespace) -> int:
             "producer": receipt,
             "independent_replay": replay,
             "transcript_output": str(args.transcript_output.resolve()),
+            "closed_lean_artifact": closed_artifact,
+            "registered_result_artifact": registered_result_artifact,
             "full_source_campaign": True,
             "lean_atom_discharged": False,
         },
@@ -277,6 +434,10 @@ def command_run_cdem_full(args: argparse.Namespace) -> int:
 
 def command_sample_arithmetic(args: argparse.Namespace) -> int:
     limit = args.limit
+    require_azure_measured_worker_for_workload(
+        exact_production=False,
+        work_bounds=(limit,),
+    )
     mu = mobius_linear(limit)
     results: dict[str, Any] = {}
     if limit >= 33:
@@ -331,6 +492,15 @@ def command_verify_mobius_receipts(args: argparse.Namespace) -> int:
 
 
 def command_verify_psi_range(args: argparse.Namespace) -> int:
+    require_azure_measured_worker_for_workload(
+        exact_production=args.limit == PSI_SOURCE_LIMIT,
+        work_bounds=(
+            args.limit,
+            min(args.chunk_span, args.limit),
+            min(args.segment_size, args.limit),
+            args.series_terms,
+        ),
+    )
     chunks = iter_psi_certificate(
         args.limit,
         chunk_span=args.chunk_span,
@@ -359,6 +529,15 @@ def command_verify_psi_range(args: argparse.Namespace) -> int:
 
 
 def command_verify_r2star_range(args: argparse.Namespace) -> int:
+    require_azure_measured_worker_for_workload(
+        exact_production=args.limit == R2STAR_SOURCE_LIMIT,
+        work_bounds=(
+            args.limit,
+            min(args.block_size, args.limit),
+            args.series_terms,
+            args.harmonic_terms,
+        ),
+    )
     chunks = iter_r2star_certificate(
         args.limit,
         chunk_span=args.block_size,
@@ -404,6 +583,10 @@ def command_prop1224_scheduler(args: argparse.Namespace) -> int:
 
 
 def command_verify_prop1224_sample(args: argparse.Namespace) -> int:
+    require_azure_measured_worker_for_workload(
+        exact_production=False,
+        work_bounds=(args.max_pairs, args.log_terms),
+    )
     sample = create_directed_prop1224_sample(
         args.q,
         bits=args.bits,
@@ -766,6 +949,14 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="accept a structurally valid artifact other than the retained one",
     )
+    a7_replay.add_argument(
+        "--registered-result-output",
+        type=Path,
+        help=(
+            "after the full pinned replay succeeds, exclusively write the "
+            "literal true consumed by the closed Lean invocation"
+        ),
+    )
     a7_replay.set_defaults(handler=command_replay_a7)
 
     prop77 = subcommands.add_parser("verify-prop77", help="check a Prop. 7.7 FLINT summary")
@@ -842,12 +1033,28 @@ def build_parser() -> argparse.ArgumentParser:
     cdem_full.add_argument("--compile-max-seconds", type=int, default=120)
     cdem_full.add_argument("--chunk-max-seconds", type=int, default=120)
     cdem_full.add_argument("--transcript-output", type=Path, required=True)
+    cdem_full.add_argument(
+        "--artifact-output",
+        type=Path,
+        help=(
+            "fresh TG-CDEM-ABEL-ARTIFACT-V1 output consumed by the closed "
+            "Lean artifact parser"
+        ),
+    )
+    cdem_full.add_argument(
+        "--registered-result-output",
+        type=Path,
+        help=(
+            "after producer and all-chunk replay succeed, exclusively write "
+            "the exact canonical natural consumed by the closed Lean invocation"
+        ),
+    )
     cdem_full.set_defaults(handler=command_run_cdem_full)
 
     sample = subcommands.add_parser(
         "sample-arithmetic", help="run bounded exact CPU falsification checks"
     )
-    sample.add_argument("--limit", type=int, default=20_000)
+    sample.add_argument("--limit", type=int, default=64)
     sample.set_defaults(handler=command_sample_arithmetic)
 
     mobius_receipts = subcommands.add_parser(
@@ -861,9 +1068,9 @@ def build_parser() -> argparse.ArgumentParser:
         "verify-psi-range",
         help="produce and exactly check a bounded prime-power psi stream",
     )
-    psi.add_argument("--limit", type=int, default=1_000)
-    psi.add_argument("--chunk-span", type=int, default=1_000_000)
-    psi.add_argument("--segment-size", type=int, default=1_000_000)
+    psi.add_argument("--limit", type=int, default=64)
+    psi.add_argument("--chunk-span", type=int, default=64)
+    psi.add_argument("--segment-size", type=int, default=64)
     psi.add_argument("--scale-bits", type=int, default=128)
     psi.add_argument("--series-terms", type=int, default=48)
     psi.set_defaults(handler=command_verify_psi_range)
@@ -872,11 +1079,11 @@ def build_parser() -> argparse.ArgumentParser:
         "verify-r2star-range",
         help="run the exact fixed-point R2Star reference over a finite range",
     )
-    r2star.add_argument("--limit", type=int, default=1_000)
+    r2star.add_argument("--limit", type=int, default=64)
     r2star.add_argument("--scale-bits", type=int, default=128)
     r2star.add_argument("--series-terms", type=int, default=48)
-    r2star.add_argument("--harmonic-terms", type=int, default=100_000)
-    r2star.add_argument("--block-size", type=int, default=100_000)
+    r2star.add_argument("--harmonic-terms", type=int, default=64)
+    r2star.add_argument("--block-size", type=int, default=64)
     r2star.set_defaults(handler=command_verify_r2star_range)
 
     prop1224 = subcommands.add_parser(
@@ -897,7 +1104,7 @@ def build_parser() -> argparse.ArgumentParser:
     prop1224_sample.add_argument("--q", type=int, default=6_469_693_230)
     prop1224_sample.add_argument("--bits", type=int, default=144)
     prop1224_sample.add_argument("--log-terms", type=int, default=48)
-    prop1224_sample.add_argument("--max-pairs", type=int, default=100_000)
+    prop1224_sample.add_argument("--max-pairs", type=int, default=64)
     prop1224_sample.set_defaults(handler=command_verify_prop1224_sample)
 
     audit = subcommands.add_parser(

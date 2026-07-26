@@ -53,7 +53,7 @@ sustained rate is therefore ~1.8e11 dp-flops/s of rigorous interval
 arithmetic on the GB10, which has comparatively weak FP64 (the same code
 on an FP64-strong part such as an H100 is expected to run 30-60x faster).
 
-## Full-run cost model
+## Source-scale work and the implemented conditional Taylor stage
 
 Sieving the exact primitive-character counts over Platt's range
 reproduces his numbers: 2.957e10 primitive L-functions, 1.96e14
@@ -68,42 +68,71 @@ decisively, binary64 interval arithmetic loses all precision near
 exactly why Platt uses the lattice/Taylor + unit-group-FFT algorithm with
 high-precision seeds.
 
-**Lattice-algorithm model.**  Platt's large-q pipeline costs, per t-row
-per modulus: a lattice Taylor step (4096 x 50 cells), one 15-term Taylor
-interpolation per residue, a Bluestein FFT over the unit group, and per-
-character completion.  Counting interval complex multiplies at 60 dp
-flops each and summing exactly over Platt's `q` and heights:
+Section 4.1 of the paper uses `D = 2048` lattice rows and columns
+`c = 0,...,N` with `N = 15`: 32,768 complex lattice cells per ordinate, not
+the previously documented `4096 x 50`. The repository now implements the
+conditional Taylor-reconstruction identity from Lemma 4.2 in
+`h100_tg_dirichlet_lattice_kernel.cu`. Given certified lattice rectangles and
+a certified omitted-tail radius, it evaluates all sixteen terms with directed
+binary64 arithmetic. An independent CPU checker decodes every endpoint as an
+exact dyadic rational and checks containment of the natural interval
+expression.
+
+The fixed source-stage plan uses the paper's positive grid `t = 5k/64`, the
+project cutover `q = 10001`, and all unit residues needed by the subsequent
+DFT. It contains exactly:
 
 ```text
-total work ~ 1.75e18 interval-arithmetic flops
+127,988 positive ordinate rows
+4,901,051,274 (q,t) rows
+327,089,206,283,008 residue reconstructions
+5,233,427,300,528,128 complex Taylor terms
 ```
 
-| Hardware | assumed sustained rate | full-run time |
-| --- | --- | --- |
-| 1x GB10 (this DGX Spark), binary64 intervals | 1.5e11 (measured class) | ~135 days |
-| 1x GB10, double-double intervals (4x penalty) | 3.8e10 | ~1.5 years |
-| 1x H100 SXM, binary64 intervals | 1e13 (30% of FP64 peak) | ~2 days |
-| 1x H100 SXM, double-double intervals | 2.5e12 | ~8 days |
-| 8x H100 node, double-double | 2e13 | ~1 day |
+A conservative retained source-shaped rate is 69.60 million reconstructions/s
+or 1.114 billion complex Taylor terms/s on GB10. This single conditional stage
+would therefore take about 54.4 single-GB10 days, or 163 ideal hours on eight
+equal GPUs. H100 is not measured locally. The current report uses an explicit
+1x--14.3x per-GPU sensitivity, where the upper endpoint is only the H100-NVL /
+DGX-Spark memory-bandwidth ratio: **11.4--163 hours on eight H100s**. A 5x--10x
+engineering band is 16.3--32.6 hours. This is a stage-only kernel-arithmetic
+projection, not a runtime estimate for Theorem 7.1. The
+standalone review format would represent 7.85 PB of requests and 15.70 PB of
+outputs at full scale; a real engine must generate requests compactly and fuse
+or stream Taylor values into the DFT instead of materializing those files.
 
-Platt's 2013 computation took ~400,000 core-hours (~45 core-years) on
-SSE2-era CPU clusters.  The model therefore suggests roughly a
-**thousand-fold** hardware-efficiency gain: a full rigorous re-run is a
-*days-scale single-node job* on modern FP64-strong GPUs, and a
-months-scale job even on this desk-side GB10 — provided the lattice
-algorithm (not the direct POC evaluator) is ported, in double-double or
-higher interval precision, with the unit-group FFT batched across `t`.
+The exact CPU replay checked 10,000 GPU rows in 1.65 seconds on one local core.
+That checker is useful for known answers and bounded conformance, but plainly
+cannot replay all 327 trillion rows. A production use of this kernel must bind
+the reviewed executable to confidential-compute attestation, while retaining
+the exact checker for conformance samples; it must not claim that sampling is
+an independent proof of every GPU operation.
 
-Caveats, in fairness to the model:
+Platt reports approximately 400,000 historical SSE2 core-hours for the
+**complete** computation. That number includes lattice generation, both
+large- and small-modulus algorithms, DFTs, zero isolation, upsampling,
+exceptional cases, and Turing completeness. It is not comparable to the
+11.4--163-hour sensitivity for this one arithmetic stage.
 
-- The 30% FP64 efficiency assumption for interval FFT butterflies is
-  optimistic; min/max chains and directed-rounding intrinsics reduce
-  achievable ILP.  A factor 2-3 penalty would move the H100 estimate to
-  the 1-3 week range.
-- The Turing-method completeness pass, exceptional-case handling
-  (Platt: ~0.0003% of L-functions needed >512x upsampling and MPFI), and
-  certificate emission are excluded; Platt reports these were not the
-  dominant cost.
+There is no defensible full-run H100 ETA yet. Certified lattice inputs and
+finite recovery, persistent residue composition, the framed CRT/Bluestein
+interval DFT, a persistent completed-L consumer, scalable certified
+root-number artifacts, Booker's directed-disk small-q engine, and conditional
+zero-closure arithmetic now exist as components with bounded KATs. The
+small-q path also has a completely parity-bound time-tail/sign reducer and a
+post-DFT device classifier that removes the 226.996-TB raw-disk transfer in
+device mode. It has only a local synthetic q-level GB10 differential run, not
+a source-scale or H100 measurement. Still missing are source-campaign wiring
+and runtime closure, a
+source-wide interval-width proof, efficient persistent lattice/recovery
+production, a uniform interpolation proof, theorem-level review/Lean
+realization of the corrected reflected Turing upper bound, source-wide
+exception refinement, and the remaining Lean realization theorem. The
+rigorous FLINT contour backend remains the fail-closed completeness route,
+although it is unscaled.
+
+Further formal-side caveat:
+
 - Lean checking of the emitted bracket certificates is linear in the
   zero count.  The kernel-mode checker verified 122 brackets in 5.6 s
   (~22 brackets/s single-threaded, including ~5 s fixed elaboration

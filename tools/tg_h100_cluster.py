@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Gershon Bialer. All rights reserved.
 # SPDX-License-Identifier: MIT
 
-"""Plan, verify, or execute all thirteen TG workflows on a Slurm cluster."""
+"""Plan, verify, or execute the TG source and lowered-endpoint workflows."""
 
 from __future__ import annotations
 
@@ -23,6 +23,9 @@ from tg_verifier.h100_cluster import (  # noqa: E402
     execute_job,
     verify_deployment,
     write_deployment,
+)
+from tg_verifier.campaign_io import (  # noqa: E402
+    require_azure_measured_worker_for_workload,
 )
 
 
@@ -45,7 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
 
     capability = commands.add_parser(
-        "capability", help="classify all thirteen jobs without running them"
+        "capability", help="classify every reviewed job without running it"
     )
     capability.set_defaults(handler="capability")
 
@@ -102,6 +105,13 @@ def main(argv: list[str] | None = None) -> int:
                 args.directory.resolve(), args.repository.resolve()
             )
         else:
+            if not args.dry_run:
+                # Every executable cluster job is a reviewed full-source
+                # campaign.  Guard before resolving or opening its manifest.
+                require_azure_measured_worker_for_workload(
+                    exact_production=True,
+                    work_bounds=(),
+                )
             result = execute_job(
                 args.manifest.resolve(), args.atom, dry_run=args.dry_run
             )

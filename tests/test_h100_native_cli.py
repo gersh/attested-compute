@@ -72,6 +72,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--factor-support", type=Path, required=True)
     parser.add_argument("--r2star-chunk", type=Path, required=True)
     parser.add_argument("--mobius-segment", type=Path, required=True)
+    parser.add_argument("--mobius-persistent", type=Path, required=True)
     parser.add_argument("--probe-cubin", type=Path, required=True)
     parser.add_argument("--cuobjdump", type=Path, required=True)
     return parser.parse_args()
@@ -87,6 +88,7 @@ def main() -> int:
         args.factor_support,
         args.r2star_chunk,
         args.mobius_segment,
+        args.mobius_persistent,
     ):
         if not executable.is_file():
             raise AssertionError(f"missing H100 executable: {executable}")
@@ -129,6 +131,14 @@ def main() -> int:
             "Moebius/squarefree state transition",
         ),
     )
+    require_success(
+        [str(args.mobius_persistent), "--help"],
+        (
+            "sparkinterval-h100-tg-mobius-persistent",
+            "nvidia-h100-sm90",
+            "not attestation",
+        ),
+    )
 
     for executable in (
         args.primitive,
@@ -158,6 +168,36 @@ def main() -> int:
         64,
         "unknown or incomplete argument: --unknown-option",
     )
+    require_failure(
+        [str(args.mobius_persistent), "--allow-other-device"],
+        4,
+        "--allow-other-device is disabled by the H100 runner",
+    )
+    require_failure(
+        [str(args.mobius_persistent)],
+        4,
+        "requires --require-device-class nvidia-h100-sm90",
+    )
+    require_failure(
+        [
+            str(args.mobius_persistent),
+            "--require-device-class",
+            "gb10",
+        ],
+        4,
+        "must be exactly nvidia-h100-sm90",
+    )
+    require_failure(
+        [
+            str(args.mobius_persistent),
+            "--require-device-class",
+            "nvidia-h100-sm90",
+            "--device",
+            "not-a-device",
+        ],
+        2,
+        "--device must be a nonnegative integer",
+    )
 
     require_sm90(args.cuobjdump, args.probe_cubin)
     require_sm90(args.cuobjdump, args.primitive)
@@ -165,6 +205,7 @@ def main() -> int:
     require_sm90(args.cuobjdump, args.grh_lambda)
     require_sm90(args.cuobjdump, args.factor_support)
     require_sm90(args.cuobjdump, args.mobius_segment)
+    require_sm90(args.cuobjdump, args.mobius_persistent)
     require_sm90(args.cuobjdump, args.r2star_chunk)
     print("H100 native build and fail-closed CLI checks passed without GPU execution.")
     return 0

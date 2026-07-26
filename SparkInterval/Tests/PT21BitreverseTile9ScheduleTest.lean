@@ -1,0 +1,65 @@
+/- Copyright (c) 2026 Gershon Bialer. All rights reserved.
+SPDX-License-Identifier: MIT -/
+
+import SparkInterval.Zeta.PT21BitreverseTile9Schedule
+
+namespace SparkInterval.Tests.PT21BitreverseTile9ScheduleTest
+
+open SparkInterval.Zeta.PT21BitreverseTile9Schedule
+
+#check row_cuda_brev_eq
+#check final_cuda_brev_eq
+#check fused_row_load
+#check fused_final_load
+#check fused_row_load_injective
+#check fused_final_load_injective
+#check fused_row_unique_source_coverage
+#check fused_final_unique_source_coverage
+#check fused_row_malformed_or_iff
+#check fused_final_malformed_or_iff
+#check row_chunk_count
+#check final_chunk_count
+#check fusedThreadSlot_val
+#check fusedThreadSlot_bijective
+#check fusedThreadSlot_unique_coverage
+#check rowBlockCoordinate_line_val
+#check rowBlockCoordinate_chunk_val
+#check rowBlockCoordinate_unique_coverage
+#check finalBlockCoordinate_line_val
+#check finalBlockCoordinate_chunk_val
+#check finalBlockCoordinate_unique_coverage
+#check positive_row_fused_prefix
+#check negative_row_fused_prefix
+#check positive_final_fused_prefix
+#check negative_final_fused_prefix
+#check positive_row_fused_full_schedule
+#check negative_row_fused_full_schedule
+#check positive_final_fused_full_schedule
+#check negative_final_fused_full_schedule
+
+#print axioms row_cuda_brev_eq
+#print axioms final_cuda_brev_eq
+#print axioms fused_row_load
+#print axioms fused_final_load
+#print axioms fused_row_load_injective
+#print axioms fused_final_load_injective
+#print axioms fused_row_unique_source_coverage
+#print axioms fused_final_unique_source_coverage
+#print axioms fused_row_malformed_or_iff
+#print axioms fused_final_malformed_or_iff
+#print axioms row_chunk_count
+#print axioms final_chunk_count
+#print axioms fusedThreadSlot_bijective
+#print axioms fusedThreadSlot_unique_coverage
+#print axioms rowBlockCoordinate_unique_coverage
+#print axioms finalBlockCoordinate_unique_coverage
+#print axioms positive_row_fused_prefix
+#print axioms negative_row_fused_prefix
+#print axioms positive_final_fused_prefix
+#print axioms negative_final_fused_prefix
+#print axioms positive_row_fused_full_schedule
+#print axioms negative_row_fused_full_schedule
+#print axioms positive_final_fused_full_schedule
+#print axioms negative_final_fused_full_schedule
+
+end SparkInterval.Tests.PT21BitreverseTile9ScheduleTest

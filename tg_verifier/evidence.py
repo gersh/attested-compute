@@ -248,6 +248,34 @@ CDEM_REQUIRED_FIELDS: dict[str, int] = {
 }
 CDEM_U_TARGET = 324_880_457_633_740
 CDEM_V_TARGET = 48_710_223_109_607_260_068_028
+CDEM_REGISTERED_RESULT = "2372685835387717172679029560108650251645442524"
+CDEM_REGISTERED_RESULT_SHA256 = (
+    "84e7c2b56de45b48776e4239bfc82e80ef5c80940f232b83c85eefc44648b73c"
+)
+
+
+def nat_pair(left: int, right: int) -> int:
+    """Exact Python counterpart of Mathlib's injective ``Nat.pair``.
+
+    The registered Lean bridge uses ``Nat.unpair`` to recover both directed
+    numerators.  Keeping this tiny encoder beside the transcript checker makes
+    the measured wrapper's compact result deterministic and independently
+    testable without adding a JSON parser to the theorem boundary.
+    """
+
+    if isinstance(left, bool) or not isinstance(left, int) or left < 0:
+        raise EvidenceError("Nat.pair left input must be a natural")
+    if isinstance(right, bool) or not isinstance(right, int) or right < 0:
+        raise EvidenceError("Nat.pair right input must be a natural")
+    return right * right + left if left < right else left * left + left + right
+
+
+def cdem_abel_registered_result(
+    signed_numerator: int, absolute_numerator: int
+) -> str:
+    """Canonical newline-free result consumed by the closed Lean invocation."""
+
+    return str(nat_pair(signed_numerator, absolute_numerator))
 
 EXPECTED_INVENTORY_CARDS: dict[str, str] = {
     "AnalyticNT.ChebyshevPsi.finite_check_ch25_lemA7_arb_boundary_source": "ch25-lemma-a7-arb-boundary.md",
@@ -395,6 +423,10 @@ def verify_cdem_abel_text(
         "u_increment_upper_numerator": u_upper,
         "v_increment_upper_numerator": v_upper,
         "weight_scale": 10**18,
+        "registered_result": cdem_abel_registered_result(u_upper, v_upper),
+        "registered_result_sha256": hashlib.sha256(
+            cdem_abel_registered_result(u_upper, v_upper).encode("ascii")
+        ).hexdigest(),
     }
     if chunks is not None:
         checks.extend(

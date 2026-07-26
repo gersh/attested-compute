@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gersh.github.io/gpu_prover/schemas/platt-pt21-h100-plan.schema.json",
+  "title": "PT21 H100 immutable campaign plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "mode",
+    "worker",
+    "geometry",
+    "event_stream_contract",
+    "turing_contract",
+    "execution",
+    "allow_bounded_test",
+    "plan_sha256"
+  ],
+  "properties": {
+    "schema": {"const": "sparkinterval.tg.platt-pt21-h100-plan.v1"},
+    "mode": {"enum": ["full", "bounded_test"]},
+    "worker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "size_bytes"],
+      "properties": {
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      }
+    },
+    "geometry": {"type": "object"},
+    "event_stream_contract": {
+      "type": "object",
+      "properties": {
+        "streams": {"const": ["main", "left_flank", "right_flank"]},
+        "touching_bracket_endpoints_allowed": {"const": true},
+        "interior_overlap_allowed": {"const": false},
+        "block_boundary_endpoints_allowed": {"const": true},
+        "shared_endpoint_must_have_one_nonzero_sign": {"const": true}
+      },
+      "required": [
+        "streams",
+        "touching_bracket_endpoints_allowed",
+        "interior_overlap_allowed",
+        "block_boundary_endpoints_allowed",
+        "shared_endpoint_must_have_one_nonzero_sign"
+      ]
+    },
+    "turing_contract": {"type": "object"},
+    "execution": {
+      "type": "object",
+      "properties": {
+        "azure_geometry_schedulable": {"const": true},
+        "azure_proof_execution_ready": {"const": false},
+        "partial_or_preempted_shard_accepted": {"const": false}
+      },
+      "required": [
+        "azure_geometry_schedulable",
+        "azure_proof_execution_ready",
+        "partial_or_preempted_shard_accepted",
+        "blocking_gates"
+      ]
+    },
+    "allow_bounded_test": {"type": "boolean"},
+    "plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

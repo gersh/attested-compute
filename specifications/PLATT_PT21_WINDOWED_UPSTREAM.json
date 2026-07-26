@@ -1,0 +1,96 @@
+{
+  "kind": "sparkinterval.pinned_platt_pt21_windowed_source.v1",
+  "name": "D. J. Platt windowed Arb/Turing zeta verifier",
+  "repository": "https://github.com/djplatt/code.git",
+  "commit": "42b21426718e542daa2b006dc05ea2d7f26426e6",
+  "source_directory": "zeta_arb",
+  "license": "NOASSERTION",
+  "redistribution": "not-authorized-by-this-manifest",
+  "license_note": "No license or copying file was found in the pinned upstream repository. Fetch the reviewed files from upstream; do not vendor or redistribute them without permission.",
+  "reviewed_source_hash_domain": "sparkinterval/platt-pt21-reviewed-source-set/v1",
+  "reviewed_source_file_count": 11,
+  "reviewed_source_bytes": 48928,
+  "reviewed_source_sha256": "9a748490b327b102d53506e390a42afac796a5b42b42060fe82aa8f5744bb152",
+  "source_parameters": {
+    "height_lower": 10000000000,
+    "height_maximum": 3010000000000,
+    "production_step": 1008,
+    "working_precision_bits": 128,
+    "fft_length": 131072,
+    "intermediate_fft_length": 32768,
+    "dirichlet_terms": 768000,
+    "taylor_terms": 23,
+    "sample_spacing_numerator": 21,
+    "sample_spacing_denominator": 512,
+    "turing_width": 21
+  },
+  "known_answers": [
+    {
+      "height_lower": 10000000000,
+      "height_upper": 10000001008,
+      "zero_count": 3399
+    },
+    {
+      "height_lower": 3000000000000,
+      "height_upper": 3000000001008,
+      "zero_count": 4314
+    }
+  ],
+  "files": [
+    {
+      "path": "zeta_arb/Makefile",
+      "sha256": "c7e2d34e51f144197a243e1013372dd2d738e5ff749b254d5305779ace037515",
+      "size_bytes": 603
+    },
+    {
+      "path": "zeta_arb/arb_fft.h",
+      "sha256": "b01c5ac08a2585f6f8c0b4cacd04492e701dd5698c4c7e310e4159d807b2758c",
+      "size_bytes": 4733
+    },
+    {
+      "path": "zeta_arb/arb_win_zeta.h",
+      "sha256": "888955a1eec0c0e83f048da9d96600ab1ccf101a3f26e4e90367b30ab6c53ae5",
+      "size_bytes": 2352
+    },
+    {
+      "path": "zeta_arb/arb_zeta.c",
+      "sha256": "05fa1b5056b14300d05cb9b7bb8b94999f18da8a4091075792ab669aa55e33eb",
+      "size_bytes": 14653
+    },
+    {
+      "path": "zeta_arb/inter.c",
+      "sha256": "71568e572b571ee08394acec4cb03f9feb351407187f70fa569d7d2f1ab86d39",
+      "size_bytes": 4867
+    },
+    {
+      "path": "zeta_arb/inter.h",
+      "sha256": "7cdfcf14139217d85e79a96680772fd21deda9d1b8824ee72cbc26e11d6a905a",
+      "size_bytes": 822
+    },
+    {
+      "path": "zeta_arb/parameters.h",
+      "sha256": "b2fe59cfc850297aa9e75f997b84f838707a6b388dd8a514f4f1d703dcbe4a93",
+      "size_bytes": 2122
+    },
+    {
+      "path": "zeta_arb/turing.c",
+      "sha256": "07305e04e85477749ced09325c9e78388dd55d6107aa526d3becde345a430c27",
+      "size_bytes": 14124
+    },
+    {
+      "path": "zeta_arb/turing.h",
+      "sha256": "561207a179f1b82763769a0580900d78842dc85bc39fe73f9e8f1c375421dccd",
+      "size_bytes": 1768
+    },
+    {
+      "path": "zeta_arb/win_zeta.c",
+      "sha256": "453d9be87a36a17971c98614f59335c78739bd4764ac168d3897b3084c0e542f",
+      "size_bytes": 2258
+    },
+    {
+      "path": "zeta_arb/win_zeta.h",
+      "sha256": "c44ff6deba5f146c483751f38cd33db683580e4ccc0e01ea78b73cd22fa97079",
+      "size_bytes": 626
+    }
+  ]
+}

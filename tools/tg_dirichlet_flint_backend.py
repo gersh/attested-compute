@@ -36,6 +36,15 @@ from pathlib import Path
 import sys
 from typing import Any, Iterable, Iterator, NoReturn
 
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
+
+from tg_verifier.campaign_io import (  # noqa: E402
+    MeasuredWorkerScopeError,
+    require_azure_measured_worker_for_workload,
+)
+
 
 EXPECTED_PYTHON_FLINT = "0.9.0"
 EXPECTED_FLINT = "3.6.0"
@@ -873,6 +882,13 @@ def _direct_main() -> None:
         height = Fraction(args.height)
     except (ValueError, ZeroDivisionError) as error:
         raise FlintReferenceError(f"invalid rational height: {args.height}") from error
+    height_span = (
+        abs(height.numerator) + height.denominator - 1
+    ) // height.denominator
+    require_azure_measured_worker_for_workload(
+        exact_production=False,
+        work_bounds=(max(0, args.q) * height_span,),
+    )
     print(json.dumps(verify_character(args.q, args.conrey, height), sort_keys=True))
 
 
@@ -880,7 +896,7 @@ def main() -> int:
     try:
         if not _protocol_main():
             _direct_main()
-    except FlintReferenceError as error:
+    except (FlintReferenceError, MeasuredWorkerScopeError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
     return 0

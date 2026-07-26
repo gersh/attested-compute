@@ -1,0 +1,29 @@
+/- Copyright (c) 2026 Gershon Bialer. All rights reserved.
+SPDX-License-Identifier: MIT -/
+
+import SparkInterval.TernaryGoldbach.GoldbachOptimizedSourceRefinement
+
+open SparkInterval.TernaryGoldbach
+
+#check
+  GoldbachOptimizedSourceRefinement.liveBit_iff_lt_liveCount
+#check
+  GoldbachOptimizedSourceRefinement.prime_of_completeRoster_not_cleared
+#check
+  GoldbachOptimizedSourceRefinement.primeWindowOfCompleteSieve
+#check
+  GoldbachOptimizedSourceRefinement.PackedOutputWord.toCoveredOutputWord
+#check
+  GoldbachOptimizedSourceRefinement.PackedCampaignEvidence.toCampaignEvidence
+#check
+  GoldbachOptimizedSourceRefinement.even_prime_pair_of_packedCampaign
+#check
+  GoldbachOptimizedSourceRefinement.historicalBinaryClaim
+#check
+  GoldbachOptimizedSourceRefinement.binary10Pow27Claim
+#check
+  GoldbachOptimizedSourceRefinement.missingWordCount_le_words_mul_64
+#check
+  GoldbachOptimizedSourceRefinement.missingWordCount_lt_uint32
+#check
+  GoldbachOptimizedSourceRefinement.maskAccepted_of_missingWordCount_eq_zero

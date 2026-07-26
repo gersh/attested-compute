@@ -243,19 +243,19 @@ theorem exists_mem_allFinite_bits_iff (bits : Binary64Bits) :
 
 /-- The positive-zero encoding. -/
 def positiveZero : Binary64Finite :=
-  ⟨BitVec.ofNat 64 0x0000000000000000, by native_decide⟩
+  ⟨BitVec.ofNat 64 0x0000000000000000, by decide⟩
 
 /-- The negative-zero encoding. -/
 def negativeZero : Binary64Finite :=
-  ⟨BitVec.ofNat 64 0x8000000000000000, by native_decide⟩
+  ⟨BitVec.ofNat 64 0x8000000000000000, by decide⟩
 
 /-- The least positive subnormal encoding. -/
 def leastPositiveSubnormal : Binary64Finite :=
-  ⟨BitVec.ofNat 64 0x0000000000000001, by native_decide⟩
+  ⟨BitVec.ofNat 64 0x0000000000000001, by decide⟩
 
 /-- The greatest positive finite encoding. -/
 def greatestPositiveFinite : Binary64Finite :=
-  ⟨BitVec.ofNat 64 0x7fefffffffffffff, by native_decide⟩
+  ⟨BitVec.ofNat 64 0x7fefffffffffffff, by decide⟩
 
 /-- The sign bit; `true` denotes a negative encoding. -/
 def sign (x : Binary64Finite) : Bool :=
@@ -369,42 +369,42 @@ theorem toReal_eq_zero_iff (x : Binary64Finite) :
   split <;> simp [hmagnitude]
 
 @[simp] theorem positiveZero_sign : positiveZero.sign = false := by
-  native_decide
+  decide
 
 @[simp] theorem negativeZero_sign : negativeZero.sign = true := by
-  native_decide
+  decide
 
 theorem positiveZero_bits_ne_negativeZero_bits :
     positiveZero.bits ≠ negativeZero.bits := by
-  native_decide
+  decide
 
 @[simp] theorem positiveZero_toReal : positiveZero.toReal = 0 := by
   rw [toReal_eq_zero_iff]
-  native_decide
+  decide
 
 @[simp] theorem negativeZero_toReal : negativeZero.toReal = 0 := by
   rw [toReal_eq_zero_iff]
-  native_decide
+  decide
 
 @[simp] theorem leastPositiveSubnormal_significand :
     leastPositiveSubnormal.significand = 1 := by
-  native_decide
+  decide
 
 @[simp] theorem leastPositiveSubnormal_exponent :
     leastPositiveSubnormal.exponent = -1074 := by
-  native_decide
+  decide
 
 @[simp] theorem greatestPositiveFinite_significand :
     greatestPositiveFinite.significand = 9007199254740991 := by
-  native_decide
+  decide
 
 @[simp] theorem greatestPositiveFinite_exponent :
     greatestPositiveFinite.exponent = 971 := by
-  native_decide
+  decide
 
 @[simp] theorem greatestPositiveFinite_sign :
     greatestPositiveFinite.sign = false := by
-  native_decide
+  decide
 
 theorem abs_toReal_eq_magnitude (x : Binary64Finite) :
     |x.toReal| = x.magnitude := by

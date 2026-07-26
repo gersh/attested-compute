@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "keys": [
+    {
+      "allowed_verifier_profiles": [
+        {
+          "backend": "azure_sevsnp_cpu",
+          "target_profile_sha256": "27c1f9d99d4a2bafae009c09310eec8bd710663bcdc463f90244019da1f948d5",
+          "trust_profile_sha256": "dfec83fa16f6740346d6d9d79c02200e2bdd2757d30e6252b96e670c5b540e72",
+          "verifier_artifact_sha256": "88c9eae68eb300b2971a2bec9e5a26ff4179fd661d6b7d861e4c6557b9aaee14",
+          "verifier_policy_sha256": "823412d1eacb67956220e532959f0104603057c88704863ca38e7cd188fda812"
+        }
+      ],
+      "key_id": "sparkinterval-bootstrap-rsa3072-2026-07",
+      "public_key_path": "sparkinterval-bootstrap-rsa3072-2026-07-public.pem",
+      "public_key_sha256": "0f5b08c89fd387ac9ec114246029fd9767e6c6b7b1780f3dbfeed8733f7ab82e",
+      "classification": "development"
+    }
+  ]
+}

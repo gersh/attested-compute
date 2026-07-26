@@ -15,6 +15,10 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from tg_verifier.campaign_io import (  # noqa: E402
+    MeasuredWorkerScopeError,
+    require_azure_measured_worker_for_workload,
+)
 from tg_verifier.mobius_campaign import (  # noqa: E402
     TARGET_ENDPOINTS,
     MobiusCampaignError,
@@ -64,6 +68,14 @@ def parser() -> argparse.ArgumentParser:
         type=positive,
         help="fail if one runner invocation exceeds this wall-clock limit",
     )
+    run.add_argument(
+        "--allow-bounded-test",
+        action="store_true",
+        help=(
+            "permit a fresh local KAT only when segment-count times "
+            "max-chunks is at most 64"
+        ),
+    )
     verify = subcommands.add_parser(
         "verify", help="structurally verify a retained campaign"
     )
@@ -75,6 +87,27 @@ def main() -> int:
     args = parser().parse_args()
     try:
         if args.command == "run":
+            endpoint = TARGET_ENDPOINTS[args.target]
+            requested_work = (
+                endpoint
+                if args.max_chunks is None
+                else min(endpoint, args.segment_count * args.max_chunks)
+            )
+            require_azure_measured_worker_for_workload(
+                exact_production=not args.allow_bounded_test,
+                work_bounds=(requested_work,),
+            )
+            if (
+                args.allow_bounded_test
+                and args.output_dir.exists()
+                and (
+                    not args.output_dir.is_dir()
+                    or any(args.output_dir.iterdir())
+                )
+            ):
+                raise MobiusCampaignError(
+                    "a local bounded KAT requires a fresh empty output directory"
+                )
             outcome = run_campaign(
                 runner=args.runner,
                 output_directory=args.output_dir,
@@ -86,8 +119,12 @@ def main() -> int:
                 chunk_timeout_seconds=args.chunk_timeout_seconds,
             )
         else:
+            require_azure_measured_worker_for_workload(
+                exact_production=True,
+                work_bounds=(),
+            )
             outcome = verify_campaign(args.output_dir)
-    except MobiusCampaignError as exc:
+    except (MeasuredWorkerScopeError, MobiusCampaignError) as exc:
         print(f"Möbius campaign error: {exc}", file=sys.stderr)
         return 2
     print(json.dumps(outcome.as_json(), sort_keys=True, indent=2))

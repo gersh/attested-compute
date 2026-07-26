@@ -64,11 +64,13 @@ See [lean-result-certificate/README.md](lean-result-certificate/README.md).
 ```
 
 These demonstrate interval containment, an exact Mathlib zeta identity, and
-the explicit execution-trust boundary. The last example shows that both DGX
-and H100 policy-specific entry points route through the sole
-`accepted_run_certificate_sound` axiom. `ProducedOutcome` contains both the
-historical returned bytes and fail-closed semantics for matching closed
-registered invocations; `accepted_registered_run_sound` is a proved projection.
+the explicit execution-trust boundary. The execution example shows that only
+an exact source-admitted trusted-compute receipt can route through the sole
+`accepted_run_certificate_sound` axiom. The legacy DGX and H100 checks are
+diagnostics rejected by `RunCertificate.check`. `ProducedOutcome` contains
+both the historical returned bytes and fail-closed semantics for matching
+closed registered invocations; `accepted_registered_run_sound` is a proved
+projection.
 The registered cubic-sum module shows that an accepted
 `cubicSumDivThree20000V1` certificate would yield exact output
 `13334666700000000` and the corresponding rational equality without

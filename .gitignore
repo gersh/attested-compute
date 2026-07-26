@@ -5,6 +5,7 @@
 *.cubin
 *.fatbin
 *.ptx
+!examples/trusted-compute/h100_formal_ptx_constant_one.sm_90.ptx
 *.sass.txt
 __pycache__/
 *.pyc

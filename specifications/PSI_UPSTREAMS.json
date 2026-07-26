@@ -1,0 +1,23 @@
+{
+  "kind": "sparkinterval.pinned_upstream_bundle.v1",
+  "components": {
+    "crlibm": {
+      "name": "crlibm correctly rounded elementary functions",
+      "repository": "https://github.com/taschini/crlibm.git",
+      "commit": "eb3063791aa75bc9705b49283bf14250465220a7",
+      "license": "LGPL-2.1-or-later",
+      "tracked_file_count": 253,
+      "tracked_bytes": 8929126,
+      "tree_sha256": "0eaccef04d464f8a827a27b044887df37717503d46cce45d064a5ca22840a76c"
+    },
+    "primesieve": {
+      "name": "kimwalisch/primesieve segmented prime sieve",
+      "repository": "https://github.com/kimwalisch/primesieve.git",
+      "commit": "4f85384851da23c36c01ec01ef85b5d9d246e556",
+      "license": "BSD-2-Clause",
+      "tracked_file_count": 159,
+      "tracked_bytes": 1496122,
+      "tree_sha256": "f67523ec2a0985e2338dbddb0589ab47fe6eeb11a7d17583b8f0f113a9000f92"
+    }
+  }
+}

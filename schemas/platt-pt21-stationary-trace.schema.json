@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gersh.github.io/gpu_prover/schemas/platt-pt21-stationary-trace.schema.json",
+  "title": "Bounded PT21 adaptive stationary-resolution trace",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "accepted",
+    "ambiguous_input_disks",
+    "candidate_count",
+    "error",
+    "failure_flags",
+    "input_sha256",
+    "interpolation_evaluations",
+    "interpolation_patch_sha256",
+    "maximum_depth",
+    "precision_bits",
+    "refinements_applied",
+    "replay_accepted",
+    "required_sample_count",
+    "resolution_sha256",
+    "schema",
+    "semantic_status",
+    "stationary_resolutions",
+    "upstream_commit"
+  ],
+  "properties": {
+    "accepted": {"type": "boolean"},
+    "ambiguous_input_disks": {"type": "integer", "minimum": 0, "maximum": 25741},
+    "candidate_count": {"type": "integer", "minimum": 0, "maximum": 10000},
+    "error": {"type": "string"},
+    "failure_flags": {"type": "integer", "minimum": 0, "maximum": 65535},
+    "input_sha256": {"$ref": "#/$defs/sha256"},
+    "interpolation_evaluations": {"type": "integer", "minimum": 0, "maximum": 1920000},
+    "interpolation_patch_sha256": {"const": "2bc33d3d4f6163ba5af8982f1272e9544154ed95bc6155a4ee215c4e425c85b3"},
+    "maximum_depth": {"type": "integer", "minimum": 1, "maximum": 96},
+    "precision_bits": {"const": 128},
+    "refinements_applied": {"type": "integer", "minimum": 0, "maximum": 10000},
+    "replay_accepted": {"type": "boolean"},
+    "required_sample_count": {"const": 25741},
+    "resolution_sha256": {"$ref": "#/$defs/sha256"},
+    "schema": {"const": "sparkinterval.tg.platt-pt21-stationary-trace.v1"},
+    "semantic_status": {
+      "const": {
+        "analytic_turing_realization_proved": false,
+        "flint_to_mathlib_realization_proved": false,
+        "hardy_z_endpoint_realization_proved": false
+      }
+    },
+    "stationary_resolutions": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {"$ref": "#/$defs/resolution"}
+    },
+    "upstream_commit": {"const": "42b21426718e542daa2b006dc05ea2d7f26426e6"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "rational": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["denominator", "numerator"],
+      "properties": {
+        "denominator": {"type": "integer", "minimum": 1},
+        "numerator": {"type": "integer"}
+      }
+    },
+    "interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hi", "lo"],
+      "properties": {
+        "hi": {"$ref": "#/$defs/rational"},
+        "lo": {"$ref": "#/$defs/rational"}
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lower_offset",
+        "lower_value",
+        "midpoint_offset",
+        "midpoint_value",
+        "outer_left_sample",
+        "outer_right_sample",
+        "stream",
+        "upper_offset",
+        "upper_value"
+      ],
+      "properties": {
+        "lower_offset": {"$ref": "#/$defs/rational"},
+        "lower_value": {"$ref": "#/$defs/interval"},
+        "midpoint_offset": {"$ref": "#/$defs/rational"},
+        "midpoint_value": {"$ref": "#/$defs/interval"},
+        "outer_left_sample": {"type": "integer", "minimum": -12800, "maximum": 12798},
+        "outer_right_sample": {"type": "integer", "minimum": -12798, "maximum": 12800},
+        "stream": {"enum": ["left_flank", "main", "right_flank"]},
+        "upper_offset": {"$ref": "#/$defs/rational"},
+        "upper_value": {"$ref": "#/$defs/interval"}
+      }
+    }
+  }
+}

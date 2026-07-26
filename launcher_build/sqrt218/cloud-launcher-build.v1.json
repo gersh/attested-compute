@@ -1,0 +1,248 @@
+{
+  "authority": {
+    "architecture_execution_proved": false,
+    "authorizes_lean_theorem": false,
+    "launcher_source_formally_verified": false,
+    "production_execution_performed": false,
+    "reviewed_launcher_release": false
+  },
+  "azure": {
+    "acr_build_argv": [
+      "az",
+      "acr",
+      "build",
+      "--registry",
+      "${ACR_NAME}",
+      "--platform",
+      "linux/amd64",
+      "--image",
+      "sqrt218-launcher-build:${LANE_MANIFEST_SHA256}",
+      "--file",
+      "launcher_build/sqrt218/Dockerfile",
+      "."
+    ],
+    "acr_resolve_digest_argv": [
+      "az",
+      "acr",
+      "manifest",
+      "show-metadata",
+      "--registry",
+      "${ACR_NAME}",
+      "--name",
+      "sqrt218-launcher-build:${LANE_MANIFEST_SHA256}",
+      "--query",
+      "digest",
+      "--output",
+      "tsv"
+    ],
+    "aci_build_argv": [
+      "az",
+      "container",
+      "create",
+      "--resource-group",
+      "${RESOURCE_GROUP}",
+      "--name",
+      "${CONTAINER_NAME}",
+      "--image",
+      "${ACR_LOGIN_SERVER}/sqrt218-launcher-build@sha256:${FINAL_IMAGE_DIGEST}",
+      "--os-type",
+      "Linux",
+      "--cpu",
+      "4",
+      "--memory",
+      "8",
+      "--restart-policy",
+      "Never",
+      "--assign-identity",
+      "${ACI_IDENTITY_RESOURCE_ID}",
+      "--acr-identity",
+      "${ACI_IDENTITY_RESOURCE_ID}",
+      "--azure-file-volume-account-name",
+      "${STORAGE_ACCOUNT}",
+      "--azure-file-volume-account-key",
+      "${AZURE_STORAGE_KEY}",
+      "--azure-file-volume-share-name",
+      "${STORAGE_SHARE}",
+      "--azure-file-volume-mount-path",
+      "/workspace/export",
+      "--environment-variables",
+      "TG_CLOUD_LAUNCHER_BUILD=1",
+      "TG_REPOSITORY_ROOT=/workspace/repository",
+      "TG_OUTPUT_ROOT=/workspace/export/${OUTPUT_LEAF}",
+      "TG_FINAL_IMAGE_REFERENCE=${ACR_LOGIN_SERVER}/sqrt218-launcher-build@sha256:${FINAL_IMAGE_DIGEST}"
+    ],
+    "acr_pull_identity_resource_id": "${ACI_IDENTITY_RESOURCE_ID}",
+    "acr_pull_role_pregranted_required": true,
+    "build_only_no_production_execution": true,
+    "final_image_digest_required": true,
+    "persistent_output_mount": "/workspace/export",
+    "persistent_output_leaf_must_be_absent": true,
+    "repository_source_closure_baked_into_image": true
+  },
+  "build": {
+    "cloud_build_ready": true,
+    "compile_flags": [
+      "-std=c11",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-Wconversion",
+      "-Werror",
+      "-pedantic",
+      "-fPIE",
+      "-fno-omit-frame-pointer",
+      "-fno-stack-protector",
+      "-fno-strict-aliasing",
+      "-static-pie",
+      "-Wl,-z,relro",
+      "-Wl,-z,now",
+      "-Wl,-z,noexecstack",
+      "-Wl,-z,separate-code",
+      "-Wl,--build-id=none"
+    ],
+    "executes_launcher": false,
+    "final_launcher": "retained/sqrt218_pure_entry_launcher",
+    "opens_production_input": false,
+    "ordered_steps": [
+      "source_closure",
+      "gcc_version",
+      "gcc_target",
+      "gcc_specs",
+      "assembler_version",
+      "linker_version",
+      "libc_path",
+      "compiler_sha256",
+      "assembler_sha256",
+      "linker_sha256",
+      "libc_sha256",
+      "compile",
+      "elf_header",
+      "elf_program_headers",
+      "elf_section_headers",
+      "elf_symbols",
+      "elf_dynamic",
+      "elf_relocations",
+      "symbol_table",
+      "disassembly",
+      "artifact_index"
+    ],
+    "output_is_authority": false,
+    "target": "x86_64-linux-gnu"
+  },
+  "container": {
+    "base_image": "docker.io/rocq/rocq-prover@sha256:b85a80a11bb65c7c843f91c7cbcce282f22ee397c9ca42f123d568ab6cef68b0",
+    "dockerfile": {
+      "path": "launcher_build/sqrt218/Dockerfile",
+      "sha256": "89f9b467361493474c785db32be1c56cd8a89ef3805024304247ee65278ef103",
+      "size_bytes": 3072
+    },
+    "entrypoint": "/opt/sparkinterval/run_cloud_launcher_build.sh",
+    "final_image_must_be_registry_digest_pinned": true
+  },
+  "evidence_outputs": {
+    "assembler.sha256": "commands/assembler_sha256.stdout",
+    "assembler.version": "commands/assembler_version.stdout",
+    "build.command": "commands/compile.argv0",
+    "build.stderr": "commands/compile.stderr",
+    "build.stdout": "commands/compile.stdout",
+    "compiler.sha256": "commands/compiler_sha256.stdout",
+    "compiler.specs": "commands/gcc_specs.stdout",
+    "compiler.target": "commands/gcc_target.stdout",
+    "compiler.version": "commands/gcc_version.stdout",
+    "elf.disassembly": "commands/disassembly.stdout",
+    "elf.dynamic": "commands/elf_dynamic.stdout",
+    "elf.file": "retained/sqrt218_pure_entry_launcher",
+    "elf.header": "commands/elf_header.stdout",
+    "elf.program_headers": "commands/elf_program_headers.stdout",
+    "elf.relocations": "commands/elf_relocations.stdout",
+    "elf.section_headers": "commands/elf_section_headers.stdout",
+    "elf.symbols": "commands/elf_symbols.stdout",
+    "libc.path": "commands/libc_path.stdout",
+    "libc.sha256": "commands/libc_sha256.stdout",
+    "linker.map": "retained/sqrt218-launcher.map",
+    "linker.sha256": "commands/linker_sha256.stdout",
+    "linker.version": "commands/linker_version.stdout",
+    "source.closure": "retained/source-closure.json",
+    "symbol.table": "commands/symbol_table.stdout"
+  },
+  "kind": "sparkinterval.sqrt218-cloud-launcher-build.v1",
+  "manifest_sha256": "fc4cdac2d81d66b40e453059b738073f771a9f77fde932e2e9855d49ea7f6e1d",
+  "schema_version": 1,
+  "source_inputs": [
+    {
+      "path": "launcher_build/sqrt218/Dockerfile",
+      "sha256": "89f9b467361493474c785db32be1c56cd8a89ef3805024304247ee65278ef103",
+      "size_bytes": 3072
+    },
+    {
+      "path": "launcher_build/sqrt218/README.md",
+      "sha256": "fb6063c0e12b8261b38c16c1a3f09f56b4c926a1b6ae5e6be681232cf5ffba7c",
+      "size_bytes": 5362
+    },
+    {
+      "path": "launcher_build/sqrt218/run_cloud_launcher_build.sh",
+      "sha256": "eea3e917745a2b51a3c5afa3363e113ee7d4e33769f4ea94d67383f8e8552b14",
+      "size_bytes": 8095
+    },
+    {
+      "path": "launcher_build/sqrt218/sqrt218_launcher_abi.h",
+      "sha256": "e3b34accc94010045ddf4c4de7b4b29ef12d2383cc7c6f0a3d1441319bfae8a6",
+      "size_bytes": 1864
+    },
+    {
+      "path": "launcher_build/sqrt218/sqrt218_launcher_sha256.c",
+      "sha256": "8ab1cb7d90f436419397c260380ee0fa1a36213b12eaab9361dd1f640ad26cc3",
+      "size_bytes": 6760
+    },
+    {
+      "path": "launcher_build/sqrt218/sqrt218_launcher_sha256.h",
+      "sha256": "da20e8bb1a754669ae5048034cf1c772792b5ea9a160210ce5060802662a066c",
+      "size_bytes": 766
+    },
+    {
+      "path": "launcher_build/sqrt218/sqrt218_pure_entry_launcher.c",
+      "sha256": "8ee19d20edef421b92954158899ee6b5cc80e664907f8263c9f4a894d089c3fe",
+      "size_bytes": 59361
+    },
+    {
+      "path": "launcher_build/sqrt218/sqrt218_pure_entry_trampoline.S",
+      "sha256": "de8b295c2542883f68f0d843946dd83d5891ccf489abb23c823b2cb09adc417b",
+      "size_bytes": 2039
+    },
+    {
+      "path": "tg_verifier/campaign_io.py",
+      "sha256": "43d1fc2dbab398e906755a03d7abcc3fec514a73eeab4ab69871e6d40c566413",
+      "size_bytes": 15435
+    },
+    {
+      "path": "tg_verifier/sqrt218_launcher_build.py",
+      "sha256": "b76ae314c2ea76fd36c91b6cb6d154b49bb827d6076bfe32ddf4bb8f0b1aeb06",
+      "size_bytes": 17959
+    },
+    {
+      "path": "tools/tg_sqrt218_launcher_build.py",
+      "sha256": "b7385db5f5d2c30a5c893bf4a2a80f5060cbd60931b642f2d67d526482570d79",
+      "size_bytes": 5118
+    }
+  ],
+  "status": {
+    "blockers": [
+      "unreviewed-launcher-source",
+      "cloud-built-launcher-artifact-not-yet-pinned",
+      "missing-launcher-to-lean-initializer-observer-refinement",
+      "missing-system-loader-x86-cpu-refinement",
+      "missing-signed-execution-closure-launcher-binding"
+    ],
+    "build_ready": true,
+    "formal_refinement_ready": false,
+    "production_execution_ready": false
+  },
+  "toolchain": {
+    "base_image": "docker.io/rocq/rocq-prover@sha256:b85a80a11bb65c7c843f91c7cbcce282f22ee397c9ca42f123d568ab6cef68b0",
+    "compiler_family": "GNU GCC",
+    "compiler_target_required": "x86_64-*",
+    "final_image_digest_is_primary_environment_pin": true,
+    "static_libc_archive_hashed_in_cloud": true,
+    "system_assembler_linker_and_libc_outside_formal_proof": true
+  }
+}

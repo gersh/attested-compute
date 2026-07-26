@@ -1,4 +1,5 @@
 import SparkInterval.Zeta.EndpointCertificate
+import SparkInterval.Zeta.TouchingVerifier
 import SparkInterval.Zeta.Verifier
 
 /-!
@@ -63,6 +64,16 @@ theorem continuousOnBrackets {f : ℝ → ℝ} {height : ℝ} {count : Nat}
   intro _i
   exact model.continuous.continuousOn
 
+/-- Global continuity also discharges every local premise for strict brackets
+whose closed endpoints may touch. -/
+theorem continuousOnTouchingBrackets
+    {f : ℝ → ℝ} {height : ℝ} {count : Nat}
+    (model : HardyZModel f height)
+    (certificate : TouchingZeroCertificate f count) :
+    certificate.ContinuousOnBrackets := by
+  intro _i
+  exact model.continuous.continuousOn
+
 /-- The same continuity handoff for independently produced chunks. -/
 theorem continuousOnChunks {f : ℝ → ℝ} {height : ℝ} {chunkCount : Nat}
     (model : HardyZModel f height)
@@ -91,6 +102,37 @@ theorem verifyEndpointFamily
   let evidence : ZetaVerifierEvidence f height count := {
     brackets := certificate
     continuous := model.continuousOnBrackets certificate
+    liesIn := by
+      intro i x hx
+      change (certificate.brackets i).lower ≤ x ∧
+        x ≤ (certificate.brackets i).upper at hx
+      change -height ≤ x ∧ x ≤ height
+      rw [(hendpoints i).1, (hendpoints i).2] at hx
+      exact ⟨(hlower i).trans hx.1, hx.2.trans (hupper i)⟩
+    bridge := model.criticalLineZeroBridge
+    totalUpper := totalUpper
+  }
+  exact evidence.all_zeros_on_criticalLine
+
+/-- End-to-end finite-height theorem for the source-permitted touching
+endpoint family.  Strict signs put roots in open interiors, so shared closed
+endpoints do not require zero simplicity. -/
+theorem verifyTouchingEndpointFamily
+    {f : ℝ → ℝ} {height : ℝ} {count : Nat}
+    (model : HardyZModel f height)
+    (family : TouchingRationalBracketFamily count)
+    (hcheck : family.check = true)
+    (hencloses : ∀ i, (family.entries i).EnclosesEndpoints f)
+    (hlower : ∀ i, -height ≤ ((family.entries i).lower : ℝ))
+    (hupper : ∀ i, ((family.entries i).upper : ℝ) ≤ height)
+    (totalUpper : ZetaZeroCountUpperBound height count) :
+    ∀ z ∈ criticalRectangle height,
+      riemannZeta z = 0 → z.re = (1 : ℝ) / 2 := by
+  obtain ⟨certificate, hendpoints⟩ :=
+    family.exists_touchingZeroCertificate hcheck hencloses
+  let evidence : TouchingZetaVerifierEvidence f height count := {
+    brackets := certificate
+    continuous := model.continuousOnTouchingBrackets certificate
     liesIn := by
       intro i x hx
       change (certificate.brackets i).lower ≤ x ∧

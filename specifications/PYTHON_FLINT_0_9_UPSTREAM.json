@@ -1,0 +1,56 @@
+{
+  "kind": "sparkinterval.pinned_python_flint_upstream.v1",
+  "name": "python-flint 0.9.0 with bundled FLINT 3.6.0",
+  "repository": "https://github.com/flintlib/python-flint.git",
+  "tag": "0.9.0",
+  "commit": "572c8a213a88c0f92feb1bdb938ce4622f4517fa",
+  "license": "MIT AND LGPL-3.0-or-later",
+  "tracked_file_count": 347,
+  "tracked_bytes": 2834349,
+  "tracked_tree_hash_domain": "sparkinterval/git-tracked-source-tree/v1",
+  "tracked_tree_sha256": "f5465a668c780dc41e251d94d2b5d7cfc38c742b4b4f4c02b42bdb7804713d0d",
+  "files": [
+    {
+      "path": "LICENSE",
+      "sha256": "957fd166a6e2395fa52d8fc3474b531b4d22d7d8b84fb4cfc1b7ad4ad09a413d",
+      "size_bytes": 1080
+    },
+    {
+      "path": "meson.build",
+      "sha256": "bd7636483c6586797e5293fe56f6682eba4e67bc5c6f1fd2b95b90c0211ce996",
+      "size_bytes": 3802
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "64b9d6add1ce67c258800b16b5409c3241231c9eb2b8b414c95963c5002fc2e9",
+      "size_bytes": 7904
+    },
+    {
+      "path": "src/flint/flint_base/flint_base.pyx",
+      "sha256": "7ab858633ffea7c7dd8ec3a169d84e981a4ef5ffd326d96f8183842269dba298",
+      "size_bytes": 33865
+    },
+    {
+      "path": "src/flint/flint_base/flint_context.pyx",
+      "sha256": "7508a5c350a28ac1746ec808f2e02f4b4a9483b24953a1abf2f8b903f5f4c642",
+      "size_bytes": 5497
+    },
+    {
+      "path": "src/flint/types/acb.pyx",
+      "sha256": "a78157b45cda5c4ee18847cef27d3c13a65fa4be4d468f0c01cb16a077b747a1",
+      "size_bytes": 99976
+    }
+  ],
+  "runtime_wheel": {
+    "filename": "python_flint-0.9.0-cp310-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+    "python_abi": "cp310-abi3",
+    "platform": "manylinux2014_x86_64.manylinux_2_17_x86_64",
+    "sha256": "376b88cacd30612479e839ffdba887599d3f9c8c0e214852bf80bb2b194e4d76",
+    "size_bytes": 10125938,
+    "extracted_file_count": 113,
+    "extracted_bytes": 25950684,
+    "extracted_tree_hash_domain": "sparkinterval/python-flint-wheel-tree/v1",
+    "extracted_tree_sha256": "ebab958796d833d67b2e282611c3481a7dc624ad2b6f1aedb8d916d8ceb5f1a6",
+    "source_url": "https://files.pythonhosted.org/packages/db/3f/5f57004f9f43ac6508f874cc97123f11b27b6811b5bb0d320c43f600f0cb/python_flint-0.9.0-cp310-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+  }
+}

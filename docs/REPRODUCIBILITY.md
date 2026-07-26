@@ -36,9 +36,20 @@ The axiom audit includes the complete serialized Lean build. Run it together
 with the Python suite for the hardware-independent validation path:
 
 ```bash
-./tools/audit_axioms.sh
+make audit
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
+
+This local gate checks the compact data-independent Lean root and whole-tree
+source policy. The full aggregate `tools/audit_axioms.sh` import reaches
+materialized production certificates and is retained only by the measured
+Azure qualification lane.
+
+A dated DGX Spark timing for the complete local Lean, Python, and native path
+is recorded in the
+[local repository qualification benchmark](AZURE_PERFORMANCE_SIZING.md#local-repository-qualification-benchmark).
+It excludes dependency downloads, cloud-service latency, and the thirteen
+source-scale external campaigns.
 
 The safe Lean planner builds one dependency closure at a time. If any Lean
 source changes while its plan is active, it exits with status 66; rerun the
@@ -46,11 +57,14 @@ whole command against one stable source snapshot.
 
 The axiom audit distinguishes Lean's reported foundational dependencies,
 explicit proof-reflection dependencies, and the sole named project execution
-postulate, `accepted_run_certificate_sound`. The DGX and H100 entry points are
-proved compatibility theorems over that one boundary.
+postulate, `accepted_run_certificate_sound`. Only an exact source-admitted
+`checkTrustedCompute` receipt can satisfy that postulate's premise. The legacy
+DGX and H100 structural checks are diagnostics that `RunCertificate.check`
+rejects; they do not have theorem-producing compatibility entry points.
 `accepted_registered_run_sound` is also a proved projection: a matching closed
-`RegisteredInvocation.statementCheck` exposes the invocation's fixed `Runs`
-relation. Interpret the result using the
+`RegisteredInvocation.statementCheck` recomputes the canonical source hashes,
+checks the invocation-specific canonical result language, and exposes the
+invocation's fixed `Runs` relation. Interpret the result using the
 [correctness claims](CORRECTNESS_CLAIMS.md) and [trust model](TRUST_MODEL.md).
 For the current cubic tutorial, the independently checkable side includes the
 executable integer loop, exact operational result, rational-specification
@@ -379,7 +393,7 @@ A manifest and all files it hashes can be replaced together. SHA-256 establishes
 identity only relative to an expected digest or accepted evidence chain. Never
 archive private operator keys or passphrases with run evidence.
 
-When a future trusted importer constructs a Lean `RunCertificate`, preserve the
+When the Azure source-receipt importer constructs a Lean `RunCertificate`, preserve the
 exact accepted statement, evidence-verifier output, policy and root versions,
 and result artifact bytes. Also preserve the canonical registry preimages for
 algorithm definition, input, parameters, and domain whenever the registered
@@ -388,7 +402,10 @@ historical return and the fixed `Runs` relation for every matching closed
 invocation; it does not prove a universal backend theorem or deterministic
 behavior for later physical runs. Preserve the exact full result certificate
 as well when downstream Lean mathematics is independently checked. The current
-repository has no wire-to-private-capability importer.
+tracked receipt registry is empty, so no production run currently exercises
+this handoff. Follow the [Azure guide](AZURE_CONFIDENTIAL_COMPUTE.md) and
+[Managed HSM signing guide](AZURE_MANAGED_HSM_SIGNING.md) for the complete
+evidence and key record.
 
 For a registered implementation, also archive the reviewed algorithm version
 and the proof audit for its operational semantics and arithmetic bounds. In the

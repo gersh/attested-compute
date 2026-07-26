@@ -79,15 +79,29 @@ class RunBundleTests(unittest.TestCase):
         self,
         target: str = "dgx_spark_sm121",
         trust: str = "local_unattested",
+        *,
+        include_gpu_artifact: bool | None = None,
     ) -> dict:
         hardware_path = None
         hardware_format = None
         if trust == "h100_hardware_attested":
             hardware_path = self.attestation_path
             hardware_format = "nvidia_cc_evidence"
+        elif trust == "azure_sevsnp_hardware_attested":
+            hardware_path = self.attestation_path
+            hardware_format = "azure_attestation_sevsnp_jwt"
+        elif trust == "azure_ncc_sevsnp_vtpm_nvidia_cc_attested":
+            hardware_path = self.attestation_path
+            hardware_format = "azure_ncc_sevsnp_vtpm_nvidia_cc_evidence_v1"
+        target_profile = self.profile("target", target)
+        build_artifacts = [("host_executable", self.runner_path)]
+        if include_gpu_artifact is None:
+            include_gpu_artifact = target_profile["backend_kind"] == "gpu"
+        if include_gpu_artifact:
+            build_artifacts.append(("gpu_executable", self.kernel_path))
         return create.create_bundle(
             root=self.root,
-            target_profile=self.profile("target", target),
+            target_profile=target_profile,
             trust_profile=self.profile("trust", trust),
             algorithm_id="RiemannZeta.verify.v1",
             algorithm_definition_sha256="ab" * 32,
@@ -96,10 +110,7 @@ class RunBundleTests(unittest.TestCase):
             domain_coverage=self.coverage,
             output_path=self.output_path,
             nonce=self.nonce,
-            build_artifacts=[
-                ("host_executable", self.runner_path),
-                ("gpu_executable", self.kernel_path),
-            ],
+            build_artifacts=build_artifacts,
             execution_environment=self.environment,
             completion=self.completion,
             hardware_attestation_path=hardware_path,
@@ -135,6 +146,7 @@ class RunBundleTests(unittest.TestCase):
         self.assertEqual(manifest.read_bytes(), create.canonical_json_bytes(bundle))
         self.assertEqual(bundle["evidence"]["evidence_class"], "local_unattested")
         self.assertIsNone(bundle["evidence"]["hardware_attestation"])
+        self.assertEqual(bundle["statement"]["backend_kind"], "gpu")
         self.assertEqual(bundle["statement"]["nonce"], self.nonce)
         self.assertEqual(
             bundle["statement"]["algorithm"]["definition_sha256"], "ab" * 32
@@ -197,6 +209,65 @@ class RunBundleTests(unittest.TestCase):
         self.rehash(wrong)
         with self.assertRaisesRegex(verify.VerificationError, "profile hash"):
             verify.verify_bundle(wrong)
+
+    def test_backend_kind_is_bound_to_the_target_profile(self) -> None:
+        bundle = self.make_bundle()
+        wrong = copy.deepcopy(bundle)
+        wrong["statement"]["backend_kind"] = "cpu"
+        self.rehash(wrong)
+        with self.assertRaisesRegex(
+            verify.VerificationError, "backend_kind does not match"
+        ):
+            verify.verify_bundle(wrong)
+
+    def test_cpu_target_accepts_host_only_build_and_rejects_gpu_image(self) -> None:
+        bundle = self.make_bundle("azure_sevsnp_cpu", "local_unattested")
+        self.assertEqual(bundle["statement"]["backend_kind"], "cpu")
+        self.assertEqual(
+            [record["role"] for record in bundle["statement"]["build_artifacts"]],
+            ["host_executable"],
+        )
+        result = verify.verify_bundle(bundle, artifact_root=self.root)
+        self.assertEqual(result["backend_kind"], "cpu")
+        self.assertTrue(result["artifacts_verified"])
+
+        with self.assertRaisesRegex(
+            create.BundleError, "CPU target.*GPU execution image"
+        ):
+            self.make_bundle(
+                "azure_sevsnp_cpu",
+                "local_unattested",
+                include_gpu_artifact=True,
+            )
+
+        tampered = copy.deepcopy(bundle)
+        tampered["statement"]["build_artifacts"].append(
+            create.artifact_record(
+                self.kernel_path, self.root, role="gpu_executable"
+            )
+        )
+        tampered["statement"]["build_artifacts"].sort(
+            key=lambda item: (item["role"], item["path"])
+        )
+        self.rehash(tampered)
+        with self.assertRaisesRegex(
+            verify.VerificationError, "CPU target.*GPU execution image"
+        ):
+            verify.verify_bundle(tampered)
+
+    def test_gpu_target_still_requires_gpu_execution_image(self) -> None:
+        with self.assertRaisesRegex(
+            create.BundleError, "GPU target.*GPU execution image"
+        ):
+            self.make_bundle(include_gpu_artifact=False)
+
+    def test_cpu_profile_forbids_gpu_architecture(self) -> None:
+        cpu = self.profile("target", "azure_sevsnp_cpu")
+        self.assertEqual(cpu["backend_kind"], "cpu")
+        self.assertNotIn("gpu_architecture", cpu)
+        malformed = dict(cpu, gpu_architecture="sm_90")
+        with self.assertRaisesRegex(create.BundleError, "wrong fields"):
+            create.validate_profile(malformed, "target")
 
     def test_dgx_cannot_be_created_with_mock_trust(self) -> None:
         with self.assertRaisesRegex(create.BundleError, "does not allow mock_attested"):
@@ -265,6 +336,134 @@ class RunBundleTests(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0][1], "nvidia_cc_evidence")
         self.assertEqual(calls[0][2], bundle["statement_sha256"])
+
+    def test_generic_production_policy_accepts_verified_cpu_attestation(self) -> None:
+        bundle = self.make_bundle(
+            "azure_sevsnp_cpu", "azure_sevsnp_hardware_attested"
+        )
+        calls: list[tuple[Path, str, str]] = []
+
+        def validator(path: Path, evidence_format: str, digest: str) -> bool:
+            calls.append((path, evidence_format, digest))
+            return True
+
+        result = verify.verify_bundle(
+            bundle,
+            artifact_root=self.root,
+            policy=verify.HARDWARE_PRODUCTION_POLICY,
+            seen_nonces=set(),
+            attestation_validator=validator,
+        )
+        self.assertTrue(result["hardware_evidence"])
+        self.assertEqual(result["backend_kind"], "cpu")
+        self.assertEqual(result["assurance"], "azure_sevsnp_hardware_attested")
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][1], "azure_attestation_sevsnp_jwt")
+        self.assertEqual(calls[0][2], bundle["statement_sha256"])
+
+    def test_exact_azure_ncc_h100_profile_requires_composite_evidence(self) -> None:
+        target = self.profile("target", "azure_ncc40ads_h100_v5")
+        self.assertEqual(target["backend_kind"], "gpu")
+        self.assertEqual(target["gpu_architecture"], "sm_90")
+        self.assertEqual(target["device_family"], "Azure Standard_NCC40ads_H100_v5")
+
+        bundle = self.make_bundle(
+            "azure_ncc40ads_h100_v5",
+            "azure_ncc_sevsnp_vtpm_nvidia_cc_attested",
+        )
+        calls: list[tuple[Path, str, str]] = []
+
+        def validator(path: Path, evidence_format: str, digest: str) -> bool:
+            calls.append((path, evidence_format, digest))
+            return True
+
+        result = verify.verify_bundle(
+            bundle,
+            artifact_root=self.root,
+            policy=verify.HARDWARE_PRODUCTION_POLICY,
+            seen_nonces=set(),
+            attestation_validator=validator,
+        )
+        self.assertTrue(result["hardware_evidence"])
+        self.assertEqual(result["target_profile"], "azure_ncc40ads_h100_v5")
+        self.assertEqual(
+            result["assurance"], "azure_ncc_sevsnp_vtpm_nvidia_cc_attested"
+        )
+        self.assertEqual(
+            calls,
+            [
+                (
+                    self.attestation_path.resolve(),
+                    "azure_ncc_sevsnp_vtpm_nvidia_cc_evidence_v1",
+                    bundle["statement_sha256"],
+                )
+            ],
+        )
+
+        with self.assertRaisesRegex(
+            verify.VerificationError, "requires target profile h100_sm90"
+        ):
+            verify.verify_bundle(
+                bundle,
+                artifact_root=self.root,
+                policy=verify.H100_PRODUCTION_POLICY,
+                seen_nonces=set(),
+                attestation_validator=validator,
+            )
+
+    def test_generic_production_policy_fails_closed(self) -> None:
+        bundle = self.make_bundle(
+            "azure_sevsnp_cpu", "azure_sevsnp_hardware_attested"
+        )
+        with self.assertRaisesRegex(
+            verify.VerificationError, "all artifact bytes"
+        ):
+            verify.verify_bundle(
+                bundle,
+                policy=verify.HARDWARE_PRODUCTION_POLICY,
+                seen_nonces=set(),
+                attestation_validator=lambda path, fmt, digest: True,
+            )
+        with self.assertRaisesRegex(
+            verify.VerificationError, "persistent replay protection"
+        ):
+            verify.verify_bundle(
+                bundle,
+                artifact_root=self.root,
+                policy=verify.HARDWARE_PRODUCTION_POLICY,
+                attestation_validator=lambda path, fmt, digest: True,
+            )
+        with self.assertRaisesRegex(
+            verify.VerificationError, "no trusted hardware-production"
+        ):
+            verify.verify_bundle(
+                bundle,
+                artifact_root=self.root,
+                policy=verify.HARDWARE_PRODUCTION_POLICY,
+                seen_nonces=set(),
+            )
+        with self.assertRaisesRegex(
+            verify.VerificationError, "rejected the evidence"
+        ):
+            verify.verify_bundle(
+                bundle,
+                artifact_root=self.root,
+                policy=verify.HARDWARE_PRODUCTION_POLICY,
+                seen_nonces=set(),
+                attestation_validator=lambda path, fmt, digest: False,
+            )
+
+        local = self.make_bundle("azure_sevsnp_cpu", "local_unattested")
+        with self.assertRaisesRegex(
+            verify.VerificationError, "requires hardware_attested evidence"
+        ):
+            verify.verify_bundle(
+                local,
+                artifact_root=self.root,
+                policy=verify.HARDWARE_PRODUCTION_POLICY,
+                seen_nonces=set(),
+                attestation_validator=lambda path, fmt, digest: True,
+            )
 
     def test_cli_replay_database_rejects_second_acceptance(self) -> None:
         bundle = self.make_bundle()

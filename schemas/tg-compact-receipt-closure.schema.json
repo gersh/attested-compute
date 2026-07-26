@@ -1,0 +1,348 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/tg-compact-receipt-closure.schema.json",
+  "title": "Ternary Goldbach compact receipt closure audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "campaigns",
+    "claims",
+    "generic_boundary",
+    "kind",
+    "schema_version",
+    "scope",
+    "source_pins",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": {
+      "const": "sparkinterval.ternary-goldbach.compact-receipt-closure.v1"
+    },
+    "source_pins": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "external_atom_catalog",
+        "external_atom_readiness",
+        "semantic_bindings"
+      ],
+      "properties": {
+        "external_atom_catalog": { "$ref": "#/$defs/filePin" },
+        "external_atom_readiness": { "$ref": "#/$defs/filePin" },
+        "semantic_bindings": { "$ref": "#/$defs/filePin" }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "external_atom_count",
+        "lowered_endpoint_id",
+        "logical_claim_count",
+        "physical_campaign_count"
+      ],
+      "properties": {
+        "external_atom_count": { "const": 13 },
+        "lowered_endpoint_id": {
+          "const": "goldbach-finite-below-10pow27"
+        },
+        "logical_claim_count": { "const": 14 },
+        "physical_campaign_count": { "const": 11 }
+      }
+    },
+    "generic_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_composition_theorem",
+        "local_production_input_replay_required",
+        "receipt_fact",
+        "universal_executable_refinement"
+      ],
+      "properties": {
+        "receipt_fact": { "$ref": "#/$defs/leanName" },
+        "universal_executable_refinement": { "$ref": "#/$defs/leanName" },
+        "claim_composition_theorem": { "$ref": "#/$defs/leanName" },
+        "local_production_input_replay_required": { "const": false }
+      }
+    },
+    "campaigns": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "items": { "$ref": "#/$defs/campaign" }
+    },
+    "claims": {
+      "type": "array",
+      "minItems": 14,
+      "maxItems": 14,
+      "items": { "$ref": "#/$defs/claim" }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "campaigns_with_complete_physical_pins",
+        "campaigns_with_acceptance_to_claim_adapter",
+        "campaigns_with_exact_executable_refinement",
+        "campaigns_with_native_bytes_to_evidence_theorem",
+        "campaigns_with_one_receipt_claim_authority_now",
+        "campaigns_with_source_scale_implementation",
+        "campaigns_with_transitive_graph_closure_proof",
+        "logical_claims_with_conditional_lean_soundness"
+      ],
+      "properties": {
+        "campaigns_with_source_scale_implementation": { "const": 11 },
+        "logical_claims_with_conditional_lean_soundness": { "const": 14 },
+        "campaigns_with_acceptance_to_claim_adapter": { "const": 11 },
+        "campaigns_with_complete_physical_pins": { "const": 0 },
+        "campaigns_with_exact_executable_refinement": { "const": 0 },
+        "campaigns_with_native_bytes_to_evidence_theorem": { "const": 0 },
+        "campaigns_with_transitive_graph_closure_proof": { "const": 0 },
+        "campaigns_with_one_receipt_claim_authority_now": { "const": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+    },
+    "leanName": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$"
+    },
+    "path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.][A-Za-z0-9_./+-]*$"
+    },
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "blobPin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["byte_length", "sha256"],
+      "properties": {
+        "byte_length": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "successResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bytes_utf8", "pin", "selector"],
+      "properties": {
+        "bytes_utf8": { "type": "string" },
+        "pin": { "$ref": "#/$defs/blobPin" },
+        "selector": { "$ref": "#/$defs/leanName" }
+      }
+    },
+    "registeredIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "algorithm_hash",
+        "algorithm_id",
+        "canonical_input_selector",
+        "domain_hash",
+        "input_hash",
+        "invocation",
+        "parameters_hash",
+        "success_result"
+      ],
+      "properties": {
+        "invocation": { "$ref": "#/$defs/name" },
+        "algorithm": { "$ref": "#/$defs/name" },
+        "algorithm_id": { "$ref": "#/$defs/name" },
+        "algorithm_hash": { "$ref": "#/$defs/digest" },
+        "canonical_input_selector": { "$ref": "#/$defs/leanName" },
+        "input_hash": { "$ref": "#/$defs/digest" },
+        "parameters_hash": { "$ref": "#/$defs/digest" },
+        "domain_hash": { "$ref": "#/$defs/digest" },
+        "success_result": { "$ref": "#/$defs/successResult" }
+      }
+    },
+    "physicalPins": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entry_point",
+        "executable",
+        "input",
+        "machine_semantics_id",
+        "measurement_scheme_id",
+        "receipt_hash",
+        "result",
+        "status",
+        "target"
+      ],
+      "properties": {
+        "status": { "const": "incomplete_pre_run" },
+        "target": {
+          "enum": ["azure_sev_snp_cpu", "nvidia_h100_confidential_compute"]
+        },
+        "receipt_hash": { "type": "null" },
+        "measurement_scheme_id": { "type": "null" },
+        "machine_semantics_id": { "type": "null" },
+        "entry_point": { "type": "null" },
+        "executable": { "type": "null" },
+        "input": { "type": "null" },
+        "result": { "$ref": "#/$defs/blobPin" }
+      }
+    },
+    "leanSoundness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_to_claim_theorem",
+        "evidence_type",
+        "native_bytes_to_evidence_theorem",
+        "registered_success_theorem",
+        "status"
+      ],
+      "properties": {
+        "status": { "const": "conditional_evidence_to_claim_present" },
+        "evidence_type": { "type": "string", "minLength": 1 },
+        "evidence_to_claim_theorem": { "$ref": "#/$defs/leanName" },
+        "registered_success_theorem": { "$ref": "#/$defs/leanName" },
+        "native_bytes_to_evidence_theorem": { "type": "null" }
+      }
+    },
+    "machineRefinement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compiler_linker_loader_refinement",
+        "exact_executable_refinement",
+        "status"
+      ],
+      "properties": {
+        "status": { "const": "missing_exact_binary_refinement" },
+        "exact_executable_refinement": { "const": false },
+        "compiler_linker_loader_refinement": { "const": false }
+      }
+    },
+    "receiptClosure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adapter_kind",
+        "can_one_closed_campaign_receipt_eventually_suffice",
+        "can_one_receipt_yield_claim_now",
+        "generic_composition_theorem",
+        "missing_proofs",
+        "one_ordinary_process_receipt_sufficient",
+        "per_campaign_adapter",
+        "receipt_scope"
+      ],
+      "properties": {
+        "adapter_kind": { "$ref": "#/$defs/name" },
+        "receipt_scope": {
+          "enum": [
+            "direct_single_process",
+            "transitive_campaign_graph",
+            "transitive_campaign_graph_with_external_dependency",
+            "composite_h100_producer_cpu_finalizer"
+          ]
+        },
+        "one_ordinary_process_receipt_sufficient": { "type": "boolean" },
+        "can_one_closed_campaign_receipt_eventually_suffice": { "const": true },
+        "can_one_receipt_yield_claim_now": { "const": false },
+        "generic_composition_theorem": { "$ref": "#/$defs/leanName" },
+        "per_campaign_adapter": { "$ref": "#/$defs/leanName" },
+        "missing_proofs": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+            "closed_reviewed_physical_pins",
+            "exact_executable_to_native_checker_refinement",
+            "exact_h100_producer_and_cpu_finalizer_refinements",
+            "native_checker_acceptance_to_lean_evidence",
+            "transitive_child_execution_closure",
+            "transitive_child_receipt_binding",
+            "source_analytic_realization",
+            "downstream_table_identity"
+            ]
+          }
+        }
+      }
+    },
+    "campaign": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backend_class",
+        "campaign_id",
+        "execution_mode",
+        "implementation_sources",
+        "lean_soundness",
+        "logical_claim_ids",
+        "machine_refinement",
+        "physical_compact_pins",
+        "receipt_closure",
+        "registered_identity"
+      ],
+      "properties": {
+        "campaign_id": { "$ref": "#/$defs/name" },
+        "logical_claim_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/name" }
+        },
+        "backend_class": {
+          "enum": ["cpu_exact_sidecar", "cpu_flint_sidecar", "h100_cuda"]
+        },
+        "execution_mode": {
+          "enum": ["single_job", "manual_phase_dag"]
+        },
+        "implementation_sources": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/path" }
+        },
+        "registered_identity": { "$ref": "#/$defs/registeredIdentity" },
+        "physical_compact_pins": { "$ref": "#/$defs/physicalPins" },
+        "lean_soundness": { "$ref": "#/$defs/leanSoundness" },
+        "machine_refinement": { "$ref": "#/$defs/machineRefinement" },
+        "receipt_closure": { "$ref": "#/$defs/receiptClosure" }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "campaign_id",
+        "catalog_kind",
+        "claim_id",
+        "lean_claim",
+        "projection"
+      ],
+      "properties": {
+        "claim_id": { "$ref": "#/$defs/name" },
+        "catalog_kind": {
+          "enum": ["external_atom", "lowered_finite_endpoint"]
+        },
+        "campaign_id": { "$ref": "#/$defs/name" },
+        "lean_claim": { "$ref": "#/$defs/leanName" },
+        "projection": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

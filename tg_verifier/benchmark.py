@@ -314,11 +314,13 @@ def full_campaign_estimates() -> list[dict[str, Any]]:
         "helfgott-platt-theorem-4-1": (
             _range(
                 "prohibitive_reference",
-                "literal binary-Goldbach scan and certificate-checked 492700-range ladder exist; historical optimized campaign about 40000 core-hours",
+                "full 65536-leaf binary campaign and certificate-checked 492700-range ladder exist; source execution is pending",
             ),
             _range(
-                "not_estimated",
-                "cluster-deployable host sidecar only; no production H100 binary-Goldbach/primality kernel",
+                "planning_range",
+                "uncalibrated 2x--5x H100/GB10 sensitivity for the implemented eight-GPU binary branch; excludes the separate ladder",
+                18_048.634259259259 * 3_600,
+                45_121.585648148148 * 3_600,
             ),
         ),
         "platt-dirichlet-theorem-7-1": (
@@ -328,7 +330,7 @@ def full_campaign_estimates() -> list[dict[str, Any]]:
             ),
             _range(
                 "not_estimated",
-                "strict sm_90 completed-L POC is moderate-height only; Platt-scale lattice/FFT and completeness kernel remain absent",
+                "optimized components now include persistent large-q directed composition/CRT-Bluestein/completed-L streaming, scalable root artifacts, certified small-q disk arithmetic with parity-tail semantic sign reduction, a fully replayed 96-MB finite-recovery seed table, and conditional zero closure; the remaining 5.180-PB t-major Hurwitz-lattice supply boundary, unfused 226.996-TB small-q disk pipe, source-wide enclosure usefulness, uniform interpolation, exception refinement, and the missing theorem-level bridge for the corrected reflected Turing upper bound still prevent an atom ETA",
             ),
         ),
         "platt-little-mertens-2-11": (

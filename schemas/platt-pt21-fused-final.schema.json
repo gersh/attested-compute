@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gersh.github.io/gpu_prover/schemas/platt-pt21-fused-final.schema.json",
+  "title": "Gap-free PT21 fused full-campaign receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "mode",
+    "upstream_commit",
+    "first_block",
+    "upper_block_exclusive",
+    "block_count",
+    "shard_count",
+    "height_lower",
+    "height_upper",
+    "first_count",
+    "last_count",
+    "source_height",
+    "source_height_count",
+    "total_main_slots",
+    "shard_receipt_merkle_root_sha256",
+    "all_finite_artifacts_closed",
+    "hardy_z_endpoint_realization_proved",
+    "main_multiplicity_realization_proved",
+    "analytic_turing_realization_proved",
+    "azure_execution_attested",
+    "source_claim_ready",
+    "final_sha256"
+  ],
+  "properties": {
+    "schema": {"const": "sparkinterval.tg.platt-pt21-fused-final.v1"},
+    "mode": {"enum": ["production", "bounded_test"]},
+    "upstream_commit": {"const": "42b21426718e542daa2b006dc05ea2d7f26426e6"},
+    "first_block": {"type": "integer", "minimum": 0},
+    "upper_block_exclusive": {"type": "integer", "minimum": 1, "maximum": 2966443783},
+    "block_count": {"type": "integer", "minimum": 1},
+    "shard_count": {"type": "integer", "minimum": 1},
+    "height_lower": {"type": "integer"},
+    "height_upper": {"type": "integer"},
+    "first_count": {"type": "integer", "minimum": 1},
+    "last_count": {"type": "integer", "minimum": 1},
+    "source_height": {"const": 3000175332800},
+    "source_height_count": {
+      "oneOf": [{"type": "null"}, {"type": "integer", "minimum": 1}]
+    },
+    "total_main_slots": {"type": "integer", "minimum": 0},
+    "shard_receipt_merkle_root_sha256": {"$ref": "#/$defs/sha256"},
+    "all_finite_artifacts_closed": {"const": true},
+    "hardy_z_endpoint_realization_proved": {"const": false},
+    "main_multiplicity_realization_proved": {"const": false},
+    "analytic_turing_realization_proved": {"const": false},
+    "azure_execution_attested": {"const": false},
+    "source_claim_ready": {"const": false},
+    "final_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

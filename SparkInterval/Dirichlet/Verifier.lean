@@ -10,12 +10,13 @@ checkable layers combine:
 1. a real-valued critical-line evaluator whose zeros agree with
    `χ.LFunction (1/2 + t*I)` on the checked ordinate interval;
 2. ordered sign-change brackets for that real function; and
-3. a global upper bound on the number of L-function zeros in the closed
-   rectangle `[0,1] x [lo,hi]`.
+3. a global upper bound on the number of nontrivial L-function zeros in
+   `(0,1) x [lo,hi]`.
 
 When the upper bound equals the number of brackets, all inequalities
-collapse and every zero in the rectangle lies on the critical line.  The
-proof is axiom-free; a production verifier still has to prove the
+collapse and every nontrivial zero in the source strip lies on the critical
+line.  Finiteness is inherited from the closed compact envelope.  The proof
+is axiom-free; a production verifier still has to prove the
 `LZeroCountUpperBound` field (Turing method or argument principle) and the
 `LCriticalLineZeroBridge` for its checked evaluator.  Counts are counts of
 distinct zero locations, not analytic multiplicity.
@@ -30,13 +31,15 @@ open SparkInterval.Zeta (criticalPoint criticalPoint_injective)
 
 variable {N : ℕ} [NeZero N]
 
-/-- The real ordinate interval represented by `criticalStrip`. -/
+/-- The real ordinate interval represented by `nontrivialCriticalStrip`. -/
 def ordinateDomain (lo hi : ℝ) : Set ℝ :=
   Set.Icc lo hi
 
-@[simp] theorem criticalPoint_mem_criticalStrip {lo hi t : ℝ} :
-    criticalPoint t ∈ criticalStrip lo hi ↔ t ∈ ordinateDomain lo hi := by
-  simp [ordinateDomain, mem_criticalStrip, SparkInterval.Zeta.criticalPoint]
+@[simp] theorem criticalPoint_mem_nontrivialCriticalStrip {lo hi t : ℝ} :
+    criticalPoint t ∈ nontrivialCriticalStrip lo hi ↔
+      t ∈ ordinateDomain lo hi := by
+  simp [ordinateDomain, mem_nontrivialCriticalStrip,
+    SparkInterval.Zeta.criticalPoint]
   norm_num
 
 theorem criticalPoint_mem_criticalLine (t : ℝ) :
@@ -59,12 +62,12 @@ theorem image_zerosOn_eq_criticalLineLZerosIn
     {χ : DirichletCharacter ℂ N} {f : ℝ → ℝ} {lo hi : ℝ}
     (bridge : LCriticalLineZeroBridge χ f lo hi) :
     criticalPoint '' Zeta.zerosOn f (ordinateDomain lo hi) =
-      criticalLineLZerosIn χ (criticalStrip lo hi) := by
+      criticalLineLZerosIn χ (nontrivialCriticalStrip lo hi) := by
   ext z
   constructor
   · rintro ⟨t, ⟨ht, hzero⟩, rfl⟩
     exact ⟨
-      ⟨criticalPoint_mem_criticalStrip.mpr ht,
+      ⟨criticalPoint_mem_nontrivialCriticalStrip.mpr ht,
         (bridge.zero_iff ht).mp hzero⟩,
       criticalPoint_mem_criticalLine t⟩
   · rintro ⟨⟨hzstrip, hzero⟩, hzline⟩
@@ -74,7 +77,7 @@ theorem image_zerosOn_eq_criticalLineLZerosIn
       · simpa using hreal.symm
       · rfl
     have hordinate : z.im ∈ ordinateDomain lo hi := by
-      rw [← criticalPoint_mem_criticalStrip]
+      rw [← criticalPoint_mem_nontrivialCriticalStrip]
       simpa [hpoint] using hzstrip
     refine ⟨z.im, ⟨hordinate, ?_⟩, hpoint⟩
     apply (bridge.zero_iff hordinate).mpr
@@ -89,15 +92,15 @@ theorem zerosOn_finite
     (Zeta.zerosOn f (ordinateDomain lo hi)).Finite := by
   apply Set.Finite.of_finite_image
   · rw [bridge.image_zerosOn_eq_criticalLineLZerosIn]
-    exact (LZerosIn_finite hχ (isCompact_criticalStrip lo hi)).subset
-      (criticalLineLZerosIn_subset χ (criticalStrip lo hi))
+    exact (LZerosIn_nontrivialCriticalStrip_finite hχ lo hi).subset
+      (criticalLineLZerosIn_subset χ (nontrivialCriticalStrip lo hi))
   · exact criticalPoint_injective.injOn
 
 /-- The bridge preserves the number of distinct zero locations. -/
 theorem criticalLineLZerosIn_ncard_eq_zerosOn_ncard
     {χ : DirichletCharacter ℂ N} {f : ℝ → ℝ} {lo hi : ℝ}
     (bridge : LCriticalLineZeroBridge χ f lo hi) :
-    (criticalLineLZerosIn χ (criticalStrip lo hi)).ncard =
+    (criticalLineLZerosIn χ (nontrivialCriticalStrip lo hi)).ncard =
       (Zeta.zerosOn f (ordinateDomain lo hi)).ncard := by
   rw [← bridge.image_zerosOn_eq_criticalLineLZerosIn]
   exact Set.ncard_image_of_injective _ criticalPoint_injective
@@ -105,11 +108,11 @@ theorem criticalLineLZerosIn_ncard_eq_zerosOn_ncard
 end LCriticalLineZeroBridge
 
 /-- The global counting result required from a Turing-method or
-argument-principle certificate for one character and one rectangle. -/
+argument-principle certificate for one character and one nontrivial strip. -/
 structure LZeroCountUpperBound
     (χ : DirichletCharacter ℂ N) (lo hi : ℝ) (bound : Nat) : Prop where
   count_le :
-    (LZerosIn χ (criticalStrip lo hi)).ncard ≤ bound
+    (LZerosIn χ (nontrivialCriticalStrip lo hi)).ncard ≤ bound
 
 namespace LCriticalLineZeroBridge
 
@@ -127,12 +130,12 @@ theorem zeroCountUpperBound
   }
   calc
     (Zeta.zerosOn f (ordinateDomain lo hi)).ncard =
-        (criticalLineLZerosIn χ (criticalStrip lo hi)).ncard :=
+        (criticalLineLZerosIn χ (nontrivialCriticalStrip lo hi)).ncard :=
       bridge.criticalLineLZerosIn_ncard_eq_zerosOn_ncard.symm
-    _ ≤ (LZerosIn χ (criticalStrip lo hi)).ncard :=
+    _ ≤ (LZerosIn χ (nontrivialCriticalStrip lo hi)).ncard :=
       Set.ncard_le_ncard
-        (criticalLineLZerosIn_subset χ (criticalStrip lo hi))
-        (LZerosIn_finite hχ (isCompact_criticalStrip lo hi))
+        (criticalLineLZerosIn_subset χ (nontrivialCriticalStrip lo hi))
+        (LZerosIn_nontrivialCriticalStrip_finite hχ lo hi)
     _ ≤ bound := upper.count_le
 
 end LCriticalLineZeroBridge
@@ -155,13 +158,13 @@ zeros in the rectangle. -/
 theorem exact_criticalLine_count
     {χ : DirichletCharacter ℂ N} {f : ℝ → ℝ} {lo hi : ℝ} {count : Nat}
     (evidence : GRHVerifierEvidence χ f lo hi count) :
-    (criticalLineLZerosIn χ (criticalStrip lo hi)).ncard = count := by
+    (criticalLineLZerosIn χ (nontrivialCriticalStrip lo hi)).ncard = count := by
   have complete := evidence.brackets.complete_of_count_upperBound
     evidence.continuous evidence.liesIn
     (evidence.bridge.zeroCountUpperBound evidence.nontrivial
       evidence.totalUpper)
   calc
-    (criticalLineLZerosIn χ (criticalStrip lo hi)).ncard =
+    (criticalLineLZerosIn χ (nontrivialCriticalStrip lo hi)).ncard =
         (Zeta.zerosOn f (ordinateDomain lo hi)).ncard :=
       evidence.bridge.criticalLineLZerosIn_ncard_eq_zerosOn_ncard
     _ = count := complete.exactCount
@@ -171,12 +174,12 @@ number of critical-line zeros and all L-function zeros in the rectangle. -/
 theorem exact_total_count
     {χ : DirichletCharacter ℂ N} {f : ℝ → ℝ} {lo hi : ℝ} {count : Nat}
     (evidence : GRHVerifierEvidence χ f lo hi count) :
-    (criticalLineLZerosIn χ (criticalStrip lo hi)).ncard =
-      (LZerosIn χ (criticalStrip lo hi)).ncard := by
+    (criticalLineLZerosIn χ (nontrivialCriticalStrip lo hi)).ncard =
+      (LZerosIn χ (nontrivialCriticalStrip lo hi)).ncard := by
   apply Nat.le_antisymm
   · exact Set.ncard_le_ncard
-      (criticalLineLZerosIn_subset χ (criticalStrip lo hi))
-      (LZerosIn_finite evidence.nontrivial (isCompact_criticalStrip lo hi))
+      (criticalLineLZerosIn_subset χ (nontrivialCriticalStrip lo hi))
+      (LZerosIn_nontrivialCriticalStrip_finite evidence.nontrivial lo hi)
   · rw [evidence.exact_criticalLine_count]
     exact evidence.totalUpper.count_le
 
@@ -184,9 +187,9 @@ theorem exact_total_count
 theorem all_zeros_on_criticalLine
     {χ : DirichletCharacter ℂ N} {f : ℝ → ℝ} {lo hi : ℝ} {count : Nat}
     (evidence : GRHVerifierEvidence χ f lo hi count) :
-    ∀ z ∈ criticalStrip lo hi,
+    ∀ z ∈ nontrivialCriticalStrip lo hi,
       χ.LFunction z = 0 → z.re = (1 : ℝ) / 2 :=
-  all_zeros_in_strip_on_criticalLine evidence.nontrivial
+  all_zeros_in_nontrivialStrip_on_criticalLine evidence.nontrivial
     evidence.exact_total_count
 
 end GRHVerifierEvidence

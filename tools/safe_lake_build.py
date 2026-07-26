@@ -2,7 +2,12 @@
 # Copyright (c) 2026 Gershon Bialer. All rights reserved.
 # SPDX-License-Identifier: MIT
 
-"""Build local Lean modules serially, with an aggregate memory cap per step."""
+"""Build compact or explicitly selected Lean modules with bounded resources.
+
+With no arguments this builds only ``SparkIntervalCompact``.  The broad
+library contains materialized production certificates and is reachable only
+through the deliberately named ``--full-production-library`` option.
+"""
 
 from __future__ import annotations
 
@@ -17,11 +22,42 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SOURCE_ROOT = PROJECT_ROOT / "SparkInterval"
+SOURCE_ROOTS = (
+    PROJECT_ROOT / "SparkInterval",
+    PROJECT_ROOT / "TGComputeContracts",
+)
+TOP_LEVEL_SOURCES = (PROJECT_ROOT / "SparkIntervalCompact.lean",)
 MEMORY_RUNNER = PROJECT_ROOT / "tools" / "with_memory_limit.sh"
 PLAN_LOCK = PROJECT_ROOT / ".lake" / "sparkinterval-safe-plan.lock"
 SOURCE_CHANGED_EXIT = 66
 IMPORT_RE = re.compile(r"^\s*(?:public\s+)?import\s+([A-Za-z_][A-Za-z0-9_'.]*)\s*(?:--.*)?$")
+COMPACT_ROOT_MODULE = "SparkIntervalCompact"
+COMPACT_LIBRARY_TARGET = "SparkIntervalCompact"
+FULL_LIBRARY_TARGET = "SparkInterval"
+# The compact root now includes the source-shaped checker-to-claim adapters
+# for all ten physical ternary-Goldbach campaigns.  It still excludes every
+# generated production table, receipt replay, and registered application
+# execution relation.  Keep an explicit ceiling, but size it for this broader
+# ordinary-proof closure rather than the former Sqrt218-only root.
+COMPACT_SOURCE_BYTES_MAX = 2 * 1024 * 1024
+COMPACT_SOURCE_LINES_MAX = 50000
+COMPACT_FORBIDDEN_PREFIXES = (
+    "SparkInterval.Execution.Registered",
+    "SparkInterval.Execution.Signed",
+    "SparkInterval.Execution.Trusted",
+    "SparkInterval.Generated.",
+)
+COMPACT_FORBIDDEN_MODULES = frozenset(
+    {
+        "SparkInterval.Execution.Attestation",
+        "SparkInterval.Execution.CompactAttestedVerifier",
+        "SparkInterval.Execution.RunCertificate",
+    }
+)
+PRODUCTION_MATERIALIZED_PREFIXES = (
+    "SparkInterval.Execution.Registered",
+    "SparkInterval.Generated.",
+)
 EXECUTABLE_ROOTS = {
     "sparkinterval-gen": "SparkInterval.GeneratePTX",
     "sparkinterval-check-certificate": "SparkInterval.Certificate.CLI",
@@ -44,9 +80,15 @@ def module_name(path: Path) -> str:
 
 
 def local_sources() -> dict[str, Path]:
+    paths = [
+        path
+        for root in SOURCE_ROOTS
+        for path in root.rglob("*.lean")
+    ]
+    paths.extend(path for path in TOP_LEVEL_SOURCES if path.is_file())
     return {
         module_name(path): path
-        for path in sorted(SOURCE_ROOT.rglob("*.lean"))
+        for path in sorted(paths)
     }
 
 
@@ -156,6 +198,95 @@ def requested_closure(graph: dict[str, set[str]], requested: list[str]) -> set[s
     return closure
 
 
+def compact_closure(
+    graph: dict[str, set[str]],
+    contents: dict[str, bytes],
+) -> tuple[set[str], int, int]:
+    """Validate and describe the default data-independent import closure."""
+
+    selected = requested_closure(graph, [COMPACT_ROOT_MODULE])
+    forbidden = sorted(
+        name
+        for name in selected
+        if name in COMPACT_FORBIDDEN_MODULES
+        or any(name.startswith(prefix) for prefix in COMPACT_FORBIDDEN_PREFIXES)
+        or any(
+            component in {"Generated", "Production", "Tests"}
+            for component in name.split(".")
+        )
+        or name.endswith(("Replay", "Trace"))
+    )
+    if forbidden:
+        raise ValueError(
+            "compact Lean closure reaches production/certificate modules: "
+            + ", ".join(forbidden)
+        )
+    source_bytes = sum(len(contents[name]) for name in selected)
+    source_lines = sum(
+        len(contents[name].decode("utf-8").splitlines())
+        for name in selected
+    )
+    if source_bytes > COMPACT_SOURCE_BYTES_MAX:
+        raise ValueError(
+            "compact Lean closure exceeds its source-byte budget "
+            f"({source_bytes} > {COMPACT_SOURCE_BYTES_MAX})"
+        )
+    if source_lines > COMPACT_SOURCE_LINES_MAX:
+        raise ValueError(
+            "compact Lean closure exceeds its source-line budget "
+            f"({source_lines} > {COMPACT_SOURCE_LINES_MAX})"
+        )
+    return selected, source_bytes, source_lines
+
+
+def full_production_library_closure(
+    graph: dict[str, set[str]],
+) -> set[str]:
+    """Select every module in the broad production-materialized library."""
+
+    roots = sorted(name for name in graph if name.startswith("SparkInterval."))
+    return requested_closure(graph, roots)
+
+
+def production_materialization_in(
+    selected: set[str],
+) -> list[str]:
+    """Return materialized production modules in one requested closure."""
+
+    return sorted(
+        name
+        for name in selected
+        if any(
+            name.startswith(prefix)
+            for prefix in PRODUCTION_MATERIALIZED_PREFIXES
+        )
+    )
+
+
+def require_full_production_cloud_scope(
+    environment: dict[str, str] | None = None,
+) -> str:
+    """Reject the materialized full build outside a measured Azure child.
+
+    The reserved environment is an accidental-dispatch guard only.  It is not
+    attestation evidence and does not authorize a theorem or receipt.
+    """
+
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+    from tg_verifier.campaign_io import (  # pylint: disable=import-outside-toplevel
+        require_azure_measured_worker_for_workload,
+    )
+
+    backend = require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+        environment=environment,
+    )
+    assert backend is not None
+    return backend
+
+
 def topological_order(graph: dict[str, set[str]], selected: set[str]) -> list[str]:
     order: list[str] = []
     active: set[str] = set()
@@ -220,6 +351,15 @@ def main() -> int:
         help="print the dependency-ordered module plan without building",
     )
     parser.add_argument(
+        "--full-production-library",
+        action="store_true",
+        help=(
+            "explicitly build the broad SparkInterval library, including "
+            "materialized production certificates; use the Azure "
+            "qualification lane, not an ordinary local check"
+        ),
+    )
+    parser.add_argument(
         "--target",
         action="append",
         choices=sorted(EXECUTABLE_ROOTS),
@@ -245,15 +385,47 @@ def main() -> int:
         for option, facet in BLUEPRINT_FACETS.items()
         if getattr(args, option.replace("-", "_"))
     ]
+    if args.full_production_library and (
+        args.modules or args.target or requested_blueprint_facets
+    ):
+        parser.error(
+            "--full-production-library cannot be combined with modules, "
+            "--target, or blueprint facets"
+        )
+    if args.full_production_library:
+        try:
+            require_full_production_cloud_scope()
+        except ValueError as error:
+            parser.error(str(error))
+    default_compact = not (
+        args.full_production_library
+        or args.modules
+        or args.target
+        or requested_blueprint_facets
+    )
 
     try:
-        graph = local_graph()
-        requested_modules = [
-            *args.modules,
-            *(EXECUTABLE_ROOTS[target] for target in args.target),
-            *([BLUEPRINT_MODULE] if requested_blueprint_facets else []),
-        ]
-        selected = requested_closure(graph, requested_modules)
+        sources = local_sources()
+        contents = read_source_contents(sources)
+        graph = local_graph_from_contents(contents)
+        requested_modules = (
+            [COMPACT_ROOT_MODULE]
+            if default_compact
+            else [
+                *args.modules,
+                *(EXECUTABLE_ROOTS[target] for target in args.target),
+                *([BLUEPRINT_MODULE] if requested_blueprint_facets else []),
+            ]
+        )
+        if args.full_production_library:
+            selected = full_production_library_closure(graph)
+        elif default_compact:
+            selected, _, _ = compact_closure(graph, contents)
+        else:
+            selected = requested_closure(graph, requested_modules)
+        materialized = production_materialization_in(selected)
+        if materialized and not args.full_production_library:
+            require_full_production_cloud_scope()
         order = topological_order(graph, selected)
     except ValueError as error:
         parser.error(str(error))
@@ -288,7 +460,15 @@ def main() -> int:
         contents = read_source_contents(sources)
         graph = local_graph_from_contents(contents)
         try:
-            selected = requested_closure(graph, requested_modules)
+            if args.full_production_library:
+                selected = full_production_library_closure(graph)
+            elif default_compact:
+                selected, _, _ = compact_closure(graph, contents)
+            else:
+                selected = requested_closure(graph, requested_modules)
+            materialized = production_materialization_in(selected)
+            if materialized and not args.full_production_library:
+                require_full_production_cloud_scope()
             order = topological_order(graph, selected)
         except ValueError as error:
             parser.error(str(error))
@@ -316,12 +496,10 @@ def main() -> int:
 
         if args.target:
             targets = list(dict.fromkeys(args.target))
-        elif not args.modules and not requested_blueprint_facets:
-            targets = [
-                "SparkInterval",
-                "sparkinterval-gen",
-                "sparkinterval-check-certificate",
-            ]
+        elif args.full_production_library:
+            targets = [FULL_LIBRARY_TARGET]
+        elif default_compact:
+            targets = [COMPACT_LIBRARY_TARGET]
         else:
             targets = []
         for target in targets:

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/platt-pt21-azure-execution-contracts.schema.json",
+  "title": "SparkInterval PT21 Azure execution contracts",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["implementations", "kind", "mathematical_campaign", "schema_version"],
+  "properties": {
+    "kind": {"const": "sparkinterval.platt-pt21.azure-execution-contracts.v1"},
+    "schema_version": {"const": 1},
+    "mathematical_campaign": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["atom_id", "multiplicity_count", "ordinary_prefix_last_index", "phases", "platt_first_index", "receipt_merkle_rule", "sentinel_index", "shard_count", "shard_span", "simplicity_assumed", "source_height", "source_upper_exclusive", "zero_multiplicity_preserved"],
+      "properties": {
+        "atom_id": {"const": "platt-trudgian-rh-3e12"},
+        "source_height": {"const": 3000175332800},
+        "multiplicity_count": {"const": 12363153437138},
+        "ordinary_prefix_last_index": {"const": 9999},
+        "platt_first_index": {"const": 10000},
+        "sentinel_index": {"const": 12363153437139},
+        "source_upper_exclusive": {"const": 12363153437140},
+        "shard_span": {"const": 10000000},
+        "shard_count": {"const": 1236316},
+        "phases": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["depends_on", "phase_id", "shard_count"],
+            "properties": {
+              "phase_id": {"enum": ["initialize", "exact-multiplicity-count", "ordinary-low-index-prefix", "platt-turing-index-shards", "finalize-merkle-certificate"]},
+              "shard_count": {"type": "integer", "minimum": 1, "maximum": 1236316},
+              "depends_on": {
+                "type": "array",
+                "maxItems": 1,
+                "items": {"type": "string"}
+              }
+            }
+          }
+        },
+        "receipt_merkle_rule": {"const": "sha256(00||leaf-digest), sha256(01||left||right), duplicate odd right"},
+        "zero_multiplicity_preserved": {"const": true},
+        "simplicity_assumed": {"const": false}
+      }
+    },
+    "implementations": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["backend_class", "blockers", "capability", "contract_id", "finalizer_interface", "receipt_backend", "worker_interface"],
+        "properties": {
+          "contract_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9.-]+$"},
+          "backend_class": {"enum": ["cpu_flint_sidecar", "h100_cuda"]},
+          "receipt_backend": {"enum": ["azure_sevsnp_cpu", "azure_ncc40ads_h100_v5"]},
+          "worker_interface": {"type": "object"},
+          "finalizer_interface": {"type": "object"},
+          "capability": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["finalizer_complete", "full_source_geometry_complete", "production_materializer_allowed", "retained_export_replay_complete", "under_one_week_and_10000_usd", "worker_complete"],
+            "properties": {
+              "worker_complete": {"type": "boolean"},
+              "finalizer_complete": {"type": "boolean"},
+              "full_source_geometry_complete": {"type": "boolean"},
+              "retained_export_replay_complete": {"type": "boolean"},
+              "production_materializer_allowed": {"type": "boolean"},
+              "under_one_week_and_10000_usd": {"type": "boolean"}
+            }
+          },
+          "blockers": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    }
+  }
+}

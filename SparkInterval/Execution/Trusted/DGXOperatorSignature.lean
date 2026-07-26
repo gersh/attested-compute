@@ -1,28 +1,28 @@
 import SparkInterval.Execution.Trusted.RunCertificate
 
 /-!
-# Compatibility theorem for DGX operator-signed certificates
+# Fail-closed status of legacy DGX operator-signed certificates
 
-The external Ed25519 verifier establishes that an approved operator key signed
-the exact canonical run record.  A signature cannot establish that the record
-is truthful or that DGX hardware executed it.  This compatibility theorem now
-routes the accepted policy through the repository's single run-certificate
-axiom in `Trusted.RunCertificate`.
+The external Ed25519 verifier may establish that an approved operator key
+signed an exact canonical run record.  A signature cannot establish that the
+record is truthful or that DGX hardware executed it.  Consequently the legacy
+structural check is diagnostic only and is excluded from the repository's
+single run-certificate axiom.
 -/
 
 set_option autoImplicit false
 
 namespace SparkInterval.Execution.Trusted
 
-/-- Backward-compatible DGX handoff.  It introduces no axiom beyond
-`accepted_run_certificate_sound`. -/
-theorem dgx_operator_signed_run_sound
+/-- Even a positive legacy DGX diagnostic is rejected by the unified theorem
+admission checker. -/
+theorem dgx_operator_signature_not_admitted
     {statement : RunStatement}
     {attestation : Attestation}
-    (accepted : checkDGXOperatorSignature statement attestation = true) :
-    AlgorithmReturned statement statement.result := by
-  exact accepted_algorithm_returned
-    (certificate := { statement, attestation })
-    (RunCertificate.check_of_dgxOperatorSignature accepted)
+    (diagnostic : checkDGXOperatorSignature statement attestation = true) :
+    RunCertificate.check { statement, attestation } = false := by
+  cases attestation <;>
+    simp_all [RunCertificate.check, checkDGXOperatorSignature,
+      checkTrustedCompute]
 
 end SparkInterval.Execution.Trusted

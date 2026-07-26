@@ -14,6 +14,7 @@
       "required": [
         "target_profile",
         "trust_profile",
+        "backend_kind",
         "algorithm",
         "input_artifact",
         "parameters",
@@ -27,6 +28,7 @@
       "properties": {
         "target_profile": {"$ref": "#/$defs/profileReference"},
         "trust_profile": {"$ref": "#/$defs/profileReference"},
+        "backend_kind": {"enum": ["cpu", "gpu"]},
         "algorithm": {
           "type": "object",
           "additionalProperties": false,
@@ -51,16 +53,6 @@
                 "type": "object",
                 "required": ["role"],
                 "properties": {"role": {"const": "host_executable"}}
-              },
-              "minContains": 1
-            },
-            {
-              "contains": {
-                "type": "object",
-                "required": ["role"],
-                "properties": {
-                  "role": {"enum": ["gpu_executable", "gpu_cubin", "gpu_fatbin", "gpu_ptx"]}
-                }
               },
               "minContains": 1
             }
@@ -89,7 +81,44 @@
             "end_time_utc": {"type": "string", "format": "date-time"}
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["backend_kind"],
+            "properties": {"backend_kind": {"const": "gpu"}}
+          },
+          "then": {
+            "properties": {
+              "build_artifacts": {
+                "contains": {
+                  "type": "object",
+                  "required": ["role"],
+                  "properties": {
+                    "role": {"enum": ["gpu_executable", "gpu_cubin", "gpu_fatbin", "gpu_ptx"]}
+                  }
+                },
+                "minContains": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "build_artifacts": {
+                "not": {
+                  "contains": {
+                    "type": "object",
+                    "required": ["role"],
+                    "properties": {
+                      "role": {"enum": ["gpu_executable", "gpu_cubin", "gpu_fatbin", "gpu_ptx"]}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "statement_sha256": {"$ref": "#/$defs/sha256"},
     "evidence": {

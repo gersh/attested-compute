@@ -14,7 +14,13 @@ ALLOWED_AXIOMS = {
     }
 }
 FORBIDDEN = re.compile(r"\b(sorry|admit|unsafe)\b")
-AXIOM = re.compile(r"\baxiom\s+([A-Za-z_][A-Za-z0-9_']*)")
+NATIVE_DECIDE = re.compile(r"\bnative_decide\b")
+# `constant foo : P` and `axiom foo : P` elaborate to the same kernel
+# declaration kind.  Treating only the latter spelling as a trust declaration
+# would let an unreviewed project axiom evade this fast source-level check.
+TRUST_DECLARATION = re.compile(
+    r"\b(axiom|constant)\s+([A-Za-z_][A-Za-z0-9_']*)"
+)
 
 
 def strip_comments_and_strings(source: str) -> str:
@@ -97,18 +103,30 @@ def main() -> int:
                 f"{relative}:{line_number(stripped, match.start())}: "
                 f"forbidden Lean token '{match.group(1)}'"
             )
-        for match in AXIOM.finditer(stripped):
-            name = match.group(1)
-            if name not in ALLOWED_AXIOMS.get(relative, set()):
+        if "Tests" not in relative.parts:
+            for match in NATIVE_DECIDE.finditer(stripped):
                 failures.append(
                     f"{relative}:{line_number(stripped, match.start())}: "
-                    f"unapproved axiom '{name}'"
+                    "production theorem code must use kernel-checkable "
+                    "`decide` or an explicit certificate, not `native_decide`"
+                )
+        for match in TRUST_DECLARATION.finditer(stripped):
+            kind = match.group(1)
+            name = match.group(2)
+            if kind != "axiom" or name not in ALLOWED_AXIOMS.get(relative, set()):
+                failures.append(
+                    f"{relative}:{line_number(stripped, match.start())}: "
+                    f"unapproved {kind} trust declaration '{name}'"
                 )
 
     if failures:
         print("\n".join(failures), file=sys.stderr)
         return 1
-    print("Lean source audit passed (only the one named run-certificate trust axiom is permitted).")
+    print(
+        "Lean source audit passed (only the one named run-certificate "
+        "trust declaration is permitted; `constant` aliases and production "
+        "`native_decide` are rejected)."
+    )
     return 0
 
 

@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/sqrt218-cloud-launcher-build.schema.json",
+  "title": "Non-authorizing Sqrt218 cloud launcher build lane",
+  "description": "Pins launcher sources and records a cloud-only static build/inspection plan. It does not execute the launcher, prove architecture execution, or authorize a Lean theorem.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "authority",
+    "azure",
+    "build",
+    "container",
+    "evidence_outputs",
+    "kind",
+    "manifest_sha256",
+    "schema_version",
+    "source_inputs",
+    "status",
+    "toolchain"
+  ],
+  "properties": {
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "architecture_execution_proved",
+        "authorizes_lean_theorem",
+        "launcher_source_formally_verified",
+        "production_execution_performed",
+        "reviewed_launcher_release"
+      ],
+      "properties": {
+        "architecture_execution_proved": {"const": false},
+        "authorizes_lean_theorem": {"const": false},
+        "launcher_source_formally_verified": {"const": false},
+        "production_execution_performed": {"const": false},
+        "reviewed_launcher_release": {"const": false}
+      }
+    },
+    "azure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "acr_pull_identity_resource_id",
+        "acr_pull_role_pregranted_required",
+        "acr_build_argv",
+        "acr_resolve_digest_argv",
+        "aci_build_argv",
+        "build_only_no_production_execution",
+        "final_image_digest_required",
+        "persistent_output_mount",
+        "persistent_output_leaf_must_be_absent",
+        "repository_source_closure_baked_into_image"
+      ],
+      "properties": {
+        "acr_pull_identity_resource_id": {
+          "const": "${ACI_IDENTITY_RESOURCE_ID}"
+        },
+        "acr_pull_role_pregranted_required": {"const": true},
+        "acr_build_argv": {"$ref": "#/$defs/argv"},
+        "acr_resolve_digest_argv": {"$ref": "#/$defs/argv"},
+        "aci_build_argv": {"$ref": "#/$defs/argv"},
+        "build_only_no_production_execution": {"const": true},
+        "final_image_digest_required": {"const": true},
+        "persistent_output_mount": {"const": "/workspace/export"},
+        "persistent_output_leaf_must_be_absent": {"const": true},
+        "repository_source_closure_baked_into_image": {"const": true}
+      }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cloud_build_ready",
+        "compile_flags",
+        "executes_launcher",
+        "final_launcher",
+        "opens_production_input",
+        "ordered_steps",
+        "output_is_authority",
+        "target"
+      ],
+      "properties": {
+        "cloud_build_ready": {"const": true},
+        "compile_flags": {
+          "type": "array",
+          "minItems": 17,
+          "maxItems": 17,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 2, "maxLength": 128}
+        },
+        "executes_launcher": {"const": false},
+        "final_launcher": {
+          "const": "retained/sqrt218_pure_entry_launcher"
+        },
+        "opens_production_input": {"const": false},
+        "ordered_steps": {
+          "type": "array",
+          "minItems": 21,
+          "maxItems": 21,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/name"}
+        },
+        "output_is_authority": {"const": false},
+        "target": {"const": "x86_64-linux-gnu"}
+      }
+    },
+    "container": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_image",
+        "dockerfile",
+        "entrypoint",
+        "final_image_must_be_registry_digest_pinned"
+      ],
+      "properties": {
+        "base_image": {"$ref": "#/$defs/imageByDigest"},
+        "dockerfile": {"$ref": "#/$defs/filePin"},
+        "entrypoint": {
+          "const": "/opt/sparkinterval/run_cloud_launcher_build.sh"
+        },
+        "final_image_must_be_registry_digest_pinned": {"const": true}
+      }
+    },
+    "evidence_outputs": {
+      "type": "object",
+      "minProperties": 24,
+      "maxProperties": 24,
+      "additionalProperties": {"$ref": "#/$defs/relativePath"}
+    },
+    "kind": {
+      "const": "sparkinterval.sqrt218-cloud-launcher-build.v1"
+    },
+    "manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "schema_version": {"const": 1},
+    "source_inputs": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 32,
+      "items": {"$ref": "#/$defs/filePin"}
+    },
+    "status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blockers",
+        "build_ready",
+        "formal_refinement_ready",
+        "production_execution_ready"
+      ],
+      "properties": {
+        "blockers": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/name"}
+        },
+        "build_ready": {"const": true},
+        "formal_refinement_ready": {"const": false},
+        "production_execution_ready": {"const": false}
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_image",
+        "compiler_family",
+        "compiler_target_required",
+        "final_image_digest_is_primary_environment_pin",
+        "static_libc_archive_hashed_in_cloud",
+        "system_assembler_linker_and_libc_outside_formal_proof"
+      ],
+      "properties": {
+        "base_image": {"$ref": "#/$defs/imageByDigest"},
+        "compiler_family": {"const": "GNU GCC"},
+        "compiler_target_required": {"const": "x86_64-*"},
+        "final_image_digest_is_primary_environment_pin": {"const": true},
+        "static_libc_archive_hashed_in_cloud": {"const": true},
+        "system_assembler_linker_and_libc_outside_formal_proof": {
+          "const": true
+        }
+      }
+    }
+  },
+  "$defs": {
+    "argv": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024,
+        "pattern": "^[^\\u0000\\r\\n]+$"
+      }
+    },
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/relativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4194304
+        }
+      }
+    },
+    "imageByDigest": {
+      "type": "string",
+      "pattern": "^[^@\\s]+@sha256:[0-9a-f]{64}$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?/)[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^(?!0{64}$)[0-9a-f]{64}$"
+    }
+  }
+}

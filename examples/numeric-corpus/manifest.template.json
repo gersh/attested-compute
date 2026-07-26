@@ -1,0 +1,81 @@
+{
+  "claim": {
+    "claim_id": "example.square_table",
+    "claim_version": 1,
+    "lean_theorem": "Example.SquareTable.square_table",
+    "lean_type": "Example.SquareTable.IsSquareTable",
+    "statement": "For every integer index i with 0 <= i < 3, the row at index i contains the exact integer i * i.",
+    "statement_encoding": "utf8-exact-v1",
+    "statement_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "corpus_id": "example.square_table.rows",
+  "corpus_version": 1,
+  "coverage": [
+    {
+      "axis": "row_index",
+      "coverage_id": "square_rows",
+      "index_start": 0,
+      "index_stop": 3,
+      "role": "square_table"
+    }
+  ],
+  "kind": "sparkinterval.numeric_corpus_manifest.v1",
+  "parameters": {
+    "integer_encoding": "canonical signed decimal",
+    "row_format": "index,value"
+  },
+  "payload_prefix": "corpus/payloads",
+  "payload_root": {
+    "file_count": 2,
+    "hash_domain": "sparkinterval/numeric-corpus-payload-root/v1",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "total_size_bytes": 48
+  },
+  "payloads": [
+    {
+      "coverage_id": "square_rows",
+      "encoding": "utf8-csv-v1",
+      "index_start": 0,
+      "index_stop": 2,
+      "path": "corpus/payloads/rows-000000-000002.csv",
+      "role": "square_table",
+      "row_count": 2,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size_bytes": 32
+    },
+    {
+      "coverage_id": "square_rows",
+      "encoding": "utf8-csv-v1",
+      "index_start": 2,
+      "index_stop": 3,
+      "path": "corpus/payloads/rows-000002-000003.csv",
+      "role": "square_table",
+      "row_count": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size_bytes": 16
+    }
+  ],
+  "schema_version": 1,
+  "semantic_commitments": [
+    {
+      "hash_domain": "example/square-table-semantic-rows/v1",
+      "name": "parsed_rows",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "source_files": [
+    {
+      "executable": true,
+      "path": "corpus/src/generate_square_table.py",
+      "role": "generator",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size_bytes": 123
+    }
+  ],
+  "source_root": {
+    "file_count": 1,
+    "hash_domain": "sparkinterval/numeric-corpus-source-root/v1",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "total_size_bytes": 123
+  }
+}

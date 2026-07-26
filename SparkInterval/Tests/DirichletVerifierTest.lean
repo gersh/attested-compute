@@ -9,27 +9,36 @@ namespace SparkInterval.Tests.DirichletVerifier
 open SparkInterval.Dirichlet
 open DirichletCharacter
 
-example (lo hi : ℝ) : IsCompact (criticalStrip lo hi) :=
-  isCompact_criticalStrip lo hi
+example (lo hi : ℝ) : IsCompact (criticalStripEnvelope lo hi) :=
+  isCompact_criticalStripEnvelope lo hi
+
+/-- Regression for the former false closed-strip target: an even primitive
+character's boundary zero at `s = 0` is not a nontrivial zero. -/
+example (lo hi : ℝ) : (0 : ℂ) ∉ nontrivialCriticalStrip lo hi := by
+  simp
+
+example {lo hi : ℝ} (hlo : lo ≤ 0) (hhi : 0 ≤ hi) :
+    (0 : ℂ) ∈ criticalStripEnvelope lo hi := by
+  simp [hlo, hhi]
 
 example {N : ℕ} [NeZero N] {χ : DirichletCharacter ℂ N} (hχ : χ ≠ 1)
     {lo hi : ℝ} :
-    (LZerosIn χ (criticalStrip lo hi)).Finite :=
-  LZerosIn_finite hχ (isCompact_criticalStrip lo hi)
+    (LZerosIn χ (nontrivialCriticalStrip lo hi)).Finite :=
+  LZerosIn_nontrivialCriticalStrip_finite hχ lo hi
 
 example {N : ℕ} [NeZero N] {χ : DirichletCharacter ℂ N} (hχ : χ ≠ 1)
     {lo hi : ℝ}
     (hcount :
-      (criticalLineLZerosIn χ (criticalStrip lo hi)).ncard =
-        (LZerosIn χ (criticalStrip lo hi)).ncard) :
-    ∀ z ∈ criticalStrip lo hi,
+      (criticalLineLZerosIn χ (nontrivialCriticalStrip lo hi)).ncard =
+        (LZerosIn χ (nontrivialCriticalStrip lo hi)).ncard) :
+    ∀ z ∈ nontrivialCriticalStrip lo hi,
       χ.LFunction z = 0 → z.re = (1 : ℝ) / 2 :=
-  all_zeros_in_strip_on_criticalLine hχ hcount
+  all_zeros_in_nontrivialStrip_on_criticalLine hχ hcount
 
 example {N : ℕ} [NeZero N] {χ : DirichletCharacter ℂ N} {f : ℝ → ℝ}
     {lo hi : ℝ} {count : Nat}
     (evidence : GRHVerifierEvidence χ f lo hi count) :
-    ∀ z ∈ criticalStrip lo hi,
+    ∀ z ∈ nontrivialCriticalStrip lo hi,
       χ.LFunction z = 0 → z.re = (1 : ℝ) / 2 :=
   evidence.all_zeros_on_criticalLine
 

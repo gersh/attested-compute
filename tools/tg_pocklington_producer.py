@@ -29,6 +29,9 @@ from tg_verifier.goldbach_campaign import (  # noqa: E402
     check_pocklington_object,
     find_general_pocklington,
 )
+from tg_verifier.campaign_io import (  # noqa: E402
+    require_azure_measured_worker_for_workload,
+)
 
 
 def _load(path: Path) -> dict[str, object]:
@@ -59,6 +62,12 @@ def main(argv: list[str] | None = None) -> int:
     request = _load(args.request)
     lower = _decimal(request["lower_exclusive"], "lower_exclusive")
     upper = _decimal(request["upper_exclusive"], "upper_exclusive")
+    if upper <= lower + 1:
+        raise CampaignError("general-prime request interval is empty")
+    require_azure_measured_worker_for_workload(
+        exact_production=False,
+        work_bounds=(upper - lower - 1,),
+    )
     rung, certificate = find_general_pocklington(
         lower, upper, factor_prime_attempts=0
     )
@@ -81,4 +90,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except (CampaignError, OSError, ValueError) as error:
+        print(f"tg_pocklington_producer: {error}", file=sys.stderr)
+        raise SystemExit(2)

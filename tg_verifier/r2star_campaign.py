@@ -6,13 +6,14 @@
 The supervisor captures one runner binary, launches a gap-free sequence of
 bounded chunks, checks every source-shaped transition before retaining it, and
 can resume only from the verified prefix.  Structural verification of a
-retained campaign does not authenticate historical execution and does not
-realize the analytic definition in Lean.
+retained campaign does not authenticate historical execution.  Production can
+add a separately compiled, CPU-only pass which recomputes every retained row;
+neither pass by itself realizes the analytic definition in Lean.
 """
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from decimal import Decimal
 import hashlib
 import json
@@ -21,9 +22,18 @@ from pathlib import Path
 import re
 import stat
 import subprocess
+import tempfile
 from typing import Any, Mapping, Sequence
 
-from .campaign_io import advisory_lock, atomic_write_bytes
+from .campaign_io import (
+    AZURE_MEASURED_WORKER_CHALLENGE_ENV,
+    AZURE_MEASURED_WORKER_JOB_BINDING_ENV,
+    MeasuredWorkerScopeError,
+    advisory_lock,
+    atomic_write_bytes,
+    azure_measured_worker_environment,
+    require_azure_measured_worker_for_workload,
+)
 from .evidence import EvidenceError, load_decimal_json_bytes
 from .r2star import (
     R2STAR_ALGORITHM,
@@ -43,8 +53,20 @@ CAMPAIGN_ALGORITHM = "tg_r2star_cuda_campaign_v1"
 CAPTURED_RUNNER_NAME = "captured-r2star-runner"
 CONFIG_NAME = "campaign-config.json"
 MANIFEST_NAME = "campaign-manifest.json"
+REGISTERED_RESULT = b"true"
+REGISTERED_RESULT_SHA256 = hashlib.sha256(REGISTERED_RESULT).hexdigest()
 MAX_RUNNER_BYTES = 1 << 30
 MAX_RECEIPT_BYTES = 4 << 20
+MAX_ARITHMETIC_REPLAY_OUTPUT_BYTES = 4 << 10
+MAX_ARITHMETIC_REPLAYER_BYTES = 256 << 20
+DEFAULT_ARITHMETIC_REPLAY_SEGMENT_ROWS = 2_048
+MAX_ARITHMETIC_REPLAY_SEGMENT_ROWS = R2STAR_MAX_CHUNK_SPAN
+ARITHMETIC_REPLAY_PLAN_HEADER = (
+    "sparkinterval-r2star-arithmetic-replay-plan-v1"
+)
+ARITHMETIC_REPLAY_BENCHMARK_PLAN_HEADER = (
+    "sparkinterval-r2star-arithmetic-replay-benchmark-plan-v1"
+)
 _RECEIPT_NAME = re.compile(r"receipt-([0-9]{8})\.json")
 _DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 _RECEIPT_FIELDS = {
@@ -97,6 +119,7 @@ class R2StarCampaignResult:
     locally_supervised_execution: bool
     execution_attested: bool = False
     independent_rows_replayed: bool = False
+    arithmetic_replayer_sha256: str | None = None
     lean_atom_discharged: bool = False
 
     def as_json(self) -> dict[str, Any]:
@@ -468,9 +491,7 @@ def _load_and_validate_config(output_directory: Path) -> dict[str, Any]:
     return config
 
 
-def verify_campaign(output_directory: Path) -> R2StarCampaignResult:
-    """Verify the immutable setup and the complete retained transition prefix."""
-
+def _verify_campaign_unlocked(output_directory: Path) -> R2StarCampaignResult:
     config = _load_and_validate_config(output_directory)
     reports = _load_receipts(output_directory)
     _check_chain(reports, config)
@@ -486,6 +507,400 @@ def verify_campaign(output_directory: Path) -> R2StarCampaignResult:
         if manifest not in (result.as_json(), expected):
             raise R2StarCampaignError("campaign manifest disagrees with receipts")
     return result
+
+
+def verify_campaign(output_directory: Path) -> R2StarCampaignResult:
+    """Verify the immutable setup and the complete retained transition prefix."""
+
+    with advisory_lock(output_directory / ".r2star-campaign.lock"):
+        return _verify_campaign_unlocked(output_directory)
+
+
+def _arithmetic_replay_chunk_row(report: Mapping[str, Any]) -> str:
+    """Encode one structurally checked receipt as a native replay row."""
+
+    chunk = verify_runner_receipt(report)
+    return "\t".join(
+        (
+            "chunk",
+            str(chunk.lower),
+            str(chunk.upper),
+            str(chunk.incoming_lower),
+            str(chunk.incoming_upper),
+            str(chunk.outgoing_lower),
+            str(chunk.outgoing_upper),
+            str(chunk.minimum_squared_slack),
+            str(chunk.minimum_slack_index),
+            chunk.factor_support_digest,
+            _digest(
+                report.get("directed_rows_sha256_le_v1"),
+                "directed row digest",
+            ),
+            str(
+                _plain_int(
+                    report.get("exact_rational_fallback_rows"),
+                    "fallback rows",
+                )
+            ),
+        )
+    )
+
+
+def _arithmetic_replay_plan(
+    reports: Sequence[Mapping[str, Any]], *, expected_limit: int
+) -> bytes:
+    """Encode only retained commitments for the independent native replay."""
+
+    if not reports:
+        raise R2StarCampaignError(
+            "independent row replay requires at least one receipt"
+        )
+    rows = [
+        ARITHMETIC_REPLAY_PLAN_HEADER,
+        f"expected_limit\t{expected_limit}",
+        *(_arithmetic_replay_chunk_row(report) for report in reports),
+    ]
+    return ("\n".join(rows) + "\n").encode("ascii")
+
+
+def arithmetic_replay_benchmark_plan(
+    reports: Sequence[Mapping[str, Any]],
+) -> bytes:
+    """Encode a bounded, explicitly non-production replay benchmark.
+
+    Unlike the production plan, this format may begin above one.  It exists
+    only to calibrate the exact CPU row implementation at representative
+    source ordinates.  The distinct header and native output classification
+    prevent a bounded timing sample from being accepted by the source-scale
+    registered-result path.
+    """
+
+    if not reports:
+        raise R2StarCampaignError(
+            "arithmetic replay benchmark requires at least one receipt"
+        )
+    chunks = [verify_runner_receipt(report) for report in reports]
+    previous: R2StarChunk | None = None
+    for index, chunk in enumerate(chunks):
+        if previous is not None and (
+            chunk.lower,
+            chunk.incoming_lower,
+            chunk.incoming_upper,
+            chunk.previous_hash,
+        ) != (
+            previous.upper,
+            previous.outgoing_lower,
+            previous.outgoing_upper,
+            previous.record_hash,
+        ):
+            raise R2StarCampaignError(
+                f"benchmark receipt {index} breaks range/state/hash linkage"
+            )
+        previous = chunk
+    lower = chunks[0].lower
+    upper = chunks[-1].upper
+    rows = [
+        ARITHMETIC_REPLAY_BENCHMARK_PLAN_HEADER,
+        f"source_range\t{lower}\t{upper}",
+        *(_arithmetic_replay_chunk_row(report) for report in reports),
+    ]
+    return ("\n".join(rows) + "\n").encode("ascii")
+
+
+def _verify_campaign_arithmetic_unlocked(
+    output_directory: Path,
+    *,
+    arithmetic_replayer: Path,
+    expected_arithmetic_replayer_sha256: str | None,
+    replay_threads: int,
+    replay_segment_rows: int | None,
+    replay_timeout_seconds: int | None,
+) -> R2StarCampaignResult:
+    result = _verify_campaign_unlocked(output_directory)
+    if not result.complete:
+        raise R2StarCampaignError(
+            "independent row replay requires the complete literal source range"
+        )
+    if isinstance(replay_threads, bool) or not (
+        isinstance(replay_threads, int) and 1 <= replay_threads <= 64
+    ):
+        raise R2StarCampaignError("arithmetic replay threads must lie in [1,64]")
+    if replay_segment_rows is not None and (
+        isinstance(replay_segment_rows, bool)
+        or not isinstance(replay_segment_rows, int)
+        or not 1
+        <= replay_segment_rows
+        <= MAX_ARITHMETIC_REPLAY_SEGMENT_ROWS
+    ):
+        raise R2StarCampaignError(
+            "arithmetic replay segment rows must lie in [1,1000000] "
+            "or be null"
+        )
+    if replay_timeout_seconds is not None and (
+        isinstance(replay_timeout_seconds, bool)
+        or not isinstance(replay_timeout_seconds, int)
+        or replay_timeout_seconds < 1
+    ):
+        raise R2StarCampaignError(
+            "arithmetic replay timeout must be positive or null"
+        )
+    if expected_arithmetic_replayer_sha256 is not None:
+        _digest(
+            expected_arithmetic_replayer_sha256,
+            "expected arithmetic replayer digest",
+        )
+    try:
+        replay_path = arithmetic_replayer.resolve(strict=True)
+        metadata = replay_path.stat()
+    except OSError as exc:
+        raise R2StarCampaignError(
+            f"cannot resolve arithmetic replayer: {exc}"
+        ) from exc
+    if (
+        arithmetic_replayer.is_symlink()
+        or not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_nlink != 1
+        or not os.access(replay_path, os.X_OK)
+    ):
+        raise R2StarCampaignError(
+            "arithmetic replayer must be one executable, non-linked regular file"
+        )
+    replay_bytes = _read_bounded(
+        replay_path,
+        MAX_ARITHMETIC_REPLAYER_BYTES,
+        "arithmetic replayer",
+    )
+    replay_sha256 = _sha256(replay_bytes)
+    if (
+        expected_arithmetic_replayer_sha256 is not None
+        and replay_sha256 != expected_arithmetic_replayer_sha256
+    ):
+        raise R2StarCampaignError(
+            "arithmetic replayer differs from the reviewed digest"
+        )
+    reports = _load_receipts(output_directory)
+    _check_chain(
+        reports,
+        _load_and_validate_config(output_directory),
+    )
+    plan = _arithmetic_replay_plan(reports, expected_limit=result.endpoint)
+    try:
+        backend = require_azure_measured_worker_for_workload(
+            exact_production=True,
+            work_bounds=(result.endpoint,),
+        )
+        challenge = os.environ.get(AZURE_MEASURED_WORKER_CHALLENGE_ENV)
+        job_binding = os.environ.get(
+            AZURE_MEASURED_WORKER_JOB_BINDING_ENV
+        )
+        if (
+            backend is None
+            or not isinstance(challenge, str)
+            or not isinstance(job_binding, str)
+        ):
+            raise MeasuredWorkerScopeError(
+                "validated measured-worker binding is incomplete"
+            )
+        replay_environment = azure_measured_worker_environment(
+            {"LANG": "C", "LC_ALL": "C", "TZ": "UTC"},
+            backend=backend,
+            challenge_nonce=challenge,
+            job_binding=job_binding,
+        )
+    except MeasuredWorkerScopeError as exc:
+        raise R2StarCampaignError(
+            f"independent row-arithmetic replay is cloud-only: {exc}"
+        ) from exc
+    with tempfile.TemporaryDirectory(
+        prefix=".r2star-arithmetic-replay-"
+    ) as temporary:
+        captured_replayer = Path(temporary) / "captured-arithmetic-replayer"
+        atomic_write_bytes(captured_replayer, replay_bytes)
+        captured_replayer.chmod(0o500)
+        plan_path = Path(temporary) / "plan.tsv"
+        atomic_write_bytes(plan_path, plan)
+        try:
+            replay_command = [
+                str(captured_replayer),
+                "--plan",
+                str(plan_path),
+                "--threads",
+                str(replay_threads),
+            ]
+            if replay_segment_rows is not None:
+                replay_command.extend(
+                    ("--segment-rows", str(replay_segment_rows))
+                )
+            completed = subprocess.run(
+                replay_command,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                timeout=replay_timeout_seconds,
+                env=replay_environment,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise R2StarCampaignError(
+                f"independent row-arithmetic replay failed: {exc}"
+            ) from exc
+    if completed.returncode != 0:
+        diagnostic = completed.stderr[-4000:].decode("utf-8", "replace")
+        raise R2StarCampaignError(
+            "independent row-arithmetic replay rejected the campaign: "
+            f"{diagnostic}"
+        )
+    if len(completed.stdout) > MAX_ARITHMETIC_REPLAY_OUTPUT_BYTES:
+        raise R2StarCampaignError(
+            "independent row-arithmetic replay emitted oversized output"
+        )
+    replay_report = _parse_object(
+        completed.stdout, "independent row-arithmetic replay stdout"
+    )
+    expected_report = {
+        "checked_chunks": len(reports),
+        "checked_rows": result.endpoint,
+        "classification": "independent_cpu_full_row_arithmetic_replay_v1",
+        "expected_limit": result.endpoint,
+        "status": "PASS",
+    }
+    if replay_report != expected_report:
+        raise R2StarCampaignError(
+            "independent row-arithmetic replay emitted the wrong exact report"
+        )
+    return replace(
+        result,
+        independent_rows_replayed=True,
+        arithmetic_replayer_sha256=replay_sha256,
+    )
+
+
+def verify_campaign_arithmetic(
+    output_directory: Path,
+    *,
+    arithmetic_replayer: Path,
+    expected_arithmetic_replayer_sha256: str | None = None,
+    replay_threads: int = 32,
+    replay_segment_rows: int | None = (
+        DEFAULT_ARITHMETIC_REPLAY_SEGMENT_ROWS
+    ),
+    replay_timeout_seconds: int | None = None,
+) -> R2StarCampaignResult:
+    """Recompute every retained row with the separate CPU implementation."""
+
+    with advisory_lock(output_directory / ".r2star-campaign.lock"):
+        return _verify_campaign_arithmetic_unlocked(
+            output_directory,
+            arithmetic_replayer=arithmetic_replayer,
+            expected_arithmetic_replayer_sha256=(
+                expected_arithmetic_replayer_sha256
+            ),
+            replay_threads=replay_threads,
+            replay_segment_rows=replay_segment_rows,
+            replay_timeout_seconds=replay_timeout_seconds,
+        )
+
+
+def write_registered_result(
+    output_directory: Path,
+    output: Path,
+    *,
+    arithmetic_replayer: Path | None = None,
+    expected_arithmetic_replayer_sha256: str | None = None,
+    replay_threads: int = 32,
+    replay_segment_rows: int | None = (
+        DEFAULT_ARITHMETIC_REPLAY_SEGMENT_ROWS
+    ),
+    replay_timeout_seconds: int | None = None,
+) -> tuple[R2StarCampaignResult, dict[str, Any]]:
+    """Reverify the literal source range and exclusively emit ``true``.
+
+    This is the byte-level terminal expected by the closed Lean invocation.
+    It requires an independent CPU reconstruction of every committed row, but
+    does not itself prove either native implementation's refinement to Lean:
+    that physical-to-formal step remains inside the registered trusted-compute
+    execution boundary. Incomplete prefixes, bounded ranges, missing endpoint
+    guards/replay, and pre-existing result files fail closed.
+    """
+
+    if arithmetic_replayer is None:
+        raise R2StarCampaignError(
+            "registered result requires the independent full-row arithmetic replayer"
+        )
+    with advisory_lock(output_directory / ".r2star-campaign.lock"):
+        result = _verify_campaign_arithmetic_unlocked(
+            output_directory,
+            arithmetic_replayer=arithmetic_replayer,
+            expected_arithmetic_replayer_sha256=(
+                expected_arithmetic_replayer_sha256
+            ),
+            replay_threads=replay_threads,
+            replay_segment_rows=replay_segment_rows,
+            replay_timeout_seconds=replay_timeout_seconds,
+        )
+        if not result.independent_rows_replayed:
+            raise R2StarCampaignError(
+                "registered result requires full independent row replay"
+            )
+        if (
+            expected_arithmetic_replayer_sha256 is not None
+            and result.arithmetic_replayer_sha256
+            != expected_arithmetic_replayer_sha256
+        ):
+            raise R2StarCampaignError(
+                "registered result requires the reviewed arithmetic replayer"
+            )
+        if (
+            not result.complete
+            or result.endpoint != R2STAR_SOURCE_LIMIT
+            or result.completed_upper != R2STAR_SOURCE_LIMIT
+            or result.receipts < 1
+        ):
+            raise R2StarCampaignError(
+                "registered R2Star result requires the complete literal source range"
+            )
+        if (
+            result.final_record_hash == ZERO_SHA256
+            or result.minimum_squared_slack is None
+            or result.minimum_slack_index is None
+        ):
+            raise R2StarCampaignError(
+                "registered R2Star result requires the final chain and endpoint guard"
+            )
+        output.parent.mkdir(parents=True, exist_ok=True)
+        descriptor: int | None = None
+        try:
+            descriptor = os.open(
+                output,
+                os.O_WRONLY
+                | os.O_CREAT
+                | os.O_EXCL
+                | os.O_CLOEXEC
+                | os.O_NOFOLLOW,
+                0o400,
+            )
+            if os.write(descriptor, REGISTERED_RESULT) != len(REGISTERED_RESULT):
+                raise R2StarCampaignError("short registered-result write")
+            os.fsync(descriptor)
+        except FileExistsError as exc:
+            raise R2StarCampaignError(
+                f"refusing to overwrite an existing R2Star result artifact: {output}"
+            ) from exc
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
+        return result, {
+            "path": str(output.resolve()),
+            "sha256": REGISTERED_RESULT_SHA256,
+            "bytes": len(REGISTERED_RESULT),
+            "format": "canonical_boolean_true_no_newline_v1",
+            "refinement_scope": "independent_cpu_full_row_arithmetic_replay_v1",
+            "arithmetic_replayer_sha256": (
+                result.arithmetic_replayer_sha256
+            ),
+            "arithmetic_replay_threads": replay_threads,
+            "arithmetic_replay_segment_rows": replay_segment_rows,
+        }
 
 
 def run_campaign(

@@ -1,0 +1,1554 @@
+{
+  "schema_version": 1,
+  "kind": "sparkinterval.ternary-goldbach.external-completion-audit.v1",
+  "assessment_date": "2026-07-25",
+  "classification": "fail-closed-source-audit-not-production-evidence-or-theorem-authority",
+  "scope": {
+    "logical_atom_inventory": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOMS.json",
+    "physical_campaign_inventory": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOM_READINESS.json",
+    "program_readiness_inventory": "specifications/TERNARY_GOLDBACH_EXTERNAL_PROGRAM_READINESS.json",
+    "logical_atom_count": 13,
+    "physical_campaign_count": 10
+  },
+  "policy": {
+    "completion_requires_every_gate": true,
+    "required_gates": [
+      "optimized_full_range_executable",
+      "complete_source_artifact",
+      "independent_checker",
+      "lean_parser",
+      "lean_total_checker",
+      "lean_soundness",
+      "execution_refinement_or_single_trusted_compute_axiom",
+      "confidential_azure_path",
+      "target_sku_budget_gate",
+      "production_receipt",
+      "claude_math_production_integration"
+    ],
+    "allowed_statuses": [
+      "complete",
+      "partial",
+      "missing",
+      "reference_route_only",
+      "implemented_not_run",
+      "single_trusted_compute_axiom",
+      "unmeasured",
+      "receipt_absent",
+      "conditional_bridge_only"
+    ],
+    "definitions": {
+      "optimized_full_range_executable": "A selected source-scale implementation exists end to end. A literal but multi-year fallback or disconnected optimized components do not satisfy this gate.",
+      "complete_source_artifact": "A data-only artifact contains every semantic input needed by a total Lean checker whose ordinary soundness theorem reaches the exact source claim. A digest-only manifest, one sample block, or an always-rejecting candidate does not satisfy this gate.",
+      "independent_checker": "The source-scale route has a fresh replay or checker path distinct from trusting the producer's success flag. Same-library replay is recorded as independent execution, not implementation diversity.",
+      "lean_parser": "Lean parses the complete source artifact fail closed, including truncation and suffix rejection.",
+      "lean_total_checker": "A total Lean Boolean checks the complete parsed source artifact.",
+      "lean_soundness": "Ordinary Lean proves accepted complete artifact bytes imply the exact source claim without an analytic realization placeholder.",
+      "execution_refinement_or_single_trusted_compute_axiom": "The campaign has either ordinary executable/ISA/compiler refinement or the closed registered-invocation route through the project's sole trusted-compute axiom. This gate alone does not assert a run, receipt, or source claim.",
+      "confidential_azure_path": "Source-closed confidential Azure materialization exists. This means packageable, not appraised or run.",
+      "target_sku_budget_gate": "A source-scale target-SKU measurement supports a high wall-time endpoint below 168 hours and a high cost endpoint below USD 10000. Planning projections and transferred measurements do not count.",
+      "production_receipt": "A successfully appraised production receipt is source-admitted in the trusted-compute registry with reviewed deployment pins.",
+      "claude_math_production_integration": "The exact production receipt is installed through the conditional source bridge into claude_math. A theorem conditional on a hypothetical certificate does not satisfy this gate."
+    },
+    "target_sku_budget": {
+      "maximum_wall_hours_exclusive": "168",
+      "maximum_cost_usd_exclusive": "10000",
+      "high_endpoints_control": true
+    },
+    "single_trusted_compute_axiom": {
+      "repository": "gpu_prover",
+      "path": "SparkInterval/Execution/Trusted/RunCertificate.lean",
+      "declaration": "SparkInterval.Execution.Trusted.accepted_run_certificate_sound",
+      "contains": "axiom accepted_run_certificate_sound"
+    },
+    "production_registry": {
+      "repository": "gpu_prover",
+      "path": "SparkInterval/Execution/TrustedComputeRegistry.lean",
+      "contains": "def importedTrustedComputeRuns : List TrustedComputeEvidence := []"
+    }
+  },
+  "summary": {
+    "campaigns_complete": 0,
+    "conditional_claude_math_source_bridges": 10,
+    "satisfied_gate_counts": {
+      "optimized_full_range_executable": 8,
+      "complete_source_artifact": 1,
+      "independent_checker": 8,
+      "lean_parser": 1,
+      "lean_total_checker": 1,
+      "lean_soundness": 1,
+      "execution_refinement_or_single_trusted_compute_axiom": 10,
+      "confidential_azure_path": 10,
+      "target_sku_budget_gate": 0,
+      "production_receipt": 0,
+      "claude_math_production_integration": 0
+    },
+    "authoritative_conclusion": "No named external campaign is production-complete. All ten are Azure-packageable and registered behind the one explicit trusted-compute axiom, but no target-SKU measurement or production receipt exists. CDEM Abel is the sole complete Lean source-artifact program."
+  },
+  "campaigns": [
+    {
+      "campaign_id": "ch25-a7-boundary",
+      "logical_atom_ids": [
+        "ch25-a7-boundary"
+      ],
+      "gates": {
+        "optimized_full_range_executable": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "The fixed 16,191-leaf replay is small enough that no separate optimized route is needed.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tg_verifier/a7_flint.py",
+              "contains": "def replay_a7_flint"
+            }
+          ]
+        },
+        "complete_source_artifact": {
+          "satisfied": false,
+          "status": "missing",
+          "detail": "The transcript is complete for external FLINT replay, but carries no Lean-checkable proof that the enclosures refine Mathlib zeta and its derivative.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "specifications/TERNARY_GOLDBACH_EXTERNAL_PROGRAM_READINESS.json",
+              "contains": "\"campaign_id\": \"ch25-a7-boundary\""
+            }
+          ]
+        },
+        "independent_checker": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "Pinned transcript leaves are freshly recomputed with FLINT/Arb; this is independent execution, not a second analytic library.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tg_verifier/a7_flint.py",
+              "contains": "\"verification_class\": \"complete_external_flint_arb_leaf_replay\""
+            }
+          ]
+        },
+        "lean_parser": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "A total exact-length Lean parser now checks the identity-pinned fixed-width projection of all 16,191 retained seven-field leaves. The completion gate remains false because no data-only analytic-enclosure artifact/parser realizes the FLINT/Arb boxes as Mathlib zeta, derivative, and rawG bounds.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/A7BoundaryWire.lean",
+              "contains": "def checkRetainedBytes"
+            },
+            {
+              "repository": "gpu_prover",
+              "path": "tg_verifier/a7_boundary_wire.py",
+              "contains": "def decode_a7_boundary_wire"
+            }
+          ]
+        },
+        "lean_total_checker": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Lean checks finite geometry only.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/A7BoundaryCertificate.lean"
+            }
+          ]
+        },
+        "lean_soundness": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "The exact source theorem remains conditional on analytic realization.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/A7BoundarySourceSemantics.lean"
+            }
+          ]
+        },
+        "execution_refinement_or_single_trusted_compute_axiom": {
+          "satisfied": true,
+          "status": "single_trusted_compute_axiom",
+          "detail": "The closed A.7 invocation uses the sole explicit trusted-compute axiom; no universal executable refinement is claimed.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/RegisteredA7BoundaryCertificate.lean"
+            }
+          ]
+        },
+        "confidential_azure_path": {
+          "satisfied": true,
+          "status": "implemented_not_run",
+          "detail": "A one-job Azure SEV-SNP CPU materializer exists and has not been run.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tools/tg_azure_cpu_a7_materializer.py"
+            }
+          ]
+        },
+        "target_sku_budget_gate": {
+          "satisfied": false,
+          "status": "unmeasured",
+          "target_sku_measured": false,
+          "planning_wall_hours_high": "0.001",
+          "target_measured_wall_hours_high": null,
+          "target_measured_cost_usd_high": null,
+          "detail": "The full local replay is measured, but the target Azure SKU is not.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOM_READINESS.json"
+            }
+          ]
+        },
+        "production_receipt": {
+          "satisfied": false,
+          "status": "receipt_absent",
+          "detail": "No reviewed deployment pins or admitted receipt exist.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/TrustedComputeRegistry.lean"
+            }
+          ]
+        },
+        "claude_math_production_integration": {
+          "satisfied": false,
+          "status": "conditional_bridge_only",
+          "conditional_source_bridge_present": true,
+          "detail": "claude_math proves the exact source claim from a hypothetical registered check, but no production certificate is installed.",
+          "evidence": [
+            {
+              "repository": "claude_math",
+              "path": "MathExtras/NumberTheory/Analysis/CH25A7BoundaryRegisteredSourceBridge.lean"
+            }
+          ]
+        }
+      },
+      "complete": false
+    },
+    {
+      "campaign_id": "ch25-psi-two-pass-v1",
+      "logical_atom_ids": [
+        "ch25-psi-1e13"
+      ],
+      "gates": {
+        "optimized_full_range_executable": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "The 100,000-leaf source-scale two-pass runtime covers every prime-power event through 10^13.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "reference/tg_psi_residual_shard.cpp",
+              "contains": "Mode::kVerify"
+            }
+          ]
+        },
+        "complete_source_artifact": {
+          "satisfied": false,
+          "status": "missing",
+          "detail": "No complete Lean byte envelope retains every prime, directed-log, Q64, and gap record.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tg_verifier/psi_residual_campaign.py"
+            }
+          ]
+        },
+        "independent_checker": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "Verify mode independently regenerates every shard from root-derived incoming state; it shares source with summary mode.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "reference/tg_psi_residual_shard.cpp",
+              "contains": "independently regenerates the same rows"
+            }
+          ]
+        },
+        "lean_parser": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Lean totally parses the actual compact C++ summary/verify JSON receipts and their fixed 100,000-shard pairing, but no parser exists for the prime/log rows hidden behind the opaque SHA-256 commitments.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/PsiShardReceiptWire.lean",
+              "contains": "def parseReceipt (raw : ByteArray)"
+            },
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Tests/PsiShardReceiptWireTest.lean",
+              "contains": "#guard checkReceiptPair summaryBytes verificationBytes"
+            }
+          ]
+        },
+        "lean_total_checker": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "The total Lean Boolean checks receipt syntax, independent summary/verify equality, root-derived Q64 chaining, fixed shard geometry, and the source event total; it cannot open the row commitments or decide directed-log/roster realization.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/PsiShardReceiptWire.lean",
+              "contains": "def checkSourceCampaign (rawPairs : List RawReceiptPair)"
+            }
+          ]
+        },
+        "lean_soundness": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Prime-power roster, gap coverage, and Real.log realization remain conditional.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/PsiSourceSemantics.lean"
+            }
+          ]
+        },
+        "execution_refinement_or_single_trusted_compute_axiom": {
+          "satisfied": true,
+          "status": "single_trusted_compute_axiom",
+          "detail": "The closed psi invocation uses the sole explicit trusted-compute axiom.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/RegisteredPsiLemma92Certificate.lean"
+            }
+          ]
+        },
+        "confidential_azure_path": {
+          "satisfied": true,
+          "status": "implemented_not_run",
+          "detail": "A 644-job Azure SEV-SNP CPU DAG materializer exists and has not been run.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tools/tg_azure_cpu_psi_materializer.py"
+            }
+          ]
+        },
+        "target_sku_budget_gate": {
+          "satisfied": false,
+          "status": "unmeasured",
+          "target_sku_measured": false,
+          "planning_wall_hours_high": "2",
+          "target_measured_wall_hours_high": null,
+          "target_measured_cost_usd_high": null,
+          "detail": "The two-pass Azure band is a local-throughput projection, not a target-SKU measurement.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOM_READINESS.json"
+            }
+          ]
+        },
+        "production_receipt": {
+          "satisfied": false,
+          "status": "receipt_absent",
+          "detail": "No reviewed production receipt is admitted.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/TrustedComputeRegistry.lean"
+            }
+          ]
+        },
+        "claude_math_production_integration": {
+          "satisfied": false,
+          "status": "conditional_bridge_only",
+          "conditional_source_bridge_present": true,
+          "detail": "The exact source bridge is conditional on a registered check; no production certificate is installed.",
+          "evidence": [
+            {
+              "repository": "claude_math",
+              "path": "MathExtras/NumberTheory/Analysis/CH25PsiGPUProverBridge.lean"
+            }
+          ]
+        }
+      },
+      "complete": false
+    },
+    {
+      "campaign_id": "platt-head-2e4",
+      "logical_atom_ids": [
+        "platt-head-2e4"
+      ],
+      "gates": {
+        "optimized_full_range_executable": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "The full 22,492-slot FLINT campaign is implemented and locally exercised.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tg_verifier/zeta_zero_campaign.py",
+              "contains": "def replay_chunk"
+            }
+          ]
+        },
+        "complete_source_artifact": {
+          "satisfied": false,
+          "status": "missing",
+          "detail": "The generated Q128 table omits complete Lean endpoint, multiplicity, and Turing evidence.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Generated/PlattHeadQ128.lean"
+            }
+          ]
+        },
+        "independent_checker": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "Each retained chunk has a fresh FLINT replay command; this is same-library independent execution.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tg_verifier/zeta_zero_campaign.py",
+              "contains": "\"each_chunk_has_fresh_replay_command\": True"
+            }
+          ]
+        },
+        "lean_parser": {
+          "satisfied": false,
+          "status": "missing",
+          "detail": "Lean has the generated table, not a complete retained endpoint/Turing artifact parser.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/ZetaHeadSourceSemantics.lean"
+            }
+          ]
+        },
+        "lean_total_checker": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Lean checks Q128 cells and rational brackets only.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Zeta/TouchingVerifier.lean"
+            }
+          ]
+        },
+        "lean_soundness": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Hardy-Z realization and multiplicity-aware completeness remain missing.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/ZetaHeadSourceSemantics.lean"
+            }
+          ]
+        },
+        "execution_refinement_or_single_trusted_compute_axiom": {
+          "satisfied": true,
+          "status": "single_trusted_compute_axiom",
+          "detail": "The closed zeta-head invocation uses the sole explicit trusted-compute axiom.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/RegisteredZetaHeadCertificate.lean"
+            }
+          ]
+        },
+        "confidential_azure_path": {
+          "satisfied": true,
+          "status": "implemented_not_run",
+          "detail": "A one-job Azure SEV-SNP CPU materializer exists and has not been run.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tools/tg_azure_cpu_platt_head_materializer.py"
+            }
+          ]
+        },
+        "target_sku_budget_gate": {
+          "satisfied": false,
+          "status": "unmeasured",
+          "target_sku_measured": false,
+          "planning_wall_hours_high": "0.04",
+          "target_measured_wall_hours_high": null,
+          "target_measured_cost_usd_high": null,
+          "detail": "A complete local run is measured, but the target Azure SKU is not.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOM_READINESS.json"
+            }
+          ]
+        },
+        "production_receipt": {
+          "satisfied": false,
+          "status": "receipt_absent",
+          "detail": "No reviewed production receipt is admitted.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/TrustedComputeRegistry.lean"
+            }
+          ]
+        },
+        "claude_math_production_integration": {
+          "satisfied": false,
+          "status": "conditional_bridge_only",
+          "conditional_source_bridge_present": true,
+          "detail": "The exact source bridge is conditional on a registered check; no production certificate is installed.",
+          "evidence": [
+            {
+              "repository": "claude_math",
+              "path": "MathExtras/NumberTheory/Analysis/PlattHeadGPUProverBridge.lean"
+            }
+          ]
+        }
+      },
+      "complete": false
+    },
+    {
+      "campaign_id": "platt-trudgian-rh-3e12",
+      "logical_atom_ids": [
+        "platt-trudgian-rh-3e12"
+      ],
+      "gates": {
+        "optimized_full_range_executable": {
+          "satisfied": false,
+          "status": "reference_route_only",
+          "detail": "The literal FLINT route is full-domain but projects to years; the optimized PT21 components are not an end-to-end source-window worker.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOM_READINESS.json",
+              "contains": "pt21_components_present_but_end_to_end_worker_incomplete"
+            }
+          ]
+        },
+      "complete_source_artifact": {
+        "satisfied": false,
+        "status": "partial",
+        "detail": "A bounded CUDA-event/FLINT-stationary/Arb-Turing chain retains and authenticates PT21EVT1, PT21STJ1, and PT21BLK1, but it uses explicit synthetic analytic inputs and is not the complete ordered source campaign.",
+        "evidence": [
+          {
+            "repository": "gpu_prover",
+            "path": "SparkInterval/Zeta/PT21NativeBlockWire.lean"
+          },
+          {
+            "repository": "gpu_prover",
+            "path": "tg_verifier/platt_pt21_bounded_block_chain.py",
+            "contains": "def run_bounded_block_chain"
+          }
+        ]
+      },
+      "independent_checker": {
+        "satisfied": false,
+        "status": "reference_route_only",
+        "detail": "The reference route has replay, and the optimized bounded chain independently replays every predecessor digest, count, multiplicity link, exact-rational Turing artifact, and native shard; the source-scale worker/checker pair remains incomplete.",
+        "evidence": [
+          {
+            "repository": "gpu_prover",
+            "path": "tg_verifier/platt_zeta_campaign.py",
+            "contains": "Refined replay is intentionally bounded"
+          },
+          {
+            "repository": "gpu_prover",
+            "path": "tg_verifier/platt_pt21_bounded_block_chain.py",
+            "contains": "def verify_retained_chain"
+          }
+        ]
+      },
+      "lean_parser": {
+        "satisfied": false,
+        "status": "partial",
+        "detail": "Lean totally parses and links the fixed PT21EVT1, PT21STJ1, and PT21BLK1 records for a bounded block, not the gap-free source campaign.",
+        "evidence": [
+          {
+            "repository": "gpu_prover",
+            "path": "SparkInterval/Zeta/PT21NativeBlockWire.lean"
+          },
+          {
+            "repository": "gpu_prover",
+            "path": "SparkInterval/Zeta/PT21TuringBlockJunction.lean",
+            "contains": "def check"
+          }
+        ]
+      },
+      "lean_total_checker": {
+        "satisfied": false,
+        "status": "partial",
+        "detail": "Lean checks one finite three-record block chain, its ten-input predecessor commitment, and exact stationary multiplicity, not the source-wide campaign or analytic realizations.",
+        "evidence": [
+          {
+            "repository": "gpu_prover",
+            "path": "SparkInterval/Zeta/PT21ArtifactBinding.lean"
+          },
+          {
+            "repository": "gpu_prover",
+            "path": "SparkInterval/Zeta/PT21TuringBlockJunction.lean",
+            "contains": "theorem check_sound"
+          }
+        ]
+      },
+        "lean_soundness": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Endpoint evaluation, Hardy-Z isolation, multiplicities, count, and Turing completeness are not realized.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/ZetaRHSourceSemantics.lean"
+            }
+          ]
+        },
+        "execution_refinement_or_single_trusted_compute_axiom": {
+          "satisfied": true,
+          "status": "single_trusted_compute_axiom",
+          "detail": "The closed finite-RH invocation uses the sole explicit trusted-compute axiom.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/RegisteredZetaRHCertificate.lean"
+            }
+          ]
+        },
+        "confidential_azure_path": {
+          "satisfied": true,
+          "status": "implemented_not_run",
+          "detail": "The exact five-phase reference Azure CPU path exists; the optimized materializer correctly refuses nonterminal input.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tools/tg_azure_cpu_platt_pt21_materializer.py"
+            }
+          ]
+        },
+        "target_sku_budget_gate": {
+          "satisfied": false,
+          "status": "unmeasured",
+          "target_sku_measured": false,
+          "planning_wall_hours_high": "97867.05208333333333333333333",
+          "target_measured_wall_hours_high": null,
+          "target_measured_cost_usd_high": null,
+          "detail": "No target-SKU measurement exists; the literal reference projection also exceeds both hard limits.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOM_READINESS.json"
+            }
+          ]
+        },
+        "production_receipt": {
+          "satisfied": false,
+          "status": "receipt_absent",
+          "detail": "No reviewed production receipt is admitted.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/TrustedComputeRegistry.lean"
+            }
+          ]
+        },
+        "claude_math_production_integration": {
+          "satisfied": false,
+          "status": "conditional_bridge_only",
+          "conditional_source_bridge_present": true,
+          "detail": "The exact finite-RH bridge is conditional on a registered check; no production certificate is installed.",
+          "evidence": [
+            {
+              "repository": "claude_math",
+              "path": "MathExtras/NumberTheory/Analysis/PlattTrudgianRHGPUProverBridge.lean"
+            }
+          ]
+        }
+      },
+      "complete": false
+    },
+    {
+      "campaign_id": "helfgott-prop-12-2-4-mpfr-v1",
+      "logical_atom_ids": [
+        "helfgott-prop-12-2-4"
+      ],
+      "gates": {
+        "optimized_full_range_executable": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "The parallel directed-MPFR two-replay source-scale runtime is implemented.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "reference/tg_prop1224_mpfr_shard.cpp",
+              "contains": "independent complete-q shards"
+            }
+          ]
+        },
+        "complete_source_artifact": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "The exact candidate wire retains finite geometry, not all source rows and analytic semantics.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/Prop1224CandidateArtifact.lean"
+            }
+          ]
+        },
+        "independent_checker": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "The production design performs two complete directed-MPFR replays.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tg_verifier/prop1224_mpfr_campaign.py",
+              "contains": "RUNNER_ALGORITHM = \"prop1224-mpfr-directed-independent-q-shard-v1\""
+            }
+          ]
+        },
+        "lean_parser": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Lean parses the exact candidate geometry, not a complete source artifact.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/Prop1224CandidateArtifact.lean"
+            }
+          ]
+        },
+        "lean_total_checker": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "The current candidate checker verifies a partial arithmetic chain and then explicitly rejects.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/Prop1224CompactChecker.lean"
+            }
+          ]
+        },
+        "lean_soundness": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "The source-row realization needed for the exact finite proposition is missing.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/Prop1224SourceSemantics.lean"
+            }
+          ]
+        },
+        "execution_refinement_or_single_trusted_compute_axiom": {
+          "satisfied": true,
+          "status": "single_trusted_compute_axiom",
+          "detail": "The closed Proposition 12.2.4 invocation uses the sole explicit trusted-compute axiom.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/RegisteredProp1224Certificate.lean"
+            }
+          ]
+        },
+        "confidential_azure_path": {
+          "satisfied": true,
+          "status": "implemented_not_run",
+          "detail": "An Azure SEV-SNP CPU materializer exists and has not been run.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tools/tg_azure_cpu_prop1224_materializer.py"
+            }
+          ]
+        },
+        "target_sku_budget_gate": {
+          "satisfied": false,
+          "status": "unmeasured",
+          "target_sku_measured": false,
+          "planning_wall_hours_high": "3.34",
+          "target_measured_wall_hours_high": null,
+          "target_measured_cost_usd_high": null,
+          "detail": "The full-run estimate is transferred from component measurements, not measured on the target SKU.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOM_READINESS.json"
+            }
+          ]
+        },
+        "production_receipt": {
+          "satisfied": false,
+          "status": "receipt_absent",
+          "detail": "No reviewed production receipt is admitted.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/TrustedComputeRegistry.lean"
+            }
+          ]
+        },
+        "claude_math_production_integration": {
+          "satisfied": false,
+          "status": "conditional_bridge_only",
+          "conditional_source_bridge_present": true,
+          "detail": "The exact finite-source bridge is conditional on a registered check; no production certificate is installed.",
+          "evidence": [
+            {
+              "repository": "claude_math",
+              "path": "MathExtras/NumberTheory/Analysis/Prop1224GPUProverBridge.lean"
+            }
+          ]
+        }
+      },
+      "complete": false
+    },
+    {
+      "campaign_id": "hurst-four-residuals-v1",
+      "logical_atom_ids": [
+        "cdem-squarefree",
+        "mertens-hurst",
+        "platt-little-mertens-2-11",
+        "platt-little-mertens-stronger"
+      ],
+      "gates": {
+        "optimized_full_range_executable": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "One shared 10,000-leaf summary pass and verification pass cover all four atoms through 10^16.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "reference/tg_hurst_residual_shard.cpp",
+              "contains": "Mode::kVerify"
+            }
+          ]
+        },
+        "complete_source_artifact": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "The affine candidate wire does not retain all primitive rows needed by the source claims.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/HurstCandidateArtifact.lean"
+            }
+          ]
+        },
+        "independent_checker": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "Verify mode independently regenerates every shard from the rooted four-coordinate state; it shares source with summary mode.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "reference/tg_hurst_residual_shard.cpp",
+              "contains": "independently sieved and summarized"
+            }
+          ]
+        },
+        "lean_parser": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Lean parses the affine candidate, not all primitive source rows.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/HurstCandidateArtifact.lean"
+            }
+          ]
+        },
+        "lean_total_checker": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "The current affine checker verifies a partial chain and then explicitly rejects.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/HurstCompactChecker.lean"
+            }
+          ]
+        },
+        "lean_soundness": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Primitive-row realization and consumer-definition identification remain missing.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/HurstSourceSemantics.lean"
+            }
+          ]
+        },
+        "execution_refinement_or_single_trusted_compute_axiom": {
+          "satisfied": true,
+          "status": "single_trusted_compute_axiom",
+          "detail": "The one closed Hurst V2 invocation covers all four atoms through the sole explicit trusted-compute axiom.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/RegisteredHurstSharedCertificate.lean"
+            }
+          ]
+        },
+        "confidential_azure_path": {
+          "satisfied": true,
+          "status": "implemented_not_run",
+          "detail": "The shared Azure SEV-SNP CPU DAG materializer exists and has not been run.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tools/tg_azure_cpu_hurst_materializer.py"
+            }
+          ]
+        },
+        "target_sku_budget_gate": {
+          "satisfied": false,
+          "status": "unmeasured",
+          "target_sku_measured": false,
+          "planning_wall_hours_high": "528",
+          "target_measured_wall_hours_high": null,
+          "target_measured_cost_usd_high": null,
+          "detail": "The 48--528 hour band is projected from a local shard; it is unmeasured on the target SKU and its high endpoint exceeds one week.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOM_READINESS.json"
+            }
+          ]
+        },
+        "production_receipt": {
+          "satisfied": false,
+          "status": "receipt_absent",
+          "detail": "No reviewed production receipt is admitted.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/TrustedComputeRegistry.lean"
+            }
+          ]
+        },
+        "claude_math_production_integration": {
+          "satisfied": false,
+          "status": "conditional_bridge_only",
+          "conditional_source_bridge_present": true,
+          "detail": "All four exact source bridges are conditional on the shared registered check; no production certificate is installed.",
+          "evidence": [
+            {
+              "repository": "claude_math",
+              "path": "MathExtras/NumberTheory/Analysis/HurstGPUProverBridge.lean"
+            }
+          ]
+        }
+      },
+      "complete": false
+    },
+    {
+      "campaign_id": "cdem-table-abel",
+      "logical_atom_ids": [
+        "cdem-table-abel"
+      ],
+      "gates": {
+        "optimized_full_range_executable": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "The full producer and independently parallelized chunk replay are implemented and locally exercised.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "reference/tg_cdem_abel.cpp"
+            },
+            {
+              "repository": "gpu_prover",
+              "path": "reference/tg_cdem_abel_chunk_replay.cpp"
+            }
+          ]
+        },
+        "complete_source_artifact": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "The complete recurrence transcript is a data-only artifact consumed directly by the Lean source program.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/CDEMAbelArtifactProgram.lean",
+              "contains": "def sourceProgramCertificate"
+            }
+          ]
+        },
+        "independent_checker": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "A separate C++ chunk replayer independently reconstructs the recurrence transcript.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "reference/tg_cdem_abel_chunk_replay.cpp"
+            }
+          ]
+        },
+        "lean_parser": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "Lean parses the exact complete binary artifact and rejects truncation, suffixes, negative zero, and overlarge row counts.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/CDEMAbelArtifactProgram.lean",
+              "contains": "def decode (bytes : ByteArray)"
+            }
+          ]
+        },
+        "lean_total_checker": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "The parsed artifact is checked by the total CDEMAbelClosedReplay.check Boolean.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/CDEMAbelArtifactProgram.lean",
+              "contains": "CDEMAbelClosedReplay.check certificate = true"
+            }
+          ]
+        },
+        "lean_soundness": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "Ordinary Lean derives the literal source claim from accepted artifact bytes and now also composes opaque architecture acceptance to that claim.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/CDEMAbelArtifactProgram.lean",
+              "contains": "theorem sourceClaim_of_opaqueNativeAcceptance"
+            }
+          ]
+        },
+        "execution_refinement_or_single_trusted_compute_axiom": {
+          "satisfied": true,
+          "status": "single_trusted_compute_axiom",
+          "detail": "The registered CDEM invocation uses the sole explicit trusted-compute axiom. The new composition theorem is ordinary Lean, but executable/ISA/compiler refinement is still not claimed.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/RegisteredCDEMAbelCertificate.lean"
+            },
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/CDEMAbelArtifactProgram.lean",
+              "contains": "This theorem is deliberately only the final composition step."
+            }
+          ]
+        },
+        "confidential_azure_path": {
+          "satisfied": true,
+          "status": "implemented_not_run",
+          "detail": "Both the one-stage route and an additive two-stage complete-artifact terminal route exist. The two-stage route fails closed until a production verifier key is installed.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tools/tg_azure_cpu_portfolio_materializer.py"
+            },
+            {
+              "repository": "gpu_prover",
+              "path": "tools/tg_azure_cpu_cdem_artifact_terminal_materializer.py"
+            }
+          ]
+        },
+        "target_sku_budget_gate": {
+          "satisfied": false,
+          "status": "unmeasured",
+          "target_sku_measured": false,
+          "planning_wall_hours_high": "0.06",
+          "target_measured_wall_hours_high": null,
+          "target_measured_cost_usd_high": null,
+          "detail": "The full producer/replay is measured locally, but not on the target Azure confidential CPU SKU.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOM_READINESS.json"
+            }
+          ]
+        },
+        "production_receipt": {
+          "satisfied": false,
+          "status": "receipt_absent",
+          "detail": "No production verifier key, reviewed deployment pins, or admitted receipt exists.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/TrustedComputeRegistry.lean"
+            },
+            {
+              "repository": "gpu_prover",
+              "path": "profiles/verifier_keys/trusted_compute_keys.json",
+              "contains": "\"classification\": \"development\""
+            }
+          ]
+        },
+        "claude_math_production_integration": {
+          "satisfied": false,
+          "status": "conditional_bridge_only",
+          "conditional_source_bridge_present": true,
+          "detail": "The exact Abel-table source bridge is conditional on a registered check; no production certificate is installed.",
+          "evidence": [
+            {
+              "repository": "claude_math",
+              "path": "MathExtras/NumberTheory/Analysis/CohenDressElMarrakiGPUProverBridge.lean"
+            }
+          ]
+        }
+      },
+      "complete": false
+    },
+    {
+      "campaign_id": "ramare-zuniga-lemma-6-2",
+      "logical_atom_ids": [
+        "ramare-zuniga-lemma-6-2"
+      ],
+      "gates": {
+        "optimized_full_range_executable": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "The full H100 segmented producer and exact CPU arithmetic replay cover all 21 billion rows.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "gpu/platform/h100/h100_tg_r2star_chunk_kernel.cu"
+            },
+            {
+              "repository": "gpu_prover",
+              "path": "reference/tg_r2star_arithmetic_replay.cpp"
+            }
+          ]
+        },
+        "complete_source_artifact": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Lean checks a structural manifest and chain, not complete coefficient and directed-log source data.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/R2StarSourceSemantics.lean"
+            }
+          ]
+        },
+        "independent_checker": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "The GPU producer is independently replayed by a separate exact CPU arithmetic implementation.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "reference/tg_r2star_arithmetic_replay.cpp"
+            }
+          ]
+        },
+        "lean_parser": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Lean parses only structural campaign data.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/R2StarSourceSemantics.lean"
+            }
+          ]
+        },
+        "lean_total_checker": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "The Lean manifest and chain checks fail closed without coefficient/log realization.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/R2StarCompactChecker.lean"
+            }
+          ]
+        },
+        "lean_soundness": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Coefficient semantics and directed logarithm realization remain missing.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/R2StarSourceSemantics.lean"
+            }
+          ]
+        },
+        "execution_refinement_or_single_trusted_compute_axiom": {
+          "satisfied": true,
+          "status": "single_trusted_compute_axiom",
+          "detail": "The hybrid R2Star campaign terminates in the closed CPU invocation behind the sole explicit trusted-compute axiom.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/RegisteredR2StarCertificate.lean"
+            }
+          ]
+        },
+        "confidential_azure_path": {
+          "satisfied": true,
+          "status": "implemented_not_run",
+          "detail": "An H100-producer/Azure-confidential-CPU-terminal materializer exists and has not been run.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tools/tg_azure_h100_r2star_materializer.py"
+            }
+          ]
+        },
+        "target_sku_budget_gate": {
+          "satisfied": false,
+          "status": "unmeasured",
+          "target_sku_measured": false,
+          "planning_wall_hours_high": "8",
+          "target_measured_wall_hours_high": null,
+          "target_measured_cost_usd_high": null,
+          "detail": "The 1--8 hour projection transfers GB10 measurements; no H100 target-SKU measurement exists.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOM_READINESS.json"
+            }
+          ]
+        },
+        "production_receipt": {
+          "satisfied": false,
+          "status": "receipt_absent",
+          "detail": "No reviewed production receipt is admitted.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/TrustedComputeRegistry.lean"
+            }
+          ]
+        },
+        "claude_math_production_integration": {
+          "satisfied": false,
+          "status": "conditional_bridge_only",
+          "conditional_source_bridge_present": true,
+          "detail": "The exact R2Star source bridge is conditional on a registered check; no production certificate is installed.",
+          "evidence": [
+            {
+              "repository": "claude_math",
+              "path": "MathExtras/NumberTheory/Analysis/RamareZunigaLemma62GPUProverBridge.lean"
+            }
+          ]
+        }
+      },
+      "complete": false
+    },
+    {
+      "campaign_id": "helfgott-platt-goldbach-gpu-v1",
+      "logical_atom_ids": [
+        "helfgott-platt-theorem-4-1"
+      ],
+      "gates": {
+        "optimized_full_range_executable": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "The exact wheel-47/warp-32749/shifted/packed source identity is selected by distinct 65,536-leaf historical plan, runner, receipt, aggregate, independent checker, and domain-separated binary-plus-ladder combiner routes. It is unrun, unregistered, and uncalibrated on H100; this gate records end-to-end source-scale executability, not budget feasibility or theorem authority.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tg_verifier/goldbach_gpu_campaign.py",
+              "contains": "OPTIMIZED_PRODUCTION_ALGORITHM"
+            },
+            {
+              "repository": "gpu_prover",
+              "path": "tg_verifier/goldbach_campaign.py",
+              "contains": "def combine_with_optimized_binary_goldbach"
+            },
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/GoldbachOptimizedSourceRefinement.lean",
+              "contains": "theorem historicalBinaryClaim"
+            }
+          ]
+        },
+        "complete_source_artifact": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Lean has a structural child manifest and prime ladder, not a complete two-branch source artifact.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/GoldbachSourceSemantics.lean"
+            }
+          ]
+        },
+        "independent_checker": {
+          "satisfied": true,
+          "status": "complete",
+          "detail": "The binary branch has a hardened aggregate checker and the native Proth ladder is independently replayed with Python exact arithmetic.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tools/tg_goldbach_gpu_binary_checker.py"
+            },
+            {
+              "repository": "gpu_prover",
+              "path": "tg_verifier/goldbach_native_ladder.py",
+              "contains": "independent Python replay"
+            }
+          ]
+        },
+        "lean_parser": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Lean parses structural manifests only.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/TransitiveChildManifest.lean"
+            }
+          ]
+        },
+        "lean_total_checker": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Lean checks ladder and manifest structure, not the complete historical computation.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/GoldbachCompactChecker.lean"
+            }
+          ]
+        },
+        "lean_soundness": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Complete artifact-to-binary-Goldbach refinement remains missing.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/TernaryGoldbach/GoldbachSourceSemantics.lean"
+            }
+          ]
+        },
+        "execution_refinement_or_single_trusted_compute_axiom": {
+          "satisfied": true,
+          "status": "single_trusted_compute_axiom",
+          "detail": "The hybrid historical Goldbach campaign terminates in the closed CPU invocation behind the sole explicit trusted-compute axiom.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/RegisteredGoldbachCertificate.lean"
+            }
+          ]
+        },
+        "confidential_azure_path": {
+          "satisfied": true,
+          "status": "implemented_not_run",
+          "detail": "H100 producer, CPU ladder, and confidential CPU terminal materializers exist and have not been run.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tools/tg_azure_h100_goldbach_historical_materializer.py"
+            },
+            {
+              "repository": "gpu_prover",
+              "path": "tools/tg_azure_cpu_goldbach_historical_materializer.py"
+            },
+            {
+              "repository": "gpu_prover",
+              "path": "tools/tg_azure_cpu_goldbach_historical_operational_materializer.py"
+            }
+          ]
+        },
+        "target_sku_budget_gate": {
+          "satisfied": false,
+          "status": "unmeasured",
+          "target_sku_measured": false,
+      "planning_wall_hours_high": "8192.223362062222",
+          "target_measured_wall_hours_high": null,
+          "target_measured_cost_usd_high": null,
+      "detail": "The optimized source-height H100 rate is unmeasured; the transferred equal-GB10 endpoint is 8192.223 hours and exceeds both hard limits.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOM_READINESS.json"
+            }
+          ]
+        },
+        "production_receipt": {
+          "satisfied": false,
+          "status": "receipt_absent",
+          "detail": "No reviewed production receipt is admitted.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/TrustedComputeRegistry.lean"
+            }
+          ]
+        },
+        "claude_math_production_integration": {
+          "satisfied": false,
+          "status": "conditional_bridge_only",
+          "conditional_source_bridge_present": true,
+          "detail": "The exact historical source bridge is conditional on a registered check and appears in the 13-atom bridge audit, but the lowered 10^27 capstone uses a different finite route.",
+          "evidence": [
+            {
+              "repository": "claude_math",
+              "path": "MathExtras/NumberTheory/Analysis/HelfgottPlattGPUProverBridge.lean"
+            },
+            {
+              "repository": "claude_math",
+              "path": "MathExtras/NumberTheory/Analysis/GPUProverRegisteredBridgeAudit.lean"
+            }
+          ]
+        }
+      },
+      "complete": false
+    },
+    {
+      "campaign_id": "platt-dirichlet-theorem-7-1",
+      "logical_atom_ids": [
+        "platt-dirichlet-theorem-7-1"
+      ],
+      "gates": {
+        "optimized_full_range_executable": {
+          "satisfied": false,
+          "status": "reference_route_only",
+          "detail": "The literal FLINT backend is full-domain but unscaled; optimized components are not one end-to-end source-scale pipeline.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOM_READINESS.json",
+              "contains": "many_components_implemented_but_end_to_end_optimized_pipeline_incomplete"
+            }
+          ]
+        },
+        "complete_source_artifact": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Lean has inner fixed formats and a structural campaign manifest, not all character zero brackets and completeness data.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Dirichlet/PlattTheorem71CompactChecker.lean"
+            }
+          ]
+        },
+        "independent_checker": {
+          "satisfied": false,
+          "status": "reference_route_only",
+          "detail": "The literal backend exposes producer and fresh-checker protocols, but the selected optimized source-scale producer/checker pipeline is incomplete.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tools/tg_dirichlet_flint_backend.py",
+              "contains": "def _checker"
+            }
+          ]
+        },
+      "lean_parser": {
+        "satisfied": false,
+        "status": "partial",
+        "detail": "Lean parses inner small-q formats, structural manifests, and the hash-pinned row-resident TGDLTMB1/TGDAFFI1/TGDRCVS1 component bundle; the complete character-zero campaign format is still absent.",
+        "evidence": [
+          {
+            "repository": "gpu_prover",
+            "path": "SparkInterval/Dirichlet/PlattTheorem71CompactChecker.lean"
+          },
+          {
+            "repository": "gpu_prover",
+            "path": "SparkInterval/Dirichlet/TMajorRowResidentWire.lean",
+            "contains": "def checkPinnedBundle"
+          }
+        ]
+      },
+      "lean_total_checker": {
+        "satisfied": false,
+        "status": "partial",
+        "detail": "Inner small-q checkers and a total row-resident component checker exist, while the completed-L, zero-isolation, and Turing campaign remains fail closed.",
+        "evidence": [
+          {
+            "repository": "gpu_prover",
+            "path": "SparkInterval/Dirichlet/FactoredSmallQCampaign.lean"
+          },
+          {
+            "repository": "gpu_prover",
+            "path": "SparkInterval/Dirichlet/TMajorRowResidentWire.lean",
+            "contains": "theorem checkPinnedBundle_sound"
+          }
+        ]
+      },
+        "lean_soundness": {
+          "satisfied": false,
+          "status": "partial",
+          "detail": "Completed-L/Hardy evaluation, multiplicity-aware isolation, count, and Turing closure remain incomplete at source scale.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Dirichlet/PlattTheorem71Contract.lean"
+            }
+          ]
+        },
+        "execution_refinement_or_single_trusted_compute_axiom": {
+          "satisfied": true,
+          "status": "single_trusted_compute_axiom",
+          "detail": "The hybrid Dirichlet campaign terminates in the closed CPU invocation behind the sole explicit trusted-compute axiom.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/RegisteredPlattTheorem71Certificate.lean"
+            }
+          ]
+        },
+        "confidential_azure_path": {
+          "satisfied": true,
+          "status": "implemented_not_run",
+          "detail": "The literal Azure CPU materializer exists and optimized H100/CPU stage materializers are additive; no complete optimized campaign has run.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "tools/tg_azure_cpu_dirichlet_materializer.py"
+            }
+          ]
+        },
+        "target_sku_budget_gate": {
+          "satisfied": false,
+          "status": "unmeasured",
+          "target_sku_measured": false,
+          "planning_wall_hours_high": null,
+          "target_measured_wall_hours_high": null,
+          "target_measured_cost_usd_high": null,
+          "detail": "There is no end-to-end source-scale ETA and no target-SKU measurement.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOM_READINESS.json"
+            }
+          ]
+        },
+        "production_receipt": {
+          "satisfied": false,
+          "status": "receipt_absent",
+          "detail": "No reviewed production receipt is admitted.",
+          "evidence": [
+            {
+              "repository": "gpu_prover",
+              "path": "SparkInterval/Execution/TrustedComputeRegistry.lean"
+            }
+          ]
+        },
+        "claude_math_production_integration": {
+          "satisfied": false,
+          "status": "conditional_bridge_only",
+          "conditional_source_bridge_present": true,
+          "detail": "The exact Theorem 7.1 source bridge is conditional on a registered check; no production certificate is installed.",
+          "evidence": [
+            {
+              "repository": "claude_math",
+              "path": "MathExtras/NumberTheory/Analysis/PlattDirichletGPUProverBridge.lean"
+            }
+          ]
+        }
+      },
+      "complete": false
+    }
+  ]
+}

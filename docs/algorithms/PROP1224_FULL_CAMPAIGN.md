@@ -23,14 +23,20 @@ row count is exactly `3,389,047,618` and its state is the canonical
 
 ## Running it
 
+`run` and `replay` are production arithmetic and require measured Azure worker
+scope. `--max-chunks` is only a cloud checkpoint limit: one source chunk is
+already far beyond the local KAT bound. Local review may create plans and
+inspect the compact receipt chain; the separate directed-leaf tool permits
+only at most 64 non-`q=1` rows locally.
+
 Start or resume the source campaign:
 
 ```bash
 python3 tools/tg_prop1224_campaign.py run artifacts/prop1224
 ```
 
-For a bounded test of the same campaign, pause after a fixed number of new
-chunks:
+For a bounded cloud checkpoint of the same campaign, pause after a fixed
+number of new chunks:
 
 ```bash
 python3 tools/tg_prop1224_campaign.py run artifacts/prop1224-test \

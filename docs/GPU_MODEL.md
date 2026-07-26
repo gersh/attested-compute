@@ -42,9 +42,12 @@ one accepted, exactly matching certificate, the sole
 `accepted_run_certificate_sound` axiom supplies that invocation's `Runs`
 relation; `accepted_registered_run_sound` is a derived projection. Thus the
 particular-run physical-to-formal bridge is explicit trust, not a Lean proof of
-general `ptxas`, SASS, driver, or hardware conformance. The registry currently
-contains only the exact-rational `cubicSumDivThree20000V1` tutorial and no GPU
-or zeta checker.
+general `ptxas`, SASS, driver, or hardware conformance. The registry contains
+the exact-rational CPU tutorial, the one-row formal-PTX H100 pilot, and closed
+source-shaped Ternary-Goldbach entries, including an exact conditional PT21
+finite-RH slice and an exact conditional Platt Dirichlet Theorem 7.1 finalizer.
+Those entries do not assert that source evidence or successful attested runs
+exist.
 
 That tutorial is nevertheless a complete algorithm-level example: its `Runs`
 relation uses an executable integer `cubicNumeratorLoop` and divide-once
@@ -53,6 +56,12 @@ the rational specification, and that every cube and accumulator step fits
 u64. This axiom-free bounded-arithmetic layer does not connect the machine to
 the generated PTX AST, emitted opcodes, or physical GPU; those are distinct
 rows in the boundary above.
+
+The H100 pilot covers a different, intentionally tiny path. Lean proves that
+the registered PTX text is exactly the formal target-selected emitter's output
+for a closed zero-variable batch returning `[1,1]`, and that the two returned
+binary64 words decode to rational one. The per-run link from those fixed
+semantics to physical H100 execution still crosses the same sole axiom.
 
 The NVIDIA source layer pins the archived PTX ISA 9.0 PDF and cites the
 rounding and instruction clauses used by the typed subset. Lean proves exact

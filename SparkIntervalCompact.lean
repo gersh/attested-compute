@@ -1,0 +1,139 @@
+/- Copyright (c) 2026 Gershon Bialer. All rights reserved.
+SPDX-License-Identifier: MIT -/
+
+import SparkInterval.Certificate.SHA256
+import SparkInterval.SignQuadrantIntervalMul
+import SparkInterval.DirectedComplexInterval
+import SparkInterval.Execution.CompactArchitectureReceipt
+import SparkInterval.Execution.CompactClaimReceipt
+import SparkInterval.Execution.CanonicalBooleanProgram
+import SparkInterval.Execution.DeterministicFinalizerIR
+import SparkInterval.Execution.DeterministicProgramStaticCPUCertificate
+import SparkInterval.Execution.FixedDecisionChecker
+import SparkInterval.Execution.FixedDecisionProgram
+import SparkInterval.Execution.FixedWidthCertificateWire
+import SparkInterval.Execution.ParsedCertificateProgram
+import SparkInterval.Execution.ProjectedCertificateProgram
+import SparkInterval.Execution.CompactArchitectureRegistry
+import SparkInterval.Execution.X86ELFExactPureEntry
+import SparkInterval.Execution.X86StaticBinaryCertificate
+import SparkInterval.Dirichlet.PlattTheorem71CompactChecker
+import SparkInterval.Dirichlet.TMajorFactorRecurrence
+import SparkInterval.Dirichlet.CompletedFactorParallelSchedule
+import SparkInterval.Dirichlet.BluesteinDFT
+import SparkInterval.Dirichlet.BluesteinFFTConvolution
+import SparkInterval.Dirichlet.BluesteinCUDADataflow
+import SparkInterval.Dirichlet.BluesteinChirpRecurrence
+import SparkInterval.Dirichlet.DirectedIntervalFFT
+import SparkInterval.Dirichlet.DirectedIntervalBluestein
+import SparkInterval.Dirichlet.CertifiedRootTable
+import SparkInterval.Dirichlet.CertifiedBluesteinRootBridge
+import SparkInterval.Dirichlet.CertifiedRootWire
+import SparkInterval.Dirichlet.CertifiedChirpStateWire
+import SparkInterval.Dirichlet.CertifiedFFTRootTableWire
+import SparkInterval.Dirichlet.CertifiedBasisOneOutputWire
+import SparkInterval.Dirichlet.DFTRootRecurrence
+import SparkInterval.Dirichlet.CompletedFactorStreamingWire
+import SparkInterval.Dirichlet.QOrderManifestWire
+import SparkInterval.Dirichlet.QOrderManifestStreamingWire
+import SparkInterval.Dirichlet.PhaseSignState
+import SparkInterval.Dirichlet.TMajorRowResidentWire
+import SparkInterval.TernaryGoldbach.A7BoundaryCompactChecker
+import SparkInterval.TernaryGoldbach.A7BoundaryWire
+import SparkInterval.TernaryGoldbach.CDEMAbelArtifactProgram
+import SparkInterval.TernaryGoldbach.CDEMAbelCompactChecker
+import SparkInterval.TernaryGoldbach.ClosedAcceptedReceiptRoster
+import SparkInterval.TernaryGoldbach.ClosedSourceProgramCatalog
+import SparkInterval.TernaryGoldbach.CompactExternalAtomCapstone
+import SparkInterval.TernaryGoldbach.CompactExternalAtomRegisteredCapstone
+import SparkInterval.TernaryGoldbach.Goldbach10Pow27CompactChecker
+import SparkInterval.TernaryGoldbach.GoldbachCompactChecker
+import SparkInterval.TernaryGoldbach.GoldbachWordOwnerSieve
+import SparkInterval.TernaryGoldbach.GoldbachWheelFilter
+import SparkInterval.TernaryGoldbach.GoldbachTailProgression
+import SparkInterval.TernaryGoldbach.GoldbachWarpLaunchIndexing
+import SparkInterval.TernaryGoldbach.GoldbachAtomicClears
+import SparkInterval.TernaryGoldbach.GoldbachOptimizedSourceRefinement
+import SparkInterval.TernaryGoldbach.HurstCompactChecker
+import SparkInterval.TernaryGoldbach.HurstPrefixCandidateReduction
+import SparkInterval.TernaryGoldbach.HurstAffineClusterComposition
+import SparkInterval.TernaryGoldbach.HurstAffineBlockComposition
+import SparkInterval.TernaryGoldbach.HurstAffineTerminalInvariants
+import SparkInterval.TernaryGoldbach.MobiusFusedSupport
+import SparkInterval.TernaryGoldbach.MobiusFusedFinalization
+import SparkInterval.TernaryGoldbach.MobiusPrimeRosterCompleteness
+import SparkInterval.TernaryGoldbach.MobiusPrimeRosterCertificateBridge
+import SparkInterval.TernaryGoldbach.MobiusSegmentedSieveRoster
+import SparkInterval.TernaryGoldbach.MobiusGuardedMachine
+import SparkInterval.TernaryGoldbach.MobiusPackedGuardedRefinement
+import SparkInterval.TernaryGoldbach.MobiusSplitSquareRealization
+import SparkInterval.TernaryGoldbach.MobiusPackedSplitSquareRefinement
+import SparkInterval.TernaryGoldbach.MobiusPackedCUDABitRefinement
+import SparkInterval.TernaryGoldbach.MobiusPackedCUDAWidthSafety
+import SparkInterval.TernaryGoldbach.MobiusPackedCUDARosterPreflight
+import SparkInterval.TernaryGoldbach.MobiusCASRetryTrace
+import SparkInterval.TernaryGoldbach.MobiusSquareOffsetHelper
+import SparkInterval.TernaryGoldbach.MobiusSegmentEventEnumeration
+import SparkInterval.TernaryGoldbach.MobiusDenseVisitRealization
+import SparkInterval.TernaryGoldbach.MobiusCUDALaunchIndexing
+import SparkInterval.TernaryGoldbach.MobiusCUDALaunchWidthSafety
+import SparkInterval.TernaryGoldbach.HurstGpuRowRealization
+import SparkInterval.TernaryGoldbach.HurstPackedPrefixInput
+import SparkInterval.TernaryGoldbach.MobiusResidue235
+import SparkInterval.TernaryGoldbach.MobiusResidue2357
+import SparkInterval.TernaryGoldbach.MobiusResidue235711
+import SparkInterval.TernaryGoldbach.MobiusQualificationSeededRefinement
+import SparkInterval.TernaryGoldbach.MobiusRectangularCUDASchedule
+import SparkInterval.TernaryGoldbach.NativeFamilyAggregateCapstone
+import SparkInterval.TernaryGoldbach.NativeFamilyArchitectureCatalog
+import SparkInterval.TernaryGoldbach.DeterministicProgramObligationRoster
+import SparkInterval.TernaryGoldbach.DeterministicProgramStaticCPURoster
+import SparkInterval.TernaryGoldbach.Prop1224CompactChecker
+import SparkInterval.TernaryGoldbach.PsiAffineChildCertificate
+import SparkInterval.TernaryGoldbach.PsiCompactChecker
+import SparkInterval.TernaryGoldbach.PsiShardReceiptWire
+import SparkInterval.TernaryGoldbach.RamareNativeFoldsCompactChecker
+import SparkInterval.TernaryGoldbach.R2StarCompactChecker
+import SparkInterval.TernaryGoldbach.ZetaHeadCompactChecker
+import SparkInterval.TernaryGoldbach.ZetaRHCompactChecker
+import SparkInterval.TernaryGoldbach.Sqrt218.CPUChecker.CX86ELFComposition
+import SparkInterval.TernaryGoldbach.Sqrt218.CPUChecker.CX86StaticCertificateComposition
+import SparkInterval.TernaryGoldbach.Sqrt218.CPUChecker.ExecutionClosureIdentity
+import SparkInterval.Zeta.PT21NativeBlockWire
+import SparkInterval.Zeta.PT21PersistentWorkerWire
+import SparkInterval.Zeta.PT21StationaryCandidateFilter
+import SparkInterval.Zeta.PT21StationaryJunctionWire
+import SparkInterval.Zeta.PT21TuringBlockJunction
+import TGComputeContracts.HurstV2
+import TGComputeContracts.Sqrt218.LogLadder
+import TGComputeContracts.Sqrt218.Sound
+import TGComputeContracts.Sqrt218.TailKernel
+
+/-!
+# Compact local proof root
+
+This is the default local Lean build.  Its import closure contains the closed
+13-atom/10-external-campaign architecture catalog, the three-fold Ramaré
+native-family fallback, every source-shaped checker-to-claim adapter, their
+axiom-free all-atom capstone, the universal
+Sqrt218 C refinement capstone, the exact ELF/pure-entry ABI model, the
+static-binary certificate boundary, the fixed-decidable-claim checker
+adapter, the closed data-only CDEM artifact parser/reference finalizer, the
+finite PT21 native-block and persistent-worker parsers, the sound PT21
+stationary-candidate decision filter, the typed complex-disk factor
+recurrence, the fail-closed row-resident Dirichlet component wire parser, the
+authenticated PT21 stationary-to-Turing junction,
+and the compact physical-launch/receipt composition.  The CDEM artifact
+program is a source-program certificate, not a claim that its optimized
+executable or a production artifact is installed.  The PT21 and Dirichlet
+parsers prove only finite record relationships and do not close the missing
+analytic Hardy-Z/Turing or completed-L realization.  This root does not
+import a generated production table, a closed
+production reduction, the legacy application-level registered trusted-
+compute registry, a receipt checker, or an instruction trace.
+
+The complete `SparkInterval` library remains available as an explicit
+production-materialized build.  It is intentionally not a local default:
+several of its modules contain source-scale literal certificates whose closed
+checks belong in the cloud qualification lane.
+-/

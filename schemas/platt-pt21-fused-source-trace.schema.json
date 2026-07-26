@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gersh.github.io/gpu_prover/schemas/platt-pt21-fused-source-trace.schema.json",
+  "title": "Canonical compact output of one measured PT21 fused source block",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "upstream_commit",
+    "interpolation_patch_sha256",
+    "block",
+    "required_sign_packet_sha256",
+    "producer",
+    "stationary_resolutions",
+    "turing_inputs",
+    "semantic_status"
+  ],
+  "properties": {
+    "schema": {"const": "sparkinterval.tg.platt-pt21-fused-source-trace.v1"},
+    "upstream_commit": {"const": "42b21426718e542daa2b006dc05ea2d7f26426e6"},
+    "interpolation_patch_sha256": {"const": "2bc33d3d4f6163ba5af8982f1272e9544154ed95bc6155a4ee215c4e425c85b3"},
+    "block": {"type": "integer", "minimum": 0, "maximum": 2966443782},
+    "required_sign_packet_sha256": {"$ref": "#/$defs/sha256"},
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "worker_sha256",
+        "worker_size_bytes",
+        "precision_bits",
+        "all_required_samples_certified",
+        "all_stationary_queries_resolved"
+      ],
+      "properties": {
+        "worker_sha256": {"$ref": "#/$defs/sha256"},
+        "worker_size_bytes": {"type": "integer", "minimum": 1},
+        "precision_bits": {"const": 128},
+        "all_required_samples_certified": {"const": true},
+        "all_stationary_queries_resolved": {"const": true}
+      }
+    },
+    "stationary_resolutions": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {"$ref": "#/$defs/stationaryResolution"}
+    },
+    "turing_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lower", "upper"],
+      "properties": {
+        "lower": {"$ref": "#/$defs/turingInputs"},
+        "upper": {"$ref": "#/$defs/turingInputs"}
+      }
+    },
+    "semantic_status": {
+      "const": {
+        "hardy_z_endpoint_realization_proved": false,
+        "main_multiplicity_realization_proved": false,
+        "analytic_turing_realization_proved": false
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "rational": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["numerator", "denominator"],
+      "properties": {
+        "numerator": {"type": "integer"},
+        "denominator": {"type": "integer", "minimum": 1}
+      }
+    },
+    "interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lo", "hi"],
+      "properties": {
+        "lo": {"$ref": "#/$defs/rational"},
+        "hi": {"$ref": "#/$defs/rational"}
+      }
+    },
+    "stationaryResolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stream",
+        "outer_left_sample",
+        "outer_right_sample",
+        "lower_offset",
+        "midpoint_offset",
+        "upper_offset",
+        "lower_value",
+        "midpoint_value",
+        "upper_value"
+      ],
+      "properties": {
+        "stream": {"enum": ["main", "left_flank", "right_flank"]},
+        "outer_left_sample": {"type": "integer"},
+        "outer_right_sample": {"type": "integer"},
+        "lower_offset": {"$ref": "#/$defs/rational"},
+        "midpoint_offset": {"$ref": "#/$defs/rational"},
+        "upper_offset": {"$ref": "#/$defs/rational"},
+        "lower_value": {"$ref": "#/$defs/interval"},
+        "midpoint_value": {"$ref": "#/$defs/interval"},
+        "upper_value": {"$ref": "#/$defs/interval"}
+      }
+    },
+    "turingInputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["s_bound", "log_pi", "im_gamma_integral", "pi"],
+      "properties": {
+        "s_bound": {"$ref": "#/$defs/interval"},
+        "log_pi": {"$ref": "#/$defs/interval"},
+        "im_gamma_integral": {"$ref": "#/$defs/interval"},
+        "pi": {"$ref": "#/$defs/interval"}
+      }
+    }
+  }
+}

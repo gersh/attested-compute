@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-cpu-platt-pt21-runtime-closure.schema.json",
+  "title": "SparkInterval PT21 Azure CPU runtime closure",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["architecture", "build", "capability", "execution_contract_id", "execution_contract_sha256", "flint", "kind", "python", "runner", "schema_version"],
+  "properties": {
+    "architecture": {"const": "x86_64"},
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["build_recipe_sha256", "classification", "compiler_id", "runner_source_sha256", "supervisor_source_sha256"],
+      "properties": {
+        "build_recipe_sha256": {"$ref": "#/$defs/sha256"},
+        "classification": {"const": "operator-reviewed-reproducible-build-record-not-formal-compiler-proof"},
+        "compiler_id": {"type": "string", "minLength": 1},
+        "runner_source_sha256": {"$ref": "#/$defs/sha256"},
+        "supervisor_source_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finalizer_complete", "full_source_geometry_complete", "retained_export_replay_complete", "worker_complete"],
+      "properties": {
+        "finalizer_complete": {"const": true},
+        "full_source_geometry_complete": {"const": true},
+        "retained_export_replay_complete": {"const": true},
+        "worker_complete": {"const": true}
+      }
+    },
+    "execution_contract_id": {"const": "reference-cpu-flint-3.6-v1"},
+    "execution_contract_sha256": {"const": "ad280f4795d0bf9f6172a8be3b104075b2eace86ebbe74d387a41d377b551176"},
+    "flint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tracked_tree_sha256", "version"],
+      "properties": {
+        "commit": {"const": "8d5454b96761fafe4d5a9da76a369a602f500f49"},
+        "tracked_tree_sha256": {"const": "06b194b828a12c6b6c34d5c1653cadd7d9f3f3356d8f3257a293f9ccf1beade1"},
+        "version": {"const": "3.6.0"}
+      }
+    },
+    "kind": {"const": "sparkinterval.azure.cpu.platt-pt21-runtime-closure.v1"},
+    "python": {"$ref": "#/$defs/fileIdentity"},
+    "runner": {"$ref": "#/$defs/fileIdentity"},
+    "schema_version": {"const": 1}
+  },
+  "$defs": {
+    "fileIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "size_bytes"],
+      "properties": {
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807}
+      }
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

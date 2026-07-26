@@ -3,11 +3,11 @@ import SparkInterval.Execution.Attestation
 /-!
 # Structural policy for H100 execution evidence
 
-This checker is intentionally small and executable.  It enforces the complete
-statement/claim binding and rejects development evidence by construction.  It
-does **not** implement signature verification, certificate-chain validation,
-revocation, firmware appraisal, or a model of the physical GPU.  Those facts
-are exactly the trust boundary exposed by the axiom in `Trusted/`.
+This legacy diagnostic checker is intentionally small and executable.  It
+enforces complete statement/claim binding, but it does **not** implement
+signature verification, certificate-chain validation, revocation, firmware
+appraisal, or a model of the physical GPU.  It is excluded from
+`RunCertificate.check` and cannot reach the execution axiom.
 -/
 
 set_option autoImplicit false
@@ -74,7 +74,7 @@ def H100HardwareEvidence.allMetadataPresent
   present evidence.certificateChainHash &&
   present evidence.verifierArtifactHash
 
-/-- Check the H100-only execution policy.
+/-- Diagnose structural binding for the legacy H100 evidence container.
 
 The first two equations are unconditional: no local or mock evidence can ever
 be accepted, even if its claim byte-for-byte matches a production statement.
@@ -83,6 +83,7 @@ def checkH100Attestation (statement : RunStatement) : Attestation → Bool
   | .local _ => false
   | .mock _ => false
   | .dgxOperatorSignature _ => false
+  | .trustedCompute _ => false
   | .h100Hardware evidence =>
       statement.target == .nvidiaH100SM90 &&
       statement.trust == .nvidiaH100ConfidentialCompute &&
@@ -103,6 +104,11 @@ def checkH100Attestation (statement : RunStatement) : Attestation → Bool
 @[simp] theorem checkH100Attestation_dgxOperatorSignature
     (statement : RunStatement) (evidence : DGXOperatorSignatureEvidence) :
     checkH100Attestation statement (.dgxOperatorSignature evidence) = false :=
+  rfl
+
+@[simp] theorem checkH100Attestation_trustedCompute
+    (statement : RunStatement) (receiptHash : Digest) :
+    checkH100Attestation statement (.trustedCompute receiptHash) = false :=
   rfl
 
 end SparkInterval.Execution

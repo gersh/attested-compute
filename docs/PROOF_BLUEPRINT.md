@@ -53,8 +53,10 @@ The expected digest is
 ## Generate machine-readable blueprint data
 
 The repository pins the LeanArchitect release matching its Lean
-`v4.32.0-rc1` toolchain. Generate the curated graph through the serialized,
-memory-capped planner:
+`v4.32.0` toolchain. The historical curated graph imports the production
+registry and materialized Platt/CDEM tables, so generation is a measured Azure
+qualification operation rather than a local documentation build. Inside that
+worker, generate it through the serialized, memory-capped planner:
 
 ```bash
 ./tools/safe_lake_build.py --blueprint-json
@@ -79,7 +81,9 @@ stack is optional and is not installed or invoked by these commands.
 Do not run `lake build :blueprintJson` directly in this repository. The safe
 planner first builds the exact local dependency closure one module at a time,
 holds the full-plan source snapshot and lock, and runs only the single curated
-module facet inside the aggregate memory limit.
+module facet inside the aggregate memory limit. Its measured-worker
+environment guard prevents accidental local dispatch; it is not attestation
+evidence.
 
 ## Reading the graph
 
@@ -103,17 +107,25 @@ prove that the named cubin was compiled from the emitted PTX or cross the
 
 The run-certificate branch records a different composition:
 
-1. the unified `RunCertificate.check` dispatches to the DGX-signature or H100-
-   attestation structural policy for a private evidence capability;
+1. `RunCertificate.check` accepts only `checkTrustedCompute`, which requires an
+   exact receipt hash in the reviewed source registry and complete structural
+   binding; the legacy DGX-signature and H100 structural checks are diagnostic
+   only and their attestation constructors are rejected;
 2. `RegisteredInvocation.statementCheck` may bind the statement's algorithm ID,
-   formal definition digest, canonical input, parameters, and domain to one
-   constructor of the closed registry; the optional generic literal and
+   formal definition digest, canonical input, parameters, domain, and
+   invocation-specific canonical result language to one constructor of the
+   closed registry; it kernel-recomputes all four canonical preimage hashes so
+   stale reviewed literals fail closed, while the optional generic literal and
    FormalPTX identity checks remain separate APIs;
 3. the sole `accepted_run_certificate_sound` axiom supplies
-   `ProducedOutcome.historical` and the fail-closed
-   `ProducedOutcome.registered` projection;
-4. the derived `accepted_registered_run_sound` theorem exposes the matching
-   invocation's fixed `Runs` relation without introducing another axiom;
+   `ProducedOutcome.historical`, the closed
+   `ProducedOutcome.registeredArchitecture` projection for the attestation's
+   exact receipt hash, and the temporary fail-closed
+   `ProducedOutcome.registered` compatibility projection;
+4. the derived `accepted_registered_architecture_outcomes` and
+   `accepted_registered_run_sound` theorems expose the matching physical
+   outcome and compatibility `Runs` relation without introducing another
+   axiom;
 5. proved checks bind the exact returned certificate text and SHA-256 digest;
 6. either the full Lean certificate checker independently recomputes every row,
    or an ordinary registered-algorithm soundness theorem derives a claim from
@@ -125,19 +137,33 @@ The run-certificate branch records a different composition:
 accepted run returned the exact supplied certificate bytes, with the bound
 output digest. `outcomeCheckForRegisteredInvocation_sound` adds the closed
 check and `Runs` projection. `outcomeCheckForAlgorithm_sound` instead adds only
-caller-pinned literal identity and does not unlock registry semantics. The DGX,
-H100, and `accepted_registered_run_sound` public handoff names are proved from
-the same axiom, not separate trust nodes.
+caller-pinned literal identity and does not unlock registry semantics.
+`accepted_registered_run_sound` is proved from the same axiom, not a separate
+trust node. The legacy DGX/H100 modules instead prove that a positive
+diagnostic remains rejected by `RunCertificate.check`.
 
-The current registry contains only `cubicSumDivThreeV1` at canonical input
-`20000`. Its `Runs` relation uses `cubicSumDivThreeMachine`, an executable
+The current algorithm/invocation registry contains the cubic tutorial, the
+one-row H100 formal-PTX pilot, and closed source-shaped invocations for CDEM
+Abel, the shared Hurst residuals, CH25 psi, Ramaré--Zúñiga Lemma 6.2, Helfgott
+Proposition 12.2.4, CH25 Lemma A.7, the exact Q128 Platt head through 20,000,
+Platt's source-wide Dirichlet Theorem 7.1 contract, PT21 finite RH, and finite
+Helfgott--Platt Goldbach. The cubic `Runs`
+relation uses `cubicSumDivThreeMachine`, an executable
 integer cube accumulator followed by one division. Lean proves the operational
 result, agreement with the rational sum, and u64 no-overflow for every cube and
 accumulator step. `certifyCubicSumDivThree20000` uses the registered route to
 derive exact output `13334666700000000` without `native_decide` or a 20,001-row
 witness. These algorithm and bounded-arithmetic proofs are axiom-free, but do
-not prove a GPU implementation. There is no positive evidence importer or
-accepted certificate instance for this tutorial.
+not prove a GPU implementation. The Azure source-receipt importer is
+implemented, but the tracked receipt registry contains no accepted certificate
+instance for this tutorial.
+
+For the H100 pilot, Lean definitionally identifies the registered PTX with the
+formal emitter's output for the closed constant `[1,1]` batch, proves both
+returned binary64 endpoints decode to rational one, and provides an end-to-end
+conditional theorem from the exact registered outcome check. This validates
+the deployment and theorem-import shape; it is not a zeta or
+Ternary-Goldbach computation, and no accepted receipt is checked in.
 
 The zeta branch now records `HardyZModel.verifyEndpointFamily` as an explicit
 composition node. Its executable premise is the exact-rational family checker,
@@ -166,8 +192,10 @@ the paired-singleton endpoint shape, and runs the rational family checker.
 `SignedZetaEndpointPayload.check` additionally binds the formal PTX outcome and
 returned bytes. Its `ProducedOutcome` crosses
 `accepted_run_certificate_sound`; the parser/arithmetic/shape/family facts are
-proved independently. This zeta path does not currently use a closed registry
-constructor because no zeta checker is registered.
+proved independently. This generic full-endpoint-payload path does not use a
+closed registry constructor. The separate PT21 finite-RH path does: it fixes
+the exact height, count and FLINT campaign identity and requires
+`SourceEvidence` in its successful `Runs` relation.
 
 `SignedZetaEndpointPayload.verifyFiniteHeight` then takes a proved Hardy-Z
 model, endpoint-enclosure and domain proofs, and a multiplicity upper bound.
@@ -207,9 +235,23 @@ particular invocation's fixed `Runs` relation, so only the ordinary `Sound`
 theorem from that relation to the decoded claim remains.
 
 `certifyRegisteredCompactFiniteHeightZeta` specializes the preferred route.
-It has no `ExecutionRefines` argument, but it is not a completed zeta verifier:
-no zeta invocation is registered, and the required checker-soundness theorem
-must still include all Hardy-Z, streaming, and total-count mathematics.
+It has no `ExecutionRefines` argument. The PT21 invocation now instantiates the
+closed-result pattern and has an ordinary source-claim theorem, but it is not a
+completed verifier: endpoint/Hardy-Z/count evidence construction, the
+source-scale run, optimized materializer and attested receipt are absent. The
+literal reference CPU materializer and exact terminal-result shape are
+reviewed, but remain staged-disabled.
+
+The Platt Dirichlet endpoint follows the same fail-closed pattern at its
+theorem boundary. `plattDirichletTheorem71ProductionV1` accepts only an Azure
+SEV-SNP CPU finalizer; success requires the exact universal even/odd
+`PlattTheorem71SourceEvidence`, and its ordinary source theorem derives the
+expanded source proposition. The endpoint is structurally ready for a
+generated signed consumer, but it does not create that evidence from hashes.
+The physical source-wide campaign, successful receipt, and enabled semantic
+binding remain absent. A literal CPU source/postcheck materializer and exact
+terminal-result shape exist, but the optimized source-wide path and formal
+artifact-to-evidence realization remain incomplete.
 
 Consequently, the full-certificate route gets its mathematical conclusion from
 independent checking, while the registered compact route derives mathematics
@@ -219,17 +261,17 @@ instance of the polynomial typed-machine theorem.
 
 This branch now includes end-to-end Lean composition for a canonical
 monolithic full endpoint payload and theorem-level endpoint chunks, but it is
-not yet an end-to-end external
-run-bundle workflow. The historical `SignedResultCertificate` name accepts
-either production policy through `RunCertificate`; it is not restricted to DGX
-signatures:
+not yet an end-to-end external run-bundle workflow. The historical
+`SignedResultCertificate` name is not restricted to DGX signatures, but its
+`RunCertificate` premise now accepts only a source-admitted trusted-compute
+receipt:
 
-- the repository has no importer from successful Python DGX signature
-  verification or future H100 evidence verification to the corresponding
-  private Lean capability;
-- a wire run statement binds an output artifact path, size, and file digest,
-  but carries no result text, so an importer would have to read the verified
-  artifact bytes and construct the Lean `RunStatement.result` binding;
+- successful Python DGX signature verification remains provenance evidence
+  only; the legacy Lean structural constructor is rejected and has no importer
+  to theorem authority;
+- the Azure importer supports both SEV-SNP CPU and composite NCC H100 receipts,
+  reads and hash-binds the exact output bytes, and can emit a source-pinned Lean
+  consumer after review; no production receipt is currently admitted;
 - the current generated-cubin output is `results.bin`, and the real-zeta
   output is `zeta-report.json`; neither is a canonical full result certificate
   accepted by `SignedZetaEndpointPayload`;
@@ -255,6 +297,9 @@ unaccepted future execution implements those semantics or returns the same
 bytes. General emitted-PTX/cubin, `ptxas`, SASS, driver, and hardware refinement
 remain open.
 
-LeanArchitect is explanatory metadata, not an axiom audit. Run
+LeanArchitect is explanatory metadata, not an axiom audit. The same measured
+Azure qualification lane runs
 [`tools/audit_axioms.sh`](../tools/audit_axioms.sh) to enforce the actual
 project-axiom allowlist and inspect each public theorem's kernel dependencies.
+Ordinary local work uses `make audit` for the whole-tree source and compact
+closure gates.

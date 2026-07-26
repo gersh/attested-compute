@@ -16,6 +16,14 @@ import argparse
 import json
 from pathlib import Path
 import subprocess
+import sys
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPOSITORY_ROOT))
+from tg_verifier.campaign_io import (
+    MeasuredWorkerScopeError,
+    require_azure_measured_worker_for_workload,
+)
 
 
 KNOWN_ANSWERS = (
@@ -58,6 +66,14 @@ def main() -> int:
     args = parser.parse_args()
     if not args.runner.is_file():
         raise AssertionError(f"missing CUDA factor-support runner: {args.runner}")
+    try:
+        require_azure_measured_worker_for_workload(
+            exact_production=True,
+            work_bounds=(),
+        )
+    except MeasuredWorkerScopeError:
+        print("SKIP: extended R2Star factor-support vectors are cloud-only")
+        return 77
 
     help_result = run_checked([str(args.runner), "--help"])
     if "bounded factor-support segment" not in help_result.stdout:

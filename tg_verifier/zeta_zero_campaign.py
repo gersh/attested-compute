@@ -26,6 +26,7 @@ import importlib
 import json
 import os
 from pathlib import Path
+import re
 import tempfile
 from typing import Any, Iterable, NoReturn, Protocol, Sequence
 
@@ -48,6 +49,13 @@ MIN_PRECISION_BITS = 80
 MAX_PRECISION_BITS = 16_384
 MAX_BATCH_SIZE = 10_000_000
 IMPLEMENTATION_SOURCE = Path(__file__).resolve()
+Q128_SCALE = 1 << 128
+PLATT_HEAD_INCLUDED_Q128_ROWS_SHA256 = (
+    "e7943dee86b5bf029e9159bd5e54e8726bac14ecaf9a5f42c9b254d98d15a6b7"
+)
+PLATT_HEAD_ALL_Q128_ROWS_SHA256 = (
+    "fc67e829c51adda0804b23b959db33d48e9e1a70076a9caf2ec4d6be96cf29ca"
+)
 
 FLINT_DOCS_URL = (
     "https://flintlib.org/doc/acb_dirichlet.html#riemann-zeta-function-zeros"
@@ -121,6 +129,16 @@ class IsolatedOrdinate:
 
     lower: Fraction
     upper: Fraction
+
+
+@dataclass(frozen=True)
+class Q128CellRecord:
+    """One exact retained source row in the shared Lean Q128 format."""
+
+    index: int
+    lower: int
+    upper: int
+    reciprocal_upper: int
 
 
 class ZetaBackend(Protocol):
@@ -742,6 +760,24 @@ def _ceil_fraction(value: Fraction) -> int:
     return -((-value.numerator) // value.denominator)
 
 
+def q128_cell_from_interval(index: int, interval: IsolatedOrdinate) -> Q128CellRecord:
+    """Round one rigorous ordinate interval into the committed Lean cell."""
+
+    index = _int("Q128 cell index", index, minimum=1)
+    if not isinstance(interval, IsolatedOrdinate):
+        _fail("Q128 cell interval has the wrong type")
+    if interval.lower <= 0 or interval.upper < interval.lower:
+        _fail("Q128 cell interval is not positive and ordered")
+    lower = _floor_fraction(interval.lower * Q128_SCALE)
+    upper = _ceil_fraction(interval.upper * Q128_SCALE)
+    if lower <= 0 or upper < lower:
+        _fail("Q128 outward rounding produced an invalid cell")
+    reciprocal_upper = _ceil_fraction(Fraction(Q128_SCALE * Q128_SCALE, lower))
+    if Q128_SCALE * Q128_SCALE > reciprocal_upper * lower:
+        _fail("Q128 reciprocal cross-product failed")
+    return Q128CellRecord(index, lower, upper, reciprocal_upper)
+
+
 def create_chunk(
     plan: dict[str, Any],
     campaign_sha256: str,
@@ -782,6 +818,12 @@ def create_chunk(
     last_included_index = int(plan["plan"]["last_included_index"])
     first_excluded_index = int(plan["plan"]["first_excluded_index"])
     reciprocal_scale = 1 << int(plan["configuration"]["precision_bits"])
+    # The finite head is small enough to retain every exact interval preimage.
+    # The 3e12 campaign deliberately remains digest-only: retaining trillions
+    # of rows would defeat its bounded-storage design.
+    retained_intervals: list[dict[str, object]] | None = (
+        [] if plan["profile"] == PLATT_HEAD_2E4.name else None
+    )
 
     for offset, interval in enumerate(ordinates):
         index = first + offset
@@ -797,6 +839,10 @@ def create_chunk(
                 minimum_gap = gap
                 minimum_gap_after = index - 1
         _update_interval_digest(interval_digest, index, interval)
+        if retained_intervals is not None:
+            retained_intervals.append(
+                {"index": index, **_interval_json(interval)}
+            )
         previous_upper = interval.upper
         if index <= last_included_index:
             included_count += 1
@@ -837,6 +883,7 @@ def create_chunk(
             else _interval_json(first_excluded_interval)
         ),
         "ordinate_intervals_sha256": interval_digest.hexdigest(),
+        "retained_ordinate_intervals": retained_intervals,
         "all_records_finite": True,
         "all_real_parts_exactly_one_half": True,
         "all_ordinates_strictly_positive": True,
@@ -930,6 +977,7 @@ def validate_chunk(
             "last_included_ordinate",
             "first_excluded_ordinate",
             "ordinate_intervals_sha256",
+            "retained_ordinate_intervals",
             "all_records_finite",
             "all_real_parts_exactly_one_half",
             "all_ordinates_strictly_positive",
@@ -981,7 +1029,51 @@ def validate_chunk(
             "chunk.first_excluded_ordinate", chunk["first_excluded_ordinate"]
         )
     )
-    _digest("chunk.ordinate_intervals_sha256", chunk["ordinate_intervals_sha256"])
+    interval_digest = _digest(
+        "chunk.ordinate_intervals_sha256", chunk["ordinate_intervals_sha256"]
+    )
+    retained = chunk["retained_ordinate_intervals"]
+    if plan["profile"] == PLATT_HEAD_2E4.name:
+        if not isinstance(retained, list) or len(retained) != count:
+            _fail(f"chunk {chunk_index} must retain every Platt-head interval")
+        replay_digest = hashlib.sha256()
+        replay_previous: Fraction | None = None
+        replay_minimum_gap: Fraction | None = None
+        replay_minimum_after: int | None = None
+        replay_intervals: list[IsolatedOrdinate] = []
+        for offset, raw_row in enumerate(retained):
+            row = _expect_keys(
+                f"chunk {chunk_index}.retained[{offset}]",
+                raw_row,
+                {"index", "lower", "upper"},
+            )
+            expected_index = first_index + offset
+            if _int(
+                f"chunk {chunk_index}.retained[{offset}].index",
+                row["index"],
+                minimum=1,
+            ) != expected_index:
+                _fail(f"chunk {chunk_index} retained interval index mismatch")
+            interval = _parse_interval(
+                f"chunk {chunk_index}.retained[{offset}]",
+                {"lower": row["lower"], "upper": row["upper"]},
+            )
+            if replay_previous is not None:
+                if not replay_previous < interval.lower:
+                    _fail(f"chunk {chunk_index} retained intervals overlap")
+                gap = interval.lower - replay_previous
+                if replay_minimum_gap is None or gap < replay_minimum_gap:
+                    replay_minimum_gap = gap
+                    replay_minimum_after = expected_index - 1
+            replay_previous = interval.upper
+            replay_intervals.append(interval)
+            _update_interval_digest(replay_digest, expected_index, interval)
+        if replay_digest.hexdigest() != interval_digest:
+            _fail(f"chunk {chunk_index} retained interval digest mismatch")
+        if replay_intervals[0] != first or replay_intervals[-1] != last:
+            _fail(f"chunk {chunk_index} retained endpoints mismatch")
+    elif retained is not None:
+        _fail("the source-height campaign must not retain trillions of intervals")
     for key in (
         "all_records_finite",
         "all_real_parts_exactly_one_half",
@@ -1001,6 +1093,10 @@ def validate_chunk(
         after = _int("chunk.minimum_internal_gap_after_index", minimum_after, minimum=first_index)
         if after >= last_index:
             _fail(f"chunk {chunk_index} minimum-gap index is out of range")
+        if plan["profile"] == PLATT_HEAD_2E4.name and (
+            minimum_gap != replay_minimum_gap or after != replay_minimum_after
+        ):
+            _fail(f"chunk {chunk_index} retained minimum-gap summary mismatch")
     expected_last_included_present = (
         first_index <= int(plan["plan"]["last_included_index"]) <= last_index
     )
@@ -1448,3 +1544,154 @@ def verify_campaign(
         "fresh_flint_replay_performed": False,
         "lean_atom_discharged": False,
     }
+
+
+def retained_head_q128_cells(directory: str | Path) -> tuple[Q128CellRecord, ...]:
+    """Load every retained head interval and reproduce the committed Q128 rows.
+
+    This function first performs the complete structural/final verification.
+    It then replays each retained rational preimage, rounds outward exactly,
+    and requires the historical 22,491-row digest.  A summary-only chunk can
+    therefore no longer be used to generate a Lean table.
+    """
+
+    root = Path(directory)
+    plan, _raw, _campaign_hash = load_plan(root)
+    if plan["profile"] != PLATT_HEAD_2E4.name:
+        _fail("Q128 table extraction is defined only for platt-head-2e4")
+    verify_campaign(root, require_complete=True)
+    expected_count = int(plan["plan"]["last_included_index"])
+    expected_all_count = int(plan["plan"]["total_isolation_records"])
+    all_cells: list[Q128CellRecord] = []
+    previous_upper = 0
+    for chunk_index in range(int(plan["plan"]["chunk_count"])):
+        raw = read_bounded(root / chunk_filename(chunk_index), label=f"chunk {chunk_index}")
+        chunk = parse_canonical_json(raw, label=f"chunk {chunk_index}")
+        retained = chunk.get("retained_ordinate_intervals")
+        if not isinstance(retained, list):
+            _fail(f"chunk {chunk_index} has no retained interval preimages")
+        for offset, raw_row in enumerate(retained):
+            row = _expect_keys(
+                f"chunk {chunk_index}.retained[{offset}]",
+                raw_row,
+                {"index", "lower", "upper"},
+            )
+            index = _int("retained interval index", row["index"], minimum=1)
+            interval = _parse_interval(
+                f"retained interval {index}",
+                {"lower": row["lower"], "upper": row["upper"]},
+            )
+            cell = q128_cell_from_interval(index, interval)
+            if cell.index != len(all_cells) + 1:
+                _fail("retained Q128 rows are not a gap-free one-based prefix")
+            if cell.lower <= previous_upper:
+                _fail("retained Q128 rows overlap after outward rounding")
+            previous_upper = cell.upper
+            all_cells.append(cell)
+    if len(all_cells) != expected_all_count:
+        _fail(
+            f"retained Q128 campaign has {len(all_cells)} rows, "
+            f"expected {expected_all_count} including the sentinel"
+        )
+    all_digest = hashlib.sha256()
+    for cell in all_cells:
+        all_digest.update(
+            (
+                f"{cell.index}:{cell.lower}:{cell.upper}:"
+                f"{cell.reciprocal_upper}\n"
+            ).encode("ascii")
+        )
+    if all_digest.hexdigest() != PLATT_HEAD_ALL_Q128_ROWS_SHA256:
+        _fail(
+            "retained Q128 rows including the sentinel differ from the reviewed "
+            f"claude_math table: expected {PLATT_HEAD_ALL_Q128_ROWS_SHA256}, "
+            f"got {all_digest.hexdigest()}"
+        )
+    cells = all_cells[:expected_count]
+    included_digest = hashlib.sha256()
+    for cell in cells:
+        included_digest.update(
+            (
+                f"{cell.index}:{cell.lower}:{cell.upper}:"
+                f"{cell.reciprocal_upper}\n"
+            ).encode("ascii")
+        )
+    if included_digest.hexdigest() != PLATT_HEAD_INCLUDED_Q128_ROWS_SHA256:
+        _fail(
+            "retained included Q128 source table differs from claude_math: "
+            f"expected {PLATT_HEAD_INCLUDED_Q128_ROWS_SHA256}, "
+            f"got {included_digest.hexdigest()}"
+        )
+    return tuple(cells)
+
+
+def render_head_q128_lean_module(
+    cells: Sequence[Q128CellRecord],
+    *,
+    namespace: str = "SparkInterval.Generated.PlattHeadQ128",
+) -> str:
+    """Render one exact table module for compilation in the shared Lake graph.
+
+    The renderer accepts only the complete reviewed table.  The generated
+    module defines no axiom; it supplies literal rows, a kernel-checked length,
+    and the `Q128CellTable` consumed by the registered receipt theorem.
+    """
+
+    if re.fullmatch(
+        r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*", namespace
+    ) is None:
+        _fail("generated Lean namespace is malformed")
+    if len(cells) != PLATT_HEAD_2E4.expected_zero_count:
+        _fail("Lean rendering requires the complete 22,491-row table")
+    digest = hashlib.sha256()
+    previous_upper = 0
+    row_lines: list[str] = []
+    for expected_index, cell in enumerate(cells, start=1):
+        if not isinstance(cell, Q128CellRecord) or cell.index != expected_index:
+            _fail("Lean Q128 rows are not canonical and one-based")
+        if cell.lower <= previous_upper or cell.upper < cell.lower:
+            _fail("Lean Q128 rows are not positive, ordered, and disjoint")
+        if Q128_SCALE * Q128_SCALE > cell.reciprocal_upper * cell.lower:
+            _fail("Lean Q128 row fails its reciprocal cross-product")
+        previous_upper = cell.upper
+        record = (
+            f"{cell.index}:{cell.lower}:{cell.upper}:"
+            f"{cell.reciprocal_upper}\n"
+        )
+        digest.update(record.encode("ascii"))
+        row_lines.append(
+            f"    ⟨{cell.lower}, {cell.upper}, {cell.reciprocal_upper}⟩"
+        )
+    if digest.hexdigest() != PLATT_HEAD_INCLUDED_Q128_ROWS_SHA256:
+        _fail("Lean Q128 renderer received a table with the wrong digest")
+    rows = ",\n".join(row_lines)
+    return f'''/- Copyright (c) 2026 Gershon Bialer. All rights reserved.
+SPDX-License-Identifier: MIT -/
+
+import SparkInterval.TernaryGoldbach.ZetaHeadSourceSemantics
+
+/-! Generated exact Q128 cells for the Platt zeta head through height 20,000.
+Do not edit by hand; regenerate from a complete retained and replayed campaign. -/
+
+namespace {namespace}
+
+open SparkInterval.TernaryGoldbach.ZetaHeadSourceSemantics
+
+set_option maxHeartbeats 0 in
+set_option maxRecDepth 1000000 in
+def rows : List Q128Cell :=
+  [
+{rows}
+  ]
+
+set_option maxRecDepth 1000000 in
+@[simp] theorem rows_length : rows.length = sourceCount := by decide
+
+noncomputable def table : Q128CellTable where
+  entries i := rows.get (finCongr rows_length.symm i)
+
+def reviewedRowsSha256 : String :=
+  "{PLATT_HEAD_INCLUDED_Q128_ROWS_SHA256}"
+
+end {namespace}
+'''

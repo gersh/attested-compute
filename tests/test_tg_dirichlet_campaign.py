@@ -362,6 +362,57 @@ class DirichletCampaignTests(unittest.TestCase):
             report["in_repository_rigorous_argument_principle_reference_backend"]
         )
         self.assertFalse(report["in_repository_fast_platt_lattice_fft_backend"])
+        self.assertTrue(report["in_repository_optimized_platt_components"])
+        self.assertTrue(
+            report["conditional_large_q_taylor_stage"]["unit_group_fft_present"]
+        )
+        self.assertTrue(
+            report["optimized_component_capabilities"][
+                "persistent_source_composition_ready"
+            ]
+        )
+        self.assertTrue(
+            report["optimized_component_capabilities"][
+                "scalable_root_number_artifact_ready"
+            ]
+        )
+        self.assertTrue(
+            report["optimized_component_capabilities"][
+                "t_major_lattice_cache_contract_ready"
+            ]
+        )
+        self.assertEqual(
+            report["optimized_component_capabilities"][
+                "t_major_unique_lattice_payload_bytes"
+            ],
+            134_205_145_088,
+        )
+        self.assertEqual(
+            report["optimized_component_capabilities"][
+                "t_major_compact_total_input_bytes"
+            ],
+            286_556_459_000,
+        )
+        self.assertTrue(
+            report["optimized_component_capabilities"][
+                "row_resident_t_major_cuda_component_executable"
+            ]
+        )
+        self.assertFalse(
+            report["optimized_component_capabilities"][
+                "hurwitz_lattice_cache_and_broadcast_ready"
+            ]
+        )
+        self.assertFalse(
+            report["optimized_component_capabilities"][
+                "certified_box_producer_and_source_io_ready"
+            ]
+        )
+        self.assertFalse(
+            report["optimized_component_capabilities"][
+                "production_closed_optimized_campaign_ready"
+            ]
+        )
         self.assertFalse(report["current_numeric_turing_sanity_accepted_as_completeness"])
 
 

@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-h100-dirichlet-packed-materialization.schema.json",
+  "title": "SparkInterval Dirichlet packed-sign Azure H100 materialization",
+  "type": "object",
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "device_side_classification_implemented": {"const": false},
+        "packing_location": {"const": "runner_host_after_full_disk_d2h_v1"},
+        "raw_disk_device_to_host_transfer_eliminated": {"const": false}
+      }
+    },
+    {
+      "properties": {
+        "device_side_classification_implemented": {"const": true},
+        "packing_location": {"const": "runner_device_after_full_dft_before_d2h_v1"},
+        "raw_disk_device_to_host_transfer_eliminated": {"const": true}
+      }
+    }
+  ],
+  "required": [
+    "accepted", "artifact_roster_sha256", "classification",
+    "device_side_classification_implemented", "execution_completed",
+    "factory_id", "input_manifest_sha256", "job_spec", "kind",
+    "lean_theorem_produced", "package", "packing_location", "packing_mode",
+    "pinset_sha256", "predecessor_receipt_sha256", "production_ready", "q",
+    "raw_disk_device_to_host_transfer_eliminated", "registered_invocation",
+    "schema_version", "source_admission_enabled"
+  ],
+  "properties": {
+    "accepted": {"const": false},
+    "artifact_roster_sha256": {"$ref": "#/$defs/sha256"},
+    "classification": {
+      "const": "source_reviewed_dirichlet_smallq_packed_h100_materialization_not_execution_or_source_evidence"
+    },
+    "device_side_classification_implemented": {"type": "boolean"},
+    "execution_completed": {"const": false},
+    "factory_id": {
+      "type": "string",
+      "pattern": "^platt_dirichlet_smallq_packed_q[0-9]+_h100_(?:host|device)_v1$"
+    },
+    "input_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "job_spec": {"$ref": "#/$defs/filePin"},
+    "kind": {
+      "const": "sparkinterval.azure.h100.dirichlet-packed-materialization.v1"
+    },
+    "lean_theorem_produced": {"const": false},
+    "package": {"$ref": "#/$defs/filePin"},
+    "packing_location": {
+      "enum": [
+        "runner_host_after_full_disk_d2h_v1",
+        "runner_device_after_full_dft_before_d2h_v1"
+      ]
+    },
+    "packing_mode": {"const": "tgdbspk1_strict_sign_v1"},
+    "pinset_sha256": {"$ref": "#/$defs/sha256"},
+    "predecessor_receipt_sha256": {"$ref": "#/$defs/sha256"},
+    "production_ready": {"const": false},
+    "q": {"type": "integer", "minimum": 2, "maximum": 10000},
+    "raw_disk_device_to_host_transfer_eliminated": {"type": "boolean"},
+    "registered_invocation": {"type": "null"},
+    "schema_version": {"const": 1},
+    "source_admission_enabled": {"const": false}
+  },
+  "$defs": {
+    "absolutePath": {
+      "type": "string",
+      "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"
+    },
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

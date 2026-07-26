@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-cpu-goldbach10pow27-materialization.schema.json",
+  "title": "SparkInterval finite-Goldbach-below-10^27 Azure CPU materialization",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["accepted", "build_admission_sha256", "build_identity_sha256", "build_steps", "challenge_pin", "classification", "compiler", "cpu_operator_config", "execution_completed", "factory_id", "handoff", "job_spec", "kind", "lean_theorem_produced", "package", "phase_id", "portfolio_shard_config", "predecessor_receipts", "registered_invocation", "schema_version", "semantic_terminal", "shard_index", "source_run_receipt_produced", "terminal_child_identity_commitment_sha256", "transcript_policy"],
+  "properties": {
+    "accepted": {"const": false},
+    "build_admission_sha256": {"$ref": "#/$defs/nonzeroSha256"},
+    "build_identity_sha256": {"$ref": "#/$defs/nonzeroSha256"},
+    "build_steps": {"type": "array", "minItems": 1},
+    "challenge_pin": {"$ref": "#/$defs/filePin"},
+    "classification": {"const": "source_reviewed_goldbach10pow27_operator_validated_materialization_not_execution_evidence"},
+    "compiler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes", "version_line"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0},
+        "version_line": {"type": "string", "minLength": 1}
+      }
+    },
+    "cpu_operator_config": {"$ref": "#/$defs/filePin"},
+    "execution_completed": {"const": false},
+    "factory_id": {"type": "string", "pattern": "^goldbach10pow27_[a-z0-9-]+_[0-9]{4}_image_cpu_v1$"},
+    "handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entry_count", "sha256"],
+      "properties": {
+        "entry_count": {"type": "integer", "minimum": 0, "maximum": 8193},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "job_spec": {"$ref": "#/$defs/filePin"},
+    "kind": {"const": "sparkinterval.azure.cpu.goldbach10pow27-materialization.v1"},
+    "lean_theorem_produced": {"const": false},
+    "package": {"$ref": "#/$defs/filePin"},
+    "phase_id": {"enum": ["create-lowered-binary-plan", "initialize-lowered-prime-ladder", "native-lowered-prime-ladder-range-groups", "aggregate-lowered-binary-leaves", "replay-lowered-binary-aggregate", "reduce-lowered-prime-ladder-ranges", "measured-finalize-lowered-source-claim"]},
+    "portfolio_shard_config": {"$ref": "#/$defs/filePin"},
+    "predecessor_receipts": {"type": "array", "maxItems": 8193},
+    "registered_invocation": {"enum": [null, "goldbach10Pow27ProductionV1"]},
+    "schema_version": {"const": 1},
+    "semantic_terminal": {"type": "boolean"},
+    "shard_index": {"type": "integer", "minimum": 0, "maximum": 8191},
+    "source_run_receipt_produced": {"const": false},
+    "terminal_child_identity_commitment_sha256": {
+      "oneOf": [
+        {"$ref": "#/$defs/nonzeroSha256"},
+        {"type": "null"}
+      ]
+    },
+    "transcript_policy": {"$ref": "#/$defs/filePin"}
+  },
+  "$defs": {
+    "absolutePath": {"type": "string", "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nonzeroSha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}
+      }
+    }
+  }
+}

@@ -1,0 +1,40 @@
+diff --git a/zeta_arb/inter.c b/zeta_arb/inter.c
+--- a/zeta_arb/inter.c
++++ b/zeta_arb/inter.c
+@@ -3,6 +3,9 @@
+ #include "parameters.h"
+ #include "win_zeta.h"
+ 
++/* Defined and initialized by arb_zeta.c from intererr_d. */
++extern arb_t intererr;
++
+ // compute exp(-t^2/2H^2)
+ void inter_gaussian(arb_ptr res, arb_ptr t, int64_t prec)
+ {
+@@ -157,6 +160,11 @@ void arb_inter_t(arb_ptr f_res, arb_ptr fd_res, acb_t *f_vec, arb_ptr t_ptr, int
+ 	  if (fd_res) arb_add(fd_res,fd_res,inter_tmp2,prec);
+ 	}
+     }
++  /* Appendix C contributes both the non-bandlimited (C.1) and omitted-tail
++     (C.3) errors.  parameters.h stores their joint symmetric radius. */
++  arb_add(f_res,f_res,intererr,prec);
++  /* The current Turing consumer passes fd_res == NULL.  A future derivative
++     consumer needs its own independently derived derivative-error radius. */
+ }
+ 
+ void acb_inter_t(arb_ptr f_res, acb_t *f_vec, arb_ptr t_ptr, int64_t prec)
+diff --git a/zeta_arb/parameters.h b/zeta_arb/parameters.h
+--- a/zeta_arb/parameters.h
++++ b/zeta_arb/parameters.h
+@@ -55,7 +55,10 @@
+ #define INTER_A ((double) INTER_SPACING*one_over_A)
+ #define H ((double) 2.0312500000000000000000000000000000000e-1) // in defn of W(t)
+ #define Ns ((int) 70) // lemma C.3
+-#define intererr_d ((double) 2.45e-40) // lemma C.3
++// Next binary64 value above the exact decimal 2.45e-40.  The decimal literal
++// itself rounds downward, so it cannot implement the exact rational radius
++// 245/10^42 used by the certificate boundary.
++#define intererr_d ((double) 0x1.557aebd2564edp-132) // Appendix C.1 + C.3
+ //************************************
+ 
+ #define EXTRA_PREC (50) // more than log2(t0/(2Pi)*log(Msqrt(Pi)))

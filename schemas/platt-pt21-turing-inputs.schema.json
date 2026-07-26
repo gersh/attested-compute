@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gersh.github.io/gpu_prover/schemas/platt-pt21-turing-inputs.schema.json",
+  "title": "Source-bound one-sided PT21 Turing arithmetic inputs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "algorithm",
+    "block",
+    "flint_commit",
+    "inputs",
+    "precision_bits",
+    "replay_precision_bits",
+    "required_sign_packet_sha256",
+    "schema",
+    "source_identity",
+    "semantic_status"
+  ],
+  "properties": {
+    "algorithm": {
+      "const": "pinned-platt-pt21-one-sided-turing-inputs-flint-3.6-v1"
+    },
+    "block": {"type": "integer", "minimum": 0, "maximum": 2966443782},
+    "flint_commit": {
+      "const": "8d5454b96761fafe4d5a9da76a369a602f500f49"
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lower", "upper"],
+      "properties": {
+        "lower": {"$ref": "#/$defs/side"},
+        "upper": {"$ref": "#/$defs/side"}
+      }
+    },
+    "precision_bits": {"const": 128},
+    "replay_precision_bits": {"const": 256},
+    "required_sign_packet_sha256": {"$ref": "#/$defs/sha256"},
+    "schema": {"const": "sparkinterval.tg.platt-pt21-turing-inputs.v1"},
+    "source_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "height_lower",
+        "height_upper",
+        "interpolation_patch_sha256",
+        "source_turing_c_sha256",
+        "upstream_commit"
+      ],
+      "properties": {
+        "height_lower": {"type": "integer", "minimum": 10000000000},
+        "height_upper": {"type": "integer", "minimum": 10000001008},
+        "interpolation_patch_sha256": {
+          "const": "2bc33d3d4f6163ba5af8982f1272e9544154ed95bc6155a4ee215c4e425c85b3"
+        },
+        "source_turing_c_sha256": {
+          "const": "07305e04e85477749ced09325c9e78388dd55d6107aa526d3becde345a430c27"
+        },
+        "upstream_commit": {
+          "const": "42b21426718e542daa2b006dc05ea2d7f26426e6"
+        }
+      }
+    },
+    "semantic_status": {
+      "const": {
+        "analytic_turing_realization_proved": false,
+        "arb_interval_arithmetic_executed": true,
+        "hardy_z_endpoint_realization_proved": false
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "rational": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["denominator", "numerator"],
+      "properties": {
+        "denominator": {"type": "integer", "minimum": 1},
+        "numerator": {"type": "integer"}
+      }
+    },
+    "interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hi", "lo"],
+      "properties": {
+        "hi": {"$ref": "#/$defs/rational"},
+        "lo": {"$ref": "#/$defs/rational"}
+      }
+    },
+    "values": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["im_gamma_integral", "log_pi", "pi", "s_bound"],
+      "properties": {
+        "im_gamma_integral": {"$ref": "#/$defs/interval"},
+        "log_pi": {"$ref": "#/$defs/interval"},
+        "pi": {"$ref": "#/$defs/interval"},
+        "s_bound": {"$ref": "#/$defs/interval"}
+      }
+    },
+    "side": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["function", "interval", "values"],
+      "properties": {
+        "function": {"enum": ["turing_min", "turing_max"]},
+        "interval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["a", "b"],
+          "properties": {
+            "a": {"type": "integer", "minimum": 1},
+            "b": {"type": "integer", "minimum": 1}
+          }
+        },
+        "values": {"$ref": "#/$defs/values"}
+      }
+    }
+  }
+}

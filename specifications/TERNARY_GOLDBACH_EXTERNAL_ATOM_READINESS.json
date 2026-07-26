@@ -1,0 +1,610 @@
+{
+  "schema_version": 1,
+  "kind": "sparkinterval.ternary-goldbach.external-atom-readiness.v1",
+  "assessment_date": "2026-07-25",
+  "classification": "implementation-readiness-audit-not-execution-or-mathematical-evidence",
+  "scope": "the 13 named external atoms in TERNARY_GOLDBACH_EXTERNAL_ATOMS.json; the distinct lowered 10^27 finite campaign is excluded",
+  "audit_constraints": {
+    "lean_or_lake_run": false,
+    "full_production_campaign_run": false,
+    "local_validation_policy": "symbolic_lean_compilation_static_checks_and_tiny_known_answer_tests_only; production_arithmetic_and_independent_replay_are_cloud_only",
+    "authority_source": "fresh Lean compilation and reviewed receipts remain required; this JSON is descriptive and grants no theorem authority"
+  },
+  "summary": {
+    "logical_atom_count": 13,
+    "physical_campaign_count": 10,
+    "full_range_capable_reference_or_source_routes": 13,
+    "sample_or_prototype_only_rows": 0,
+    "physical_campaigns_with_all_portfolio_groups_recognized_by_a_materializer": 10,
+    "physical_campaigns_with_full_local_run_benchmark": 3,
+    "physical_campaigns_with_target_azure_sku_measurement": 0,
+    "physical_campaigns_in_source_realization_catalog": 1,
+    "physical_campaigns_staged_in_pending_realization_catalog": 9,
+    "physical_campaigns_without_a_realization_catalog_entry": 0,
+    "installed_production_deployment_pins": 0,
+    "source_admitted_trusted_compute_receipts": 0,
+    "logical_atoms_with_current_theorem_authority": 0,
+    "complete_portfolio_prediction_available": false,
+    "one_week_and_10000_usd_production_gate_passes": false
+  },
+  "global_trust_state": {
+    "production_deployment_pin_file": "SparkInterval/Execution/ProductionDeploymentPins.lean",
+    "production_deployment_pins": "all_none",
+    "trusted_compute_registry_file": "SparkInterval/Execution/TrustedComputeRegistry.lean",
+    "trusted_compute_registry": "empty",
+    "successful_production_receipts": "none_present",
+    "consequence": "no workload row currently supplies theorem authority, including the enabled CDEM Abel semantic-inventory row"
+  },
+  "physical_campaigns": [
+    {
+      "campaign_id": "ch25-a7-boundary",
+      "logical_atom_ids": [
+        "ch25-a7-boundary"
+      ],
+      "algorithm": {
+        "status": "complete_full_transcript_replay_and_identity_pinned_total_lean_finite_wire_checker_require_retained_input",
+        "full_range_capable": true,
+        "only_sample_or_prototype": false,
+        "optimized_route_status": "not_needed_for_this_small_replay",
+        "sources": [
+          "SparkInterval/TernaryGoldbach/A7BoundaryCertificate.lean",
+          "SparkInterval/TernaryGoldbach/A7BoundaryWire.lean",
+          "tg_verifier/analytic.py",
+          "tg_verifier/a7_lean_certificate.py",
+          "tg_verifier/a7_boundary_wire.py",
+          "tools/tg_a7_boundary_wire.py",
+          "tools/tg_a7_azure_measured_workload.py"
+        ]
+      },
+      "semantic_output": {
+        "registered_invocation": "ch25A7BoundaryProductionV1",
+        "registered_certificate": "SparkInterval/Execution/RegisteredA7BoundaryCertificate.lean",
+        "conditional_output_contract": "registered_true_retains_one_transcript_shaped_checked_certificate_and_its_explicit_analytic_realization; ordinary_lean_derives_the_source_claim_without_replaying_the_production_transcript",
+        "semantic_inventory": "disabled_with_staged_identity",
+        "source_realization_catalog": "pending_not_authoritative"
+      },
+      "deployment": {
+        "execution_mode": "single_job",
+        "portfolio_group_count": 1,
+        "all_group_materializers_recognized": true,
+        "materializers": [
+          "tools/tg_azure_cpu_a7_materializer.py"
+        ],
+        "cli": "tools/tg_azure_portfolio.py"
+      },
+      "benchmark": {
+        "status": "full_replay_measured_local",
+        "basis": "16191-leaf FLINT/Arb replay measured at 1.56 seconds on the development host",
+        "target_azure_sku_measured": false,
+        "projected_wall_hours_low": "0.0004",
+        "projected_wall_hours_high": "0.001",
+        "source": "tg_verifier/azure_production_sizing.py"
+      }
+    },
+    {
+      "campaign_id": "ch25-psi-two-pass-v1",
+      "logical_atom_ids": [
+        "ch25-psi-1e13"
+      ],
+      "algorithm": {
+        "status": "complete_source_scale_two_pass_cpp_producer_and_replay",
+        "full_range_capable": true,
+        "only_sample_or_prototype": false,
+        "optimized_route_status": "implemented_run_pending",
+        "sources": [
+          "reference/tg_psi_residual_shard.cpp",
+          "tg_verifier/psi_residual_campaign.py",
+          "tools/tg_psi_residual_campaign.py"
+        ]
+      },
+      "semantic_output": {
+        "registered_invocation": "ch25PsiLemma92ProductionV1",
+        "registered_certificate": "SparkInterval/Execution/RegisteredPsiLemma92Certificate.lean",
+        "conditional_output_contract": "exact_registered_true_to_source_claim_contract_present",
+        "semantic_inventory": "disabled_with_staged_identity",
+        "source_realization_catalog": "pending_not_authoritative"
+      },
+      "deployment": {
+        "execution_mode": "manual_phase_dag",
+        "portfolio_group_count": 6,
+        "all_group_materializers_recognized": true,
+        "materializers": [
+          "tools/tg_azure_cpu_psi_materializer.py"
+        ],
+        "cli": "tools/tg_azure_portfolio.py"
+      },
+      "benchmark": {
+        "status": "component_measured_full_run_projected",
+        "basis": "25.93 million event-passes/second on 20 local CPU cores; 7.415 local host-hours for both passes, with a 0.5--2 hour eight-node Azure planning band",
+        "target_azure_sku_measured": false,
+        "projected_wall_hours_low": "0.5",
+        "projected_wall_hours_high": "2",
+        "source": "tg_verifier/azure_production_sizing.py"
+      }
+    },
+    {
+      "campaign_id": "platt-head-2e4",
+      "logical_atom_ids": [
+        "platt-head-2e4"
+      ],
+      "algorithm": {
+        "status": "complete_full_domain_flint_producer_and_replay_locally_exercised",
+        "full_range_capable": true,
+        "only_sample_or_prototype": false,
+        "optimized_route_status": "implemented_full_artifact_not_admitted",
+        "sources": [
+          "tg_verifier/zeta_zero_campaign.py",
+          "tools/tg_zeta_campaign.py",
+          "tools/tg_platt_head_azure_measured_workload.py"
+        ]
+      },
+      "semantic_output": {
+        "registered_invocation": "plattHead2e4ProductionV1",
+        "registered_certificate": "SparkInterval/Execution/RegisteredZetaHeadCertificate.lean",
+        "conditional_output_contract": "exact_registered_true_to_source_claim_contract_present",
+        "semantic_inventory": "disabled_with_staged_identity",
+        "source_realization_catalog": "pending_not_authoritative"
+      },
+      "deployment": {
+        "execution_mode": "single_job",
+        "portfolio_group_count": 1,
+        "all_group_materializers_recognized": true,
+        "materializers": [
+          "tools/tg_azure_cpu_platt_head_materializer.py"
+        ],
+        "cli": "tools/tg_azure_portfolio.py"
+      },
+      "benchmark": {
+        "status": "full_run_measured_local",
+        "basis": "complete 22492-isolation replay measured at approximately 124 seconds",
+        "target_azure_sku_measured": false,
+        "projected_wall_hours_low": "0.034",
+        "projected_wall_hours_high": "0.04",
+        "source": "tg_verifier/azure_production_sizing.py"
+      }
+    },
+    {
+      "campaign_id": "platt-trudgian-rh-3e12",
+      "logical_atom_ids": [
+        "platt-trudgian-rh-3e12"
+      ],
+      "algorithm": {
+        "status": "complete_full_domain_reference_campaign_economically_impractical",
+        "full_range_capable": true,
+        "only_sample_or_prototype": false,
+        "optimized_route_status": "pt21_components_present_but_end_to_end_worker_incomplete",
+        "sources": [
+          "reference/tg_platt_zeta_shard.cpp",
+          "tg_verifier/platt_zeta_campaign.py",
+          "tools/tg_platt_zeta_campaign.py"
+        ]
+      },
+      "semantic_output": {
+        "registered_invocation": "plattTrudgianFiniteRHProductionV1",
+        "registered_certificate": "SparkInterval/Execution/RegisteredZetaRHCertificate.lean",
+        "conditional_output_contract": "exact_registered_true_to_source_claim_contract_present",
+        "semantic_inventory": "disabled_with_staged_identity",
+        "source_realization_catalog": "pending_not_authoritative"
+      },
+      "deployment": {
+        "execution_mode": "manual_phase_dag",
+        "portfolio_group_count": 5,
+        "all_group_materializers_recognized": true,
+        "materializers": [
+          "tools/tg_azure_cpu_platt_pt21_materializer.py"
+        ],
+        "cli": "tools/tg_azure_portfolio.py"
+      },
+      "benchmark": {
+        "status": "source_index_sample_measured_full_reference_projection_impractical",
+        "basis": "4096 FLINT source-index isolations in 44.823 seconds; the literal campaign projects to 97867.052 ideal wall-hours on four 96-core CPU nodes",
+        "target_azure_sku_measured": false,
+        "projected_wall_hours_low": "97867.05208333333333333333333",
+        "projected_wall_hours_high": "97867.05208333333333333333333",
+        "source": "tg_verifier/azure_production_sizing.py"
+      }
+    },
+    {
+      "campaign_id": "helfgott-prop-12-2-4-mpfr-v1",
+      "logical_atom_ids": [
+        "helfgott-prop-12-2-4"
+      ],
+      "algorithm": {
+        "status": "complete_source_scale_parallel_mpfr_gmp_two_replay_campaign",
+        "full_range_capable": true,
+        "only_sample_or_prototype": false,
+        "optimized_route_status": "implemented_run_pending",
+        "sources": [
+          "reference/tg_prop1224_mpfr_shard.cpp",
+          "tg_verifier/prop1224_mpfr_campaign.py",
+          "tools/tg_prop1224_mpfr_campaign.py"
+        ]
+      },
+      "semantic_output": {
+        "registered_invocation": "helfgottProp1224ProductionV1",
+        "registered_certificate": "SparkInterval/Execution/RegisteredProp1224Certificate.lean",
+        "conditional_output_contract": "exact_registered_true_to_source_claim_contract_present",
+        "semantic_inventory": "disabled_with_staged_identity",
+        "source_realization_catalog": "pending_not_authoritative"
+      },
+      "deployment": {
+        "execution_mode": "manual_phase_dag",
+        "portfolio_group_count": 2,
+        "all_group_materializers_recognized": true,
+        "materializers": [
+          "tools/tg_azure_cpu_prop1224_materializer.py"
+        ],
+        "cli": "tools/tg_azure_portfolio.py"
+      },
+      "benchmark": {
+        "status": "component_measured_full_run_projected",
+        "basis": "reviewed 105.6--640 core-hour band per replay; two replays project to 0.55--3.34 ideal hours on four 96-core CPU nodes",
+        "target_azure_sku_measured": false,
+        "projected_wall_hours_low": "0.55",
+        "projected_wall_hours_high": "3.34",
+        "source": "tg_verifier/azure_production_sizing.py"
+      }
+    },
+    {
+      "campaign_id": "hurst-four-residuals-v1",
+      "logical_atom_ids": [
+        "cdem-squarefree",
+        "mertens-hurst",
+        "platt-little-mertens-2-11",
+        "platt-little-mertens-stronger"
+      ],
+      "algorithm": {
+        "status": "complete_shared_source_scale_two_pass_cpp_campaign",
+        "full_range_capable": true,
+        "only_sample_or_prototype": false,
+        "optimized_route_status": "implemented_run_pending",
+        "sources": [
+          "reference/tg_hurst_residual_shard.cpp",
+          "tg_verifier/hurst_residual_campaign.py",
+          "tools/tg_hurst_residual_campaign.py",
+          "tg_verifier/hurst_h100_affine_cluster.py",
+          "tools/tg_hurst_h100_affine_cluster.py"
+        ]
+      },
+      "semantic_output": {
+        "registered_invocation": "hurstSharedFourResidualProductionV2",
+        "registered_certificate": "SparkInterval/Execution/RegisteredHurstSharedCertificate.lean",
+        "conditional_output_contract": "one_exact_registered_true_output_contract_covers_all_four_claims",
+        "semantic_inventory": "disabled_with_staged_identity",
+        "source_realization_catalog": "pending_not_authoritative"
+      },
+      "deployment": {
+        "execution_mode": "manual_phase_dag_with_three_logical_aliases",
+        "portfolio_group_count": 6,
+        "all_group_materializers_recognized": true,
+        "materializers": [
+          "tools/tg_azure_cpu_hurst_materializer.py"
+        ],
+        "cli": "tools/tg_azure_portfolio.py"
+      },
+      "benchmark": {
+        "status": "source_shard_measured_full_run_projected",
+        "basis": "10-billion-row local shard measured at 7.38 seconds; broad planning band is 48--528 hours on eight CPU-capable nodes",
+        "target_azure_sku_measured": false,
+        "projected_wall_hours_low": "48",
+        "projected_wall_hours_high": "528",
+        "source": "tg_verifier/azure_production_sizing.py",
+        "h100_affine_sensitivity": {
+          "status": "implemented_exact_eight_worker_route_uncalibrated_projection",
+          "basis": "191.737 ms per 100 million rows is complete-device-work measured on GB10; exact eight-worker affine composition gives 665.686896875 equal-GB10 wall hours, while an explicitly unmeasured 12.3x GB10-to-H100 factor gives 54.1208859247967479674796748 arithmetic-only wall hours for the terminal H100 stage; the CPU summary/verification prefix through 10^12 and handoff are excluded",
+          "algorithm": "hurst-h100-eight-way-independent-affine-scan-v1",
+          "worker_count": 8,
+          "source_rows": "9999000000000000",
+          "rows_per_worker": "1249875000000000",
+          "projected_wall_hours": "54.1208859247967479674796748",
+          "projected_node_hours": "432.9670873983739837398373984",
+          "projection_scope": "terminal_h100_stage_only",
+          "complete_hybrid_campaign_eta_available": false,
+          "target_azure_sku_measured": false,
+          "production_ready": false,
+          "source": "tg_verifier/hurst_h100_affine_projection.py"
+        }
+      }
+    },
+    {
+      "campaign_id": "cdem-table-abel",
+      "logical_atom_ids": [
+        "cdem-table-abel"
+      ],
+      "algorithm": {
+        "status": "complete_full_domain_openmp_producer_and_independent_bounded_memory_replay",
+        "full_range_capable": true,
+        "only_sample_or_prototype": false,
+        "optimized_route_status": "implemented_and_locally_exercised",
+        "sources": [
+          "reference/tg_cdem_abel.cpp",
+          "reference/tg_cdem_abel_chunk_replay.cpp",
+          "tools/tg_verify.py"
+        ]
+      },
+      "semantic_output": {
+        "registered_invocation": "cdemTableAbelProductionV2",
+        "registered_certificate": "SparkInterval/Execution/RegisteredCDEMAbelCertificate.lean",
+        "conditional_output_contract": "exact_registered_true_to_source_claim_contract_present",
+        "semantic_inventory": "enabled",
+        "source_realization_catalog": "registered_but_no_run_authority"
+      },
+      "deployment": {
+        "execution_mode": "single_job",
+        "portfolio_group_count": 1,
+        "all_group_materializers_recognized": true,
+        "materializers": [
+          "tools/tg_azure_cpu_portfolio_materializer.py"
+        ],
+        "cli": "tools/tg_azure_portfolio.py"
+      },
+      "benchmark": {
+        "status": "full_run_measured_local",
+        "basis": "complete producer and independent replay measured under three minutes combined",
+        "target_azure_sku_measured": false,
+        "projected_wall_hours_low": "0.036",
+        "projected_wall_hours_high": "0.06",
+        "source": "tg_verifier/azure_production_sizing.py"
+      }
+    },
+    {
+      "campaign_id": "ramare-zuniga-lemma-6-2",
+      "logical_atom_ids": [
+        "ramare-zuniga-lemma-6-2"
+      ],
+      "algorithm": {
+        "status": "complete_source_scale_cuda_producer_and_independent_cpu_replay",
+        "full_range_capable": true,
+        "only_sample_or_prototype": false,
+        "optimized_route_status": "implemented_target_sku_calibration_and_run_pending",
+        "sources": [
+          "gpu/platform/h100/h100_tg_r2star_chunk_kernel.cu",
+          "reference/tg_r2star_arithmetic_replay.cpp",
+          "tg_verifier/r2star_campaign.py"
+        ]
+      },
+      "semantic_output": {
+        "registered_invocation": "ramareZunigaLemma62ProductionV1",
+        "registered_certificate": "SparkInterval/Execution/RegisteredR2StarCertificate.lean",
+        "conditional_output_contract": "exact_registered_true_to_source_claim_contract_present",
+        "semantic_inventory": "disabled_with_staged_identity",
+        "source_realization_catalog": "pending_not_authoritative"
+      },
+      "deployment": {
+        "execution_mode": "single_job",
+        "portfolio_group_count": 1,
+        "all_group_materializers_recognized": true,
+        "materializers": [
+          "tools/tg_azure_h100_r2star_materializer.py"
+        ],
+        "cli": "tools/tg_azure_portfolio.py"
+      },
+      "benchmark": {
+        "status": "bounded_component_measured_full_run_projected",
+        "basis": "low and terminal one-million-row GB10 samples project to 1--8 hours; this is not an H100 measurement",
+        "target_azure_sku_measured": false,
+        "projected_wall_hours_low": "1",
+        "projected_wall_hours_high": "8",
+        "source": "tg_verifier/azure_production_sizing.py"
+      }
+    },
+    {
+      "campaign_id": "helfgott-platt-goldbach-gpu-v1",
+      "logical_atom_ids": [
+        "helfgott-platt-theorem-4-1"
+      ],
+      "algorithm": {
+        "status": "complete_full_domain_h100_binary_and_cpu_prime_ladder_dag_economically_impractical",
+        "full_range_capable": true,
+        "only_sample_or_prototype": false,
+        "optimized_route_status": "implemented_run_pending",
+        "sources": [
+          "tg_verifier/goldbach_gpu_campaign.py",
+          "tg_verifier/goldbach_optimized_source.py",
+          "tg_verifier/goldbach_optimized_candidate.py",
+          "tg_verifier/goldbach_campaign.py",
+          "tg_verifier/goldbach_native_ladder.py",
+          "reference/tg_goldbach_ladder_native.cpp",
+          "tools/tg_goldbach_gpu_binary_checker.py",
+          "tools/tg_goldbach_campaign.py",
+          "tools/tg_goldbach_historical_finalizer.py",
+          "SparkInterval/TernaryGoldbach/GoldbachOptimizedSourceRefinement.lean"
+        ]
+      },
+      "semantic_output": {
+        "registered_invocation": "helfgottPlattGoldbachProductionV1",
+        "registered_certificate": "SparkInterval/Execution/RegisteredGoldbachCertificate.lean",
+        "conditional_output_contract": "exact_registered_true_to_source_claim_contract_present",
+        "semantic_inventory": "disabled_with_staged_identity",
+        "source_realization_catalog": "pending_not_authoritative"
+      },
+      "deployment": {
+        "execution_mode": "manual_phase_dag",
+        "portfolio_group_count": 8,
+        "all_group_materializers_recognized": true,
+        "materializers": [
+          "tools/tg_azure_cpu_goldbach_historical_materializer.py",
+          "tools/tg_azure_cpu_goldbach_historical_operational_materializer.py",
+          "tools/tg_azure_h100_goldbach_historical_materializer.py"
+        ],
+        "cli": "tools/tg_azure_portfolio.py"
+      },
+      "benchmark": {
+      "status": "optimized_bounded_gb10_measurement_transferred_to_full_historical_range_only",
+      "basis": "the exact optimized historical binary range projects to 8192.223362062222 hours across eight equal-throughput GB10 GPUs from a 20-billion-even bounded measurement plus per-leaf initialization; no H100 speedup or production ETA is established",
+      "target_azure_sku_measured": false,
+      "projected_wall_hours_low": "8192.223362062222",
+      "projected_wall_hours_high": "8192.223362062222",
+      "source": "tools/tg_goldbach_optimized_projection.py"
+      }
+    },
+    {
+      "campaign_id": "platt-dirichlet-theorem-7-1",
+      "logical_atom_ids": [
+        "platt-dirichlet-theorem-7-1"
+      ],
+      "algorithm": {
+        "status": "full_domain_direct_flint_reference_backend_unscaled",
+        "full_range_capable": true,
+        "only_sample_or_prototype": false,
+        "optimized_route_status": "many_components_implemented_but_end_to_end_optimized_pipeline_incomplete",
+        "sources": [
+          "tools/tg_dirichlet_flint_backend.py",
+          "tg_verifier/dirichlet_campaign.py",
+          "tools/tg_dirichlet_azure_measured_workload.py"
+        ]
+      },
+      "semantic_output": {
+        "registered_invocation": "plattDirichletTheorem71ProductionV1",
+        "registered_certificate": "SparkInterval/Execution/RegisteredPlattTheorem71Certificate.lean",
+        "conditional_output_contract": "exact_registered_true_to_source_claim_contract_present",
+        "semantic_inventory": "disabled_with_staged_identity",
+        "source_realization_catalog": "pending_not_authoritative"
+      },
+      "deployment": {
+        "execution_mode": "single_job_plus_postcheck",
+        "portfolio_group_count": 2,
+        "all_group_materializers_recognized": true,
+        "materializers": [
+          "tools/tg_azure_cpu_dirichlet_materializer.py"
+        ],
+        "cli": "tools/tg_azure_portfolio.py"
+      },
+      "benchmark": {
+        "status": "component_measurements_only_no_end_to_end_eta",
+        "basis": "the direct full-domain FLINT fallback is not source-scale benchmarked, and the optimized route has unresolved source-wide pipeline and theorem-closure boundaries",
+        "target_azure_sku_measured": false,
+        "projected_wall_hours_low": null,
+        "projected_wall_hours_high": null,
+        "source": "tg_verifier/azure_production_sizing.py"
+      }
+    }
+  ],
+  "atoms": [
+    {
+      "atom_id": "ch25-a7-boundary",
+      "physical_campaign_id": "ch25-a7-boundary",
+      "evidence_role": "owner",
+      "full_range_capable": true,
+      "only_sample_or_prototype": false,
+      "exact_semantic_output_binding": "conditional_contract_present_not_admitted",
+      "theorem_authority_ready": false
+    },
+    {
+      "atom_id": "ch25-psi-1e13",
+      "physical_campaign_id": "ch25-psi-two-pass-v1",
+      "evidence_role": "owner",
+      "full_range_capable": true,
+      "only_sample_or_prototype": false,
+      "exact_semantic_output_binding": "conditional_contract_present_not_admitted",
+      "theorem_authority_ready": false
+    },
+    {
+      "atom_id": "platt-head-2e4",
+      "physical_campaign_id": "platt-head-2e4",
+      "evidence_role": "owner",
+      "full_range_capable": true,
+      "only_sample_or_prototype": false,
+      "exact_semantic_output_binding": "conditional_contract_staged_disabled_not_admitted",
+      "theorem_authority_ready": false
+    },
+    {
+      "atom_id": "platt-trudgian-rh-3e12",
+      "physical_campaign_id": "platt-trudgian-rh-3e12",
+      "evidence_role": "owner",
+      "full_range_capable": true,
+      "only_sample_or_prototype": false,
+      "exact_semantic_output_binding": "conditional_contract_staged_disabled_not_admitted",
+      "theorem_authority_ready": false
+    },
+    {
+      "atom_id": "helfgott-prop-12-2-4",
+      "physical_campaign_id": "helfgott-prop-12-2-4-mpfr-v1",
+      "evidence_role": "owner",
+      "full_range_capable": true,
+      "only_sample_or_prototype": false,
+      "exact_semantic_output_binding": "conditional_contract_present_not_admitted",
+      "theorem_authority_ready": false
+    },
+    {
+      "atom_id": "cdem-squarefree",
+      "physical_campaign_id": "hurst-four-residuals-v1",
+      "evidence_role": "shared_certificate_alias",
+      "full_range_capable": true,
+      "only_sample_or_prototype": false,
+      "exact_semantic_output_binding": "shared_conditional_contract_present_not_admitted",
+      "theorem_authority_ready": false
+    },
+    {
+      "atom_id": "cdem-table-abel",
+      "physical_campaign_id": "cdem-table-abel",
+      "evidence_role": "owner",
+      "full_range_capable": true,
+      "only_sample_or_prototype": false,
+      "exact_semantic_output_binding": "semantic_inventory_enabled_but_no_pin_or_registry_receipt",
+      "theorem_authority_ready": false
+    },
+    {
+      "atom_id": "mertens-hurst",
+      "physical_campaign_id": "hurst-four-residuals-v1",
+      "evidence_role": "owner",
+      "full_range_capable": true,
+      "only_sample_or_prototype": false,
+      "exact_semantic_output_binding": "shared_conditional_contract_present_not_admitted",
+      "theorem_authority_ready": false
+    },
+    {
+      "atom_id": "ramare-zuniga-lemma-6-2",
+      "physical_campaign_id": "ramare-zuniga-lemma-6-2",
+      "evidence_role": "owner",
+      "full_range_capable": true,
+      "only_sample_or_prototype": false,
+      "exact_semantic_output_binding": "conditional_contract_present_not_admitted",
+      "theorem_authority_ready": false
+    },
+    {
+      "atom_id": "helfgott-platt-theorem-4-1",
+      "physical_campaign_id": "helfgott-platt-goldbach-gpu-v1",
+      "evidence_role": "owner",
+      "full_range_capable": true,
+      "only_sample_or_prototype": false,
+      "exact_semantic_output_binding": "conditional_contract_present_not_admitted",
+      "theorem_authority_ready": false
+    },
+    {
+      "atom_id": "platt-dirichlet-theorem-7-1",
+      "physical_campaign_id": "platt-dirichlet-theorem-7-1",
+      "evidence_role": "owner",
+      "full_range_capable": true,
+      "only_sample_or_prototype": false,
+      "exact_semantic_output_binding": "conditional_contract_staged_disabled_not_admitted",
+      "theorem_authority_ready": false
+    },
+    {
+      "atom_id": "platt-little-mertens-2-11",
+      "physical_campaign_id": "hurst-four-residuals-v1",
+      "evidence_role": "shared_certificate_alias",
+      "full_range_capable": true,
+      "only_sample_or_prototype": false,
+      "exact_semantic_output_binding": "shared_conditional_contract_present_not_admitted",
+      "theorem_authority_ready": false
+    },
+    {
+      "atom_id": "platt-little-mertens-stronger",
+      "physical_campaign_id": "hurst-four-residuals-v1",
+      "evidence_role": "shared_certificate_alias",
+      "full_range_capable": true,
+      "only_sample_or_prototype": false,
+      "exact_semantic_output_binding": "shared_conditional_contract_present_not_admitted",
+      "theorem_authority_ready": false
+    }
+  ],
+  "production_blockers": [
+    "No registered production deployment has a reviewed post-run pin.",
+    "The source-admitted trusted-compute receipt registry is empty.",
+    "No complete Azure production campaign receipt is present.",
+    "Platt zeta RH at 3e12 and the historical full-range Goldbach campaign are implemented only through economically impractical reference/source routes.",
+    "The optimized Dirichlet route is not end-to-end source closed and the direct reference route has no defensible source-scale ETA.",
+    "Every target-SKU runtime estimate remains uncalibrated."
+  ]
+}

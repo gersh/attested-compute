@@ -1,0 +1,74 @@
+{
+  "azure": {
+    "admin_username": "sparkoperator",
+    "image": "Canonical:0001-com-ubuntu-confidential-vm-jammy:22_04-lts-cvm:22.04.202607010",
+    "location": "eastus2",
+    "name_prefix": "tg-cpu",
+    "nodes": 1,
+    "os_disk_size_gb": 256,
+    "resource_group": "REPLACE_RUN_RG",
+    "sku": "Standard_EC96as_v6",
+    "ssh_public_key": {"path": "/srv/sparkinterval-operator/keys/operator.pub", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_bytes": 0},
+    "subnet_id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/REPLACE_NETWORK_RG/providers/Microsoft.Network/virtualNetworks/REPLACE_VNET/subnets/REPLACE_PRIVATE_SUBNET",
+    "subscription_id": "00000000-0000-0000-0000-000000000000",
+    "zone": "1"
+  },
+  "campaign_id": "replace-cpu-production-campaign",
+  "challenge": {
+    "mode": "operator_generated_fresh_v1",
+    "pin": null,
+    "shard_index": 0
+  },
+  "challenge_ttl_seconds": 172800,
+  "handoffs": {
+    "returned_certificate_archive": "/srv/sparkinterval-operator/handoffs/returned-certificate.tar",
+    "returned_worker_completion": "/srv/sparkinterval-operator/handoffs/returned-completion.json",
+    "worker_stage_manifest": "/srv/sparkinterval-operator/handoffs/worker-stage.json"
+  },
+  "kind": "sparkinterval_azure_cpu_production_campaign",
+  "lean_review": {"namespace": "ReviewedCPUCandidate", "registered_invocation": "cdemTableAbelProductionV2"},
+  "managed_hsm": {
+    "key_id": "replace-production-key-id",
+    "key_manifest": {"path": "/srv/sparkinterval-operator/policy/trusted-compute-keys.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_bytes": 0},
+    "key_uri": "https://replace.managedhsm.azure.net/keys/replace-production-key/00000000000000000000000000000000",
+    "public_key": {"path": "/srv/sparkinterval-operator/policy/production-public.pem", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_bytes": 0}
+  },
+  "outputs": {
+    "appraisal_report": "/srv/sparkinterval-operator/review/reports/appraisal.json",
+    "challenge_dir": "/srv/sparkinterval-operator/review/challenge",
+    "deployment_record": "/srv/sparkinterval-operator/review/deployment.json",
+    "extracted_certificate_package": "/srv/sparkinterval-operator/review/returned-package",
+    "lean_candidate": "/srv/sparkinterval-operator/review/candidates/Certificate.lean",
+    "receipt": "/srv/sparkinterval-operator/review/receipt.json",
+    "registry_candidate": "/srv/sparkinterval-operator/review/candidates/TrustedComputeRegistry.lean",
+    "replay_db": "/srv/sparkinterval-operator/review/replay/trusted-compute.sqlite3",
+    "review_root": "/srv/sparkinterval-operator/review",
+    "state": "/srv/sparkinterval-operator/review/operator-state.json",
+    "transcript_report": "/srv/sparkinterval-operator/review/reports/transcript.json"
+  },
+  "policies": {
+    "composite_appraisal": {"classification": "production", "path": "/srv/sparkinterval-operator/policy/composite-appraisal.json", "policy_id": "replace.composite.azure-cpu.production.v1", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_bytes": 0},
+    "evidence_verifier": {"path": "/srv/sparkinterval-operator/bin/verify-azure-ncc-evidence", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_bytes": 0},
+    "runner": {"classification": "production", "path": "/srv/sparkinterval-operator/policy/measured-runner-production.json", "policy_id": "replace.measured-runner.azure-cpu.production.v1", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_bytes": 0},
+    "transcript_appraisal": {"classification": "production", "path": "/srv/sparkinterval-operator/policy/transcript-appraisal-production.json", "policy_id": "replace.transcript.azure-cpu.production.v1", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_bytes": 0}
+  },
+  "schema_version": 1,
+  "worker": {
+    "artifact_root": "/srv/sparkinterval-worker/artifact-root",
+    "certificate_archive": "/srv/sparkinterval-worker/return/certificate.tar",
+    "certificate_package": "/srv/sparkinterval-worker/certificate-package",
+    "challenge": "/srv/sparkinterval-worker/input/challenge.json",
+    "completion_manifest": "/srv/sparkinterval-worker/return/completion.json",
+    "job_spec": "/srv/sparkinterval-worker/artifact-root/job.json",
+    "maa_attestation_url": "https://replace.eus2.attest.azure.net/attest/SevSnpVm?api-version=2022-08-01",
+    "run_package": "/srv/sparkinterval-worker/measured-run",
+    "stage_manifest": "/srv/sparkinterval-worker/input/worker-stage.json",
+    "transcript_appraisal_policy": "/srv/sparkinterval-worker/input/transcript-appraisal-production.json",
+    "workload_package": "/srv/sparkinterval-worker/input/workload.tar"
+  },
+  "workload": {
+    "artifact_root": "/srv/sparkinterval-operator/workload/artifact-root",
+    "job_spec": {"path": "/srv/sparkinterval-operator/workload/artifact-root/job.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_bytes": 0},
+    "package": {"path": "/srv/sparkinterval-operator/workload/workload.tar", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_bytes": 0}
+  }
+}

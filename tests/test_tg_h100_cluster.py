@@ -13,6 +13,10 @@ import unittest
 from tg_verifier.h100_cluster import (
     ATOM_IDS,
     DIRICHLET_ATOM,
+    GOLDBACH_10POW27_ATOM,
+    GOLDBACH_10POW27_CAMPAIGN,
+    HURST_PRIMARY_ATOM,
+    SOURCE_ATOM_IDS,
     ZETA_Q1_ATOM,
     ClusterPlanError,
     WORKLOADS,
@@ -40,9 +44,12 @@ def direct_repository_paths() -> list[str]:
     }
     prefix = "${TG_REPOSITORY}/"
     for workload in WORKLOADS:
+        phase_tokens = tuple(
+            token for phase in workload.phase_dag for token in phase.command
+        )
         paths.update(
             token[len(prefix) :]
-            for token in (*workload.command, *workload.postcheck)
+            for token in (*workload.command, *workload.postcheck, *phase_tokens)
             if token.startswith(prefix)
         )
     return sorted(paths)
@@ -93,118 +100,317 @@ def initialize_clean_test_repository(root: Path) -> dict[str, object]:
 
 
 class H100ClusterPlanTests(unittest.TestCase):
-    def test_exactly_thirteen_full_source_jobs_are_classified(self) -> None:
+    def test_source_atoms_and_lowered_endpoint_are_distinct_campaigns(self) -> None:
         manifest = validate_manifest(build_manifest(fake_repository_binding()))
         jobs = manifest["jobs"]
         self.assertEqual(tuple(job["atom_id"] for job in jobs), ATOM_IDS)
-        self.assertEqual(sum(job["backend_class"] == "h100_cuda" for job in jobs), 5)
+        self.assertEqual(len(SOURCE_ATOM_IDS), 13)
+        self.assertEqual(len(manifest["physical_campaigns"]), 11)
         self.assertEqual(
-            sum(job["backend_class"] == "cpu_flint_sidecar" for job in jobs), 4
+            sum(job["execution_mode"] == "manual_phase_dag" for job in jobs), 6
         )
         self.assertEqual(
-            sum(job["backend_class"] == "cpu_exact_sidecar" for job in jobs), 4
+            sum(job["execution_mode"] == "shared_certificate_alias" for job in jobs),
+            3,
+        )
+        self.assertEqual(
+            {
+                backend: sum(job["backend_class"] == backend for job in jobs)
+                for backend in (
+                    "h100_cuda",
+                    "cpu_flint_sidecar",
+                    "cpu_exact_sidecar",
+                )
+            },
+            {"h100_cuda": 3, "cpu_flint_sidecar": 4, "cpu_exact_sidecar": 7},
+        )
+        self.assertEqual(
+            manifest["portfolio_partitioning"]["source_atom_count"], 13
+        )
+        self.assertEqual(
+            manifest["portfolio_partitioning"][
+                "conditional_endpoint_campaign_count"
+            ],
+            1,
         )
         self.assertTrue(all(job["scope"] == "full_source" for job in jobs))
         self.assertTrue(all(job["sample"] is False for job in jobs))
-        self.assertTrue(
-            all(job["partitioning"]["parallel_intra_atom_shards"] == 1 for job in jobs)
+        self.assertFalse(
+            manifest["portfolio_partitioning"][
+                "all_atoms_single_job_submission_supported"
+            ]
         )
 
-    def test_dirichlet_has_scheduler_and_artifact_dependency_on_q1_zeta(self) -> None:
-        manifest = build_manifest(fake_repository_binding())
-        by_id = {job["atom_id"]: job for job in manifest["jobs"]}
-        job = by_id[DIRICHLET_ATOM]
-        self.assertEqual(job["dependencies"], [ZETA_Q1_ATOM])
+    def test_source_scale_phase_dags_name_real_supervisors(self) -> None:
+        jobs = {
+            job["atom_id"]: job
+            for job in build_manifest(fake_repository_binding())["jobs"]
+        }
+        psi = jobs["ch25-psi-1e13"]["phase_dag"]
         self.assertEqual(
-            job["required_artifacts"],
-            [f"${{TG_RUN_ROOT}}/{ZETA_Q1_ATOM}/final.json"],
+            [phase["array_size"] for phase in psi],
+            [1, 320, 1, 320, 1, 1],
         )
-        self.assertIn("--q1-zeta-final", job["command"])
+        self.assertIn("tg_psi_residual_campaign.py", " ".join(psi[0]["command"]))
+        self.assertIn("--worker-group-count", psi[1]["command"])
+        self.assertIn("320", psi[1]["command"])
+        psi_terminal = psi[-1]
+        self.assertEqual(psi_terminal["phase_id"], "semantic-replay")
+        result_flag = psi_terminal["command"].index(
+            "--registered-result-output"
+        )
         self.assertEqual(
-            manifest["dependency_edges"],
+            psi_terminal["command"][result_flag + 1],
+            "${TG_RUN_ROOT}/ch25-psi-1e13/registered-result.txt",
+        )
+        self.assertEqual(
+            psi_terminal["completion_artifact"],
+            "${TG_RUN_ROOT}/ch25-psi-1e13/registered-result.txt",
+        )
+
+        prop = jobs["helfgott-prop-12-2-4"]["phase_dag"]
+        self.assertEqual([phase["array_size"] for phase in prop], [4, 1])
+        self.assertIn(
+            "tg_prop1224_mpfr_campaign.py", " ".join(prop[0]["command"])
+        )
+        self.assertIn("run-worker-group", prop[0]["command"])
+        self.assertIn("--workers", prop[0]["command"])
+        self.assertIn("96", prop[0]["command"])
+        prop_terminal = prop[-1]
+        result_flag = prop_terminal["command"].index(
+            "--registered-result-output"
+        )
+        self.assertEqual(
+            prop_terminal["command"][result_flag + 1],
+            "${TG_RUN_ROOT}/helfgott-prop-12-2-4/registered-result.txt",
+        )
+        self.assertEqual(
+            prop_terminal["completion_artifact"],
+            "${TG_RUN_ROOT}/helfgott-prop-12-2-4/registered-result.txt",
+        )
+
+        zeta = jobs[ZETA_Q1_ATOM]["phase_dag"]
+        self.assertEqual(
+            [phase["array_size"] for phase in zeta],
+            [1, 1, 1, 1_236_316, 1],
+        )
+        self.assertIn("tg_platt_zeta_campaign.py", " ".join(zeta[0]["command"]))
+
+        goldbach = jobs["helfgott-platt-theorem-4-1"]["phase_dag"]
+        self.assertEqual(
+            [phase["array_size"] for phase in goldbach],
+            [1, 1, 8_192, 320, 1, 1, 1, 1],
+        )
+        self.assertIn(
+            "tg_goldbach_gpu_campaign.py", " ".join(goldbach[0]["command"])
+        )
+        self.assertIn("create-production-plan", goldbach[0]["command"])
+        self.assertNotIn("create-analytic-10pow27-plan", goldbach[0]["command"])
+        self.assertEqual(goldbach[1]["depends_on"], [])
+        self.assertIn("run-group", goldbach[2]["command"])
+        self.assertEqual(goldbach[2]["max_concurrent_tasks"], 8)
+        self.assertEqual(goldbach[2]["scheduler_shape"], "array[0..8191]%8")
+        self.assertEqual(goldbach[2]["backend_class"], "h100_cuda")
+        self.assertEqual(goldbach[2]["resources"]["h100_gpus"], 1)
+        self.assertIn(
+            "tg_goldbach_ladder_native.py", " ".join(goldbach[3]["command"])
+        )
+        self.assertIn("produce-group", goldbach[3]["command"])
+        self.assertEqual(goldbach[3]["max_concurrent_tasks"], 8)
+        self.assertEqual(goldbach[3]["scheduler_shape"], "array[0..319]%8")
+        self.assertEqual(goldbach[3]["backend_class"], "cpu_exact_sidecar")
+        self.assertEqual(goldbach[3]["resources"]["cpus_per_task"], 40)
+        self.assertEqual(goldbach[3]["resources"]["h100_gpus"], 0)
+        self.assertIn("40", goldbach[3]["command"])
+        self.assertIn(
+            "reduce-ranges", goldbach[6]["command"]
+        )
+        self.assertIn(
+            "tg_goldbach_historical_finalizer.py",
+            " ".join(goldbach[7]["command"]),
+        )
+        self.assertIn("--registered-result-output", goldbach[7]["command"])
+        self.assertEqual(
+            goldbach[7]["depends_on"],
+            ["binary-semantic-replay", "reduce-prime-ladder-ranges"],
+        )
+
+        lowered = jobs[GOLDBACH_10POW27_ATOM]
+        self.assertEqual(lowered["campaign_id"], GOLDBACH_10POW27_CAMPAIGN)
+        self.assertNotEqual(
+            lowered["campaign_id"],
+            jobs["helfgott-platt-theorem-4-1"]["campaign_id"],
+        )
+        lowered_phases = lowered["phase_dag"]
+        self.assertEqual(
+            [phase["array_size"] for phase in lowered_phases],
+            [1, 1, 8_192, 320, 1, 1, 1, 1],
+        )
+        self.assertIn(
+            "create-analytic-10pow27-plan", lowered_phases[0]["command"]
+        )
+        self.assertIn(
+            "tg_goldbach_10pow27_campaign.py",
+            " ".join(lowered_phases[1]["command"]),
+        )
+        self.assertEqual(lowered_phases[2]["backend_class"], "h100_cuda")
+        self.assertEqual(lowered_phases[2]["max_concurrent_tasks"], 8)
+        terminal = lowered_phases[-1]
+        self.assertEqual(
+            terminal["depends_on"],
             [
-                {
-                    "from": ZETA_Q1_ATOM,
-                    "to": DIRICHLET_ATOM,
-                    "scheduler_condition": "afterok",
-                    "artifact": f"${{TG_RUN_ROOT}}/{ZETA_Q1_ATOM}/final.json",
-                    "meaning": "q=1 zeta prerequisite for the Dirichlet source composition",
-                }
+                "replay-lowered-binary-aggregate",
+                "reduce-lowered-prime-ladder-ranges",
             ],
         )
+        self.assertEqual(terminal["backend_class"], "cpu_exact_sidecar")
+        result_flag = terminal["command"].index("--registered-result-output")
+        self.assertEqual(
+            terminal["command"][result_flag + 1],
+            "${TG_RUN_ROOT}/goldbach-finite-below-10pow27/registered-result.txt",
+        )
+        self.assertEqual(
+            terminal["completion_artifact"], terminal["command"][result_flag + 1]
+        )
 
-    def test_sample_or_pause_tampering_is_rejected(self) -> None:
+        cdem = jobs["cdem-table-abel"]["command"]
+        self.assertIn("run-cdem-abel-full", cdem)
+        self.assertIn(
+            "${TG_REPOSITORY}/reference/tg_cdem_abel_chunk_replay.cpp", cdem
+        )
+        result_flag = cdem.index("--registered-result-output")
+        self.assertEqual(
+            cdem[result_flag + 1],
+            "${TG_RUN_ROOT}/cdem-table-abel/registered-result.txt",
+        )
+        self.assertIn("verify-source", jobs[DIRICHLET_ATOM]["postcheck_command"])
+
+    def test_one_hurst_campaign_supplies_four_logical_atoms(self) -> None:
+        manifest = build_manifest(fake_repository_binding())
+        hurst = next(
+            campaign
+            for campaign in manifest["physical_campaigns"]
+            if campaign["campaign_id"] == "hurst-four-residuals-v1"
+        )
+        expected_atoms = {
+            HURST_PRIMARY_ATOM,
+            "cdem-squarefree",
+            "platt-little-mertens-2-11",
+            "platt-little-mertens-stronger",
+        }
+        self.assertEqual(set(hurst["logical_atom_ids"]), expected_atoms)
+        self.assertEqual(hurst["owner_atom_id"], HURST_PRIMARY_ATOM)
+        self.assertEqual(
+            [phase["array_size"] for phase in hurst["phase_dag"]],
+            [1, 320, 1, 320, 1, 1],
+        )
+        terminal = hurst["phase_dag"][-1]
+        result_flag = terminal["command"].index("--registered-result-output")
+        self.assertEqual(
+            terminal["command"][result_flag + 1],
+            "${TG_RUN_ROOT}/mertens-hurst/registered-result.txt",
+        )
+        self.assertEqual(
+            terminal["completion_artifact"],
+            "${TG_RUN_ROOT}/mertens-hurst/registered-result.txt",
+        )
+        jobs = {job["atom_id"]: job for job in manifest["jobs"]}
+        for atom in expected_atoms:
+            self.assertEqual(jobs[atom]["campaign_id"], "hurst-four-residuals-v1")
+        for atom in expected_atoms - {HURST_PRIMARY_ATOM}:
+            self.assertEqual(jobs[atom]["execution_mode"], "shared_certificate_alias")
+            self.assertEqual(jobs[atom]["dependencies"], [HURST_PRIMARY_ATOM])
+            self.assertFalse(any("mobius" in token for token in jobs[atom]["command"]))
+
+    def test_dependency_edges_cover_zeta_and_hurst_aliases(self) -> None:
+        manifest = build_manifest(fake_repository_binding())
+        edges = {(edge["from"], edge["to"]): edge for edge in manifest["dependency_edges"]}
+        self.assertIn((ZETA_Q1_ATOM, DIRICHLET_ATOM), edges)
+        self.assertEqual(edges[(ZETA_Q1_ATOM, DIRICHLET_ATOM)]["scheduler_condition"], "afterok")
+        for atom in (
+            "cdem-squarefree",
+            "platt-little-mertens-2-11",
+            "platt-little-mertens-stronger",
+        ):
+            self.assertEqual(
+                edges[(HURST_PRIMARY_ATOM, atom)]["scheduler_condition"],
+                "certificate_present_and_semantic_replay",
+            )
+
+    def test_sample_pause_or_flattening_tampering_is_rejected(self) -> None:
         manifest = build_manifest(fake_repository_binding())
         manifest["jobs"][0]["sample"] = True
         with self.assertRaisesRegex(ClusterPlanError, "full-source"):
             validate_manifest(manifest)
 
         manifest = build_manifest(fake_repository_binding())
-        manifest["jobs"][0]["command"].extend(["--max-chunks", "1"])
+        manifest["jobs"][1]["phase_dag"][0]["command"].extend(
+            ["--max-chunks", "1"]
+        )
         with self.assertRaisesRegex(ClusterPlanError, "sample/pause"):
             validate_manifest(manifest)
 
-    def test_plan_and_all_generated_adapter_bytes_verify(self) -> None:
+        manifest = build_manifest(fake_repository_binding())
+        manifest["jobs"][1]["command"] = ["pretend-all-phases-ran"]
+        with self.assertRaisesRegex(ClusterPlanError, "must not flatten"):
+            validate_manifest(manifest)
+
+    def test_generated_adapters_and_manual_dags_verify(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "deployment"
             result = _write_deployment_manifest(
                 root, build_manifest(fake_repository_binding())
             )
-            self.assertEqual(result["job_count"], 13)
-            verified = verify_deployment(root)
-            self.assertTrue(verified["accepted"])
-            submit = (root / "slurm" / "submit.sh").read_text()
-            self.assertIn(
-                "submit_atom platt-dirichlet-theorem-7-1 "
-                '"${TG_CPU_FLINT_PARTITION}" cpu_flint_sidecar "${zeta_job}"',
-                submit,
+            self.assertEqual(result["logical_atom_count"], 14)
+            self.assertEqual(result["source_atom_count"], 13)
+            self.assertEqual(result["physical_campaign_count"], 11)
+            self.assertTrue(verify_deployment(root)["accepted"])
+            self.assertEqual(len(list((root / "slurm" / "jobs").glob("*.sbatch"))), 8)
+            self.assertEqual(
+                len(list((root / "manual-phase-dags").glob("*.json"))), 6
             )
-            common = (root / "slurm" / "common.sh").read_text()
-            self.assertIn("TG_H100_GRES:-gpu:h100:1", common)
-            self.assertIn("tg_acquire_submission_lock", common)
-            self.assertIn("sync -d", common)
-            self.assertEqual(len(list((root / "slurm" / "jobs").glob("*.sbatch"))), 13)
-            h100_script = (
-                root / "slurm" / "jobs" / "cdem-squarefree.sbatch"
-            ).read_text()
-            self.assertNotIn("#SBATCH --gres", h100_script)
-            self.assertIn("Slurm must assign exactly one H100", h100_script)
-            self.assertNotIn("CUDA_VISIBLE_DEVICES:-0", h100_script)
             for script in (root / "slurm").rglob("*.sh"):
                 subprocess.run(["bash", "-n", str(script)], check=True)
             for script in (root / "slurm" / "jobs").glob("*.sbatch"):
                 subprocess.run(["bash", "-n", str(script)], check=True)
-            normalized = subprocess.run(
-                [
-                    "bash",
-                    "-c",
-                    'source "$1"; tg_normalize_job_id "12345;safe-cluster"',
-                    "bash",
-                    str(root / "slurm" / "common.sh"),
-                ],
-                check=True,
+            manual = json.loads(
+                (root / "manual-phase-dags" / "ch25-psi-1e13.json").read_text()
+            )
+            self.assertFalse(manual["single_job_adapter_supported"])
+
+            path = root / "manual-phase-dags" / "ch25-psi-1e13.json"
+            path.write_text(path.read_text() + " ")
+            with self.assertRaisesRegex(ClusterPlanError, "adapter differs"):
+                verify_deployment(root)
+
+    def test_all_atoms_and_manual_single_submit_fail_before_sbatch(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            deployment = root / "deployment"
+            _write_deployment_manifest(
+                deployment, build_manifest(fake_repository_binding())
+            )
+            result = subprocess.run(
+                ["bash", str(deployment / "slurm" / "submit.sh")],
+                check=False,
                 capture_output=True,
                 text=True,
             )
-            self.assertEqual(normalized.stdout, "12345")
-            malformed = subprocess.run(
+            self.assertEqual(result.returncode, 78)
+            self.assertIn("explicit Slurm phase DAGs", result.stderr)
+
+            result = subprocess.run(
                 [
                     "bash",
-                    "-c",
-                    'source "$1"; tg_normalize_job_id "12345;cluster;garbage"',
-                    "bash",
-                    str(root / "slurm" / "common.sh"),
+                    str(deployment / "slurm" / "submit-one.sh"),
+                    "ch25-psi-1e13",
                 ],
                 check=False,
                 capture_output=True,
                 text=True,
             )
-            self.assertNotEqual(malformed.returncode, 0)
-
-            job_script = root / "slurm" / "jobs" / "cdem-squarefree.sbatch"
-            job_script.write_text(job_script.read_text() + "# tamper\n")
-            with self.assertRaisesRegex(ClusterPlanError, "adapter differs"):
-                verify_deployment(root)
+            self.assertEqual(result.returncode, 78)
+            self.assertIn("explicit manual phase DAG", result.stderr)
 
     def test_clean_git_closure_rejects_dirty_or_untracked_source(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -212,264 +418,9 @@ class H100ClusterPlanTests(unittest.TestCase):
             root.mkdir()
             binding = initialize_clean_test_repository(root)
             self.assertEqual(binding["coverage"], "all_git_tracked_regular_files")
-            self.assertEqual(binding["file_count"], len(binding["files"]))
             (root / "tools" / "untracked_implementation.py").write_text("pass\n")
             with self.assertRaisesRegex(ClusterPlanError, "dirty or untracked"):
                 inspect_clean_repository(root)
-
-    def test_reconciled_full_entry_points_are_present(self) -> None:
-        jobs = {
-            job["atom_id"]: job
-            for job in build_manifest(fake_repository_binding())["jobs"]
-        }
-        goldbach = jobs["helfgott-platt-theorem-4-1"]["command"]
-        self.assertIn("--general-prime-producer", goldbach)
-        self.assertIn(
-            "${TG_REPOSITORY}/tools/tg_pocklington_producer.py", goldbach
-        )
-        cdem = jobs["cdem-table-abel"]["command"]
-        self.assertIn("run-cdem-abel-full", cdem)
-        self.assertIn(
-            "${TG_REPOSITORY}/reference/tg_cdem_abel_chunk_replay.cpp", cdem
-        )
-        self.assertIn("verify-source", jobs[DIRICHLET_ATOM]["postcheck_command"])
-
-    def test_generated_submitter_schedules_all_thirteen_and_afterok(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            deployment = root / "deployment"
-            _write_deployment_manifest(
-                deployment, build_manifest(fake_repository_binding())
-            )
-            bin_dir = root / "bin"
-            bin_dir.mkdir()
-            fake_sbatch = bin_dir / "sbatch"
-            fake_sbatch.write_text(
-                """#!/usr/bin/env bash
-set -euo pipefail
-counter_file="${TG_FAKE_SBATCH_COUNTER}"
-log_file="${TG_FAKE_SBATCH_LOG}"
-n=1000
-if [[ -f "${counter_file}" ]]; then n="$(<"${counter_file}")"; fi
-n=$((n + 1))
-printf '%s\n' "${n}" >"${counter_file}"
-printf '%s\t' "${n}" >>"${log_file}"
-printf '%q ' "$@" >>"${log_file}"
-printf '\n' >>"${log_file}"
-printf '%s;fixture-cluster\n' "${n}"
-""",
-                encoding="utf-8",
-            )
-            fake_sbatch.chmod(0o755)
-            run_root = root / "runs"
-            transcript = root / "a7.json"
-            transcript.write_text("{}\n")
-            environment = {
-                "PATH": f"{bin_dir}:{os.environ['PATH']}",
-                "TG_REPOSITORY": str(root / "repository"),
-                "TG_RUN_ROOT": str(run_root),
-                "TG_A7_TRANSCRIPT": str(transcript),
-                "TG_H100_PARTITION": "h100",
-                "TG_CPU_FLINT_PARTITION": "flint",
-                "TG_CPU_EXACT_PARTITION": "exact",
-                "TG_FAKE_SBATCH_COUNTER": str(root / "counter"),
-                "TG_FAKE_SBATCH_LOG": str(root / "sbatch.log"),
-            }
-            subprocess.run(
-                ["bash", str(deployment / "slurm" / "submit.sh")],
-                check=True,
-                env=environment,
-                capture_output=True,
-                text=True,
-            )
-            receipt = (run_root / "slurm-submission.tsv").read_text().splitlines()
-            self.assertEqual(len(receipt), 14)
-            rows = {line.split("\t")[0]: line.split("\t") for line in receipt[1:]}
-            self.assertEqual(rows[DIRICHLET_ATOM][2], rows[ZETA_Q1_ATOM][1])
-            log = (root / "sbatch.log").read_text()
-            self.assertIn(f"--dependency=afterok:{rows[ZETA_Q1_ATOM][1]}", log)
-            self.assertIn("--gres=gpu:h100:1", log)
-            self.assertIn(f"--chdir={run_root}", log)
-            self.assertIn(f"--output={run_root}/slurm-logs/", log)
-
-            resume_environment = {
-                **environment,
-                "TG_H100_GRES": "gpu:1",
-                "TG_H100_CONSTRAINT": "h100-site-label",
-                "TG_SLURM_ACCOUNT": "proof-account",
-                "TG_SLURM_QOS": "proof-qos",
-                "TG_SLURM_RESERVATION": "proof-reservation",
-                "TG_H100_WALLTIME": "01:23:45",
-            }
-            resumed = subprocess.run(
-                [
-                    "bash",
-                    str(deployment / "slurm" / "submit-one.sh"),
-                    "ramare-zuniga-lemma-6-2",
-                ],
-                check=True,
-                env=resume_environment,
-                capture_output=True,
-                text=True,
-            )
-            self.assertRegex(resumed.stdout, r"^[0-9]+\n$")
-            resume_rows = (
-                run_root / "slurm-resubmissions.tsv"
-            ).read_text().splitlines()
-            self.assertEqual(len(resume_rows), 2)
-            self.assertEqual(resume_rows[1].split("\t")[1], resumed.stdout.strip())
-            resume_log = (root / "sbatch.log").read_text().splitlines()[-1]
-            self.assertIn("--gres=gpu:1", resume_log)
-            self.assertIn("--constraint=h100-site-label", resume_log)
-            self.assertIn("--account=proof-account", resume_log)
-            self.assertIn("--qos=proof-qos", resume_log)
-            self.assertIn("--reservation=proof-reservation", resume_log)
-            self.assertIn("--time=01:23:45", resume_log)
-
-    def test_partial_submission_journal_resumes_without_duplicate_jobs(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            deployment = root / "deployment"
-            _write_deployment_manifest(
-                deployment, build_manifest(fake_repository_binding())
-            )
-            bin_dir = root / "bin"
-            bin_dir.mkdir()
-            fake_sbatch = bin_dir / "sbatch"
-            fake_sbatch.write_text(
-                """#!/usr/bin/env bash
-set -euo pipefail
-counter_file="${TG_FAKE_SBATCH_COUNTER}"
-log_file="${TG_FAKE_SBATCH_LOG}"
-n=2000
-if [[ -f "${counter_file}" ]]; then n="$(<"${counter_file}")"; fi
-n=$((n + 1))
-printf '%s\n' "${n}" >"${counter_file}"
-if [[ "${TG_FAKE_SBATCH_FAIL_ON:-}" == "${n}" ]]; then exit 88; fi
-printf '%s\t' "${n}" >>"${log_file}"
-printf '%q ' "$@" >>"${log_file}"
-printf '\n' >>"${log_file}"
-printf '%s;fixture-cluster\n' "${n}"
-""",
-                encoding="utf-8",
-            )
-            fake_sbatch.chmod(0o755)
-            run_root = root / "runs"
-            transcript = root / "a7.json"
-            transcript.write_text("{}\n")
-            environment = {
-                "PATH": f"{bin_dir}:{os.environ['PATH']}",
-                "TG_REPOSITORY": str(root / "repository"),
-                "TG_RUN_ROOT": str(run_root),
-                "TG_A7_TRANSCRIPT": str(transcript),
-                "TG_H100_PARTITION": "h100",
-                "TG_CPU_FLINT_PARTITION": "flint",
-                "TG_CPU_EXACT_PARTITION": "exact",
-                "TG_FAKE_SBATCH_COUNTER": str(root / "counter"),
-                "TG_FAKE_SBATCH_LOG": str(root / "sbatch.log"),
-                "TG_FAKE_SBATCH_FAIL_ON": "2004",
-            }
-            failed = subprocess.run(
-                ["bash", str(deployment / "slurm" / "submit.sh")],
-                check=False,
-                env=environment,
-                capture_output=True,
-                text=True,
-            )
-            self.assertNotEqual(failed.returncode, 0)
-            partial = (run_root / "slurm-submission.tsv").read_text().splitlines()
-            self.assertEqual(len(partial), 4)
-
-            environment.pop("TG_FAKE_SBATCH_FAIL_ON")
-            subprocess.run(
-                ["bash", str(deployment / "slurm" / "submit.sh")],
-                check=True,
-                env=environment,
-                capture_output=True,
-                text=True,
-            )
-            complete = (run_root / "slurm-submission.tsv").read_text().splitlines()
-            self.assertEqual(len(complete), 14)
-            atoms = [line.split("\t")[0] for line in complete[1:]]
-            self.assertEqual(len(atoms), len(set(atoms)))
-            self.assertEqual(set(atoms), set(ATOM_IDS))
-            submitted = (root / "sbatch.log").read_text().splitlines()
-            self.assertEqual(len(submitted), 13)
-
-    def test_first_zeta_submission_failure_is_fatal_and_retry_is_complete(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            deployment = root / "deployment"
-            _write_deployment_manifest(
-                deployment, build_manifest(fake_repository_binding())
-            )
-            bin_dir = root / "bin"
-            bin_dir.mkdir()
-            fake_sbatch = bin_dir / "sbatch"
-            fake_sbatch.write_text(
-                """#!/usr/bin/env bash
-set -euo pipefail
-counter_file="${TG_FAKE_SBATCH_COUNTER}"
-log_file="${TG_FAKE_SBATCH_LOG}"
-n=3000
-if [[ -f "${counter_file}" ]]; then n="$(<"${counter_file}")"; fi
-n=$((n + 1))
-printf '%s\n' "${n}" >"${counter_file}"
-if [[ "${TG_FAKE_SBATCH_FAIL_ON:-}" == "${n}" ]]; then exit 88; fi
-printf '%s\t' "${n}" >>"${log_file}"
-printf '%q ' "$@" >>"${log_file}"
-printf '\n' >>"${log_file}"
-printf '%s;fixture-cluster\n' "${n}"
-""",
-                encoding="utf-8",
-            )
-            fake_sbatch.chmod(0o755)
-            run_root = root / "runs"
-            transcript = root / "a7.json"
-            transcript.write_text("{}\n")
-            environment = {
-                "PATH": f"{bin_dir}:{os.environ['PATH']}",
-                "TG_REPOSITORY": str(root / "repository"),
-                "TG_RUN_ROOT": str(run_root),
-                "TG_A7_TRANSCRIPT": str(transcript),
-                "TG_H100_PARTITION": "h100",
-                "TG_CPU_FLINT_PARTITION": "flint",
-                "TG_CPU_EXACT_PARTITION": "exact",
-                "TG_FAKE_SBATCH_COUNTER": str(root / "counter"),
-                "TG_FAKE_SBATCH_LOG": str(root / "sbatch.log"),
-                "TG_FAKE_SBATCH_FAIL_ON": "3001",
-            }
-            failed = subprocess.run(
-                ["bash", str(deployment / "slurm" / "submit.sh")],
-                check=False,
-                env=environment,
-                capture_output=True,
-                text=True,
-            )
-            self.assertNotEqual(failed.returncode, 0)
-            journal = run_root / "slurm-submission.tsv"
-            self.assertEqual(journal.read_text().splitlines(), [
-                "atom_id\tjob_id\tdependency"
-            ])
-            self.assertFalse((root / "sbatch.log").exists())
-
-            environment.pop("TG_FAKE_SBATCH_FAIL_ON")
-            subprocess.run(
-                ["bash", str(deployment / "slurm" / "submit.sh")],
-                check=True,
-                env=environment,
-                capture_output=True,
-                text=True,
-            )
-            rows = {
-                row[0]: row
-                for row in (
-                    line.split("\t") for line in journal.read_text().splitlines()[1:]
-                )
-            }
-            self.assertEqual(set(rows), set(ATOM_IDS))
-            self.assertEqual(rows[DIRICHLET_ATOM][2], rows[ZETA_Q1_ATOM][1])
-            self.assertEqual(len((root / "sbatch.log").read_text().splitlines()), 13)
 
     def test_noncanonical_or_changed_manifest_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -481,12 +432,12 @@ printf '%s;fixture-cluster\n' "${n}"
                 load_manifest(path)
 
             value = build_manifest(fake_repository_binding())
-            value["portfolio_partitioning"]["job_count"] = 12
+            value["portfolio_partitioning"]["logical_atom_count"] = 12
             path.write_bytes(canonical_json_bytes(value))
             with self.assertRaisesRegex(ClusterPlanError, "differs"):
                 load_manifest(path)
 
-    def test_command_resolution_uses_no_shell_and_requires_bindings(self) -> None:
+    def test_alias_resolution_uses_no_shell_or_mobius_rescan(self) -> None:
         job = next(
             job
             for job in build_manifest(fake_repository_binding())["jobs"]
@@ -498,16 +449,18 @@ printf '%s;fixture-cluster\n' "${n}"
                 "TG_REPOSITORY": str(REPOSITORY),
                 "TG_RUN_ROOT": "/shared/tg",
                 "TG_PYTHON": "/usr/bin/python3",
-                "TG_H100_BUILD": "/opt/tg-h100",
             },
         )
         self.assertEqual(command[0], "/usr/bin/python3")
-        self.assertIn("/opt/tg-h100/sparkinterval-h100-tg-mobius-segment", command)
-        self.assertNotIn("--allow-other-device", command)
+        self.assertEqual(
+            command[1], str(REPOSITORY / "tools" / "tg_hurst_residual_campaign.py")
+        )
+        self.assertEqual(command[-2:], ("verify", "/shared/tg/mertens-hurst"))
+        self.assertFalse(any("mobius" in token for token in command))
         with self.assertRaisesRegex(ClusterPlanError, "TG_RUN_ROOT"):
             resolve_command(job, {"TG_REPOSITORY": str(REPOSITORY)})
 
-    def test_dirichlet_dry_run_refuses_missing_q1_final(self) -> None:
+    def test_manual_execute_and_missing_dependency_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             repository = root / "repository"
@@ -515,12 +468,18 @@ printf '%s;fixture-cluster\n' "${n}"
             binding = initialize_clean_test_repository(repository)
             deployment = root / "deployment"
             _write_deployment_manifest(deployment, build_manifest(binding))
-            run_root = root / "runs"
             environment = {
                 "TG_REPOSITORY": str(repository),
-                "TG_RUN_ROOT": str(run_root),
+                "TG_RUN_ROOT": str(root / "runs"),
                 "TG_PYTHON": "/usr/bin/python3",
             }
+            with self.assertRaisesRegex(ClusterPlanError, "explicit phase DAG"):
+                execute_job(
+                    deployment / "manifest.json",
+                    "ch25-psi-1e13",
+                    environment=environment,
+                    dry_run=True,
+                )
             with self.assertRaisesRegex(ClusterPlanError, "dependency artifact"):
                 execute_job(
                     deployment / "manifest.json",

@@ -1,0 +1,691 @@
+{
+  "schema_version": 1,
+  "kind": "sparkinterval.ternary-goldbach.external-program-readiness.v1",
+  "assessment_date": "2026-07-25",
+  "classification": "source-audit-only-not-production-evidence-or-theorem-authority",
+  "scope": {
+    "logical_atom_inventory": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOMS.json",
+    "physical_campaign_inventory": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOM_READINESS.json",
+    "logical_atom_count": 13,
+    "physical_campaign_count": 10,
+    "excluded_campaigns": [
+      "ternary-goldbach-finite-below-10pow27-v1",
+      "ramare-production-folds-compact-v1"
+    ],
+    "exclusion_reason": "The first is a distinct lowered finite theorem route rather than one of the 13 named atoms; the second is a native-family fallback rather than a physical campaign serving those atoms."
+  },
+  "interpretation": {
+    "operational_artifact": "Retained bytes checked by the external campaign and its independent replay. This alone is not a Lean certificate.",
+    "lean_source_artifact": "The complete data-only input of a total Lean Boolean whose ordinary soundness theorem reaches the exact source claim.",
+    "azure_ready": "A source-closed materializer and orchestration shape exist. It does not mean a source-scale run, Azure appraisal, signed receipt, or source admission has occurred.",
+    "catalog_concrete": "The complete artifact program is integrated into ClosedSourceProgramCatalog as a nonvacuous successful program. An always-rejecting pre-run program does not qualify."
+  },
+  "summary": {
+    "full_range_external_routes_implemented": 10,
+    "azure_materialization_routes_implemented": 10,
+    "complete_lean_source_artifact_programs": 1,
+    "partial_lean_artifact_boundaries": 6,
+    "absent_complete_lean_artifact_boundaries": 3,
+    "catalog_concrete_campaigns": 1,
+    "reviewed_production_deployment_pins": 0,
+    "source_admitted_trusted_compute_receipts": 0,
+    "campaigns_with_current_theorem_authority": 0
+  },
+  "global_trust_state": {
+    "catalog": "SparkInterval/TernaryGoldbach/ClosedSourceProgramCatalog.lean",
+    "catalog_status": "cdem_artifact_concrete_source_only_nine_named_physical_campaigns_missing",
+    "deployment_pins": "SparkInterval/Execution/ProductionDeploymentPins.lean",
+    "deployment_pin_status": "all_named_campaign_options_none",
+    "trusted_compute_registry": "SparkInterval/Execution/TrustedComputeRegistry.lean",
+    "trusted_compute_registry_status": "empty"
+  },
+  "physical_campaigns": [
+    {
+      "campaign_id": "ch25-a7-boundary",
+      "logical_atom_ids": [
+        "ch25-a7-boundary"
+      ],
+      "generator_runtime": {
+        "status": "complete_full_range_replay_ready",
+        "detail": "The pinned 16,191-leaf FLINT/Arb transcript can be replayed leaf by leaf.",
+        "files": [
+          "tg_verifier/a7_flint.py",
+          "tg_verifier/a7_lean_certificate.py",
+          "tg_verifier/a7_boundary_wire.py",
+          "tools/tg_a7_azure_measured_workload.py"
+        ]
+      },
+      "complete_artifact_output": {
+        "operational_retained_output": "complete_pinned_transcript_is_an_operator_input",
+        "lean_source_artifact": "absent",
+        "detail": "The JSON transcript is complete for the external FLINT replay, but it is not a data-only Lean proof that the evaluated jets enclose Mathlib zeta and its derivative.",
+        "files": [
+          "tg_verifier/analytic.py",
+          "tg_verifier/a7_lean_certificate.py",
+          "tg_verifier/a7_boundary_wire.py"
+        ]
+      },
+      "strict_parser": {
+        "status": "external_and_lean_finite_transcript_complete_analytic_artifact_parser_absent",
+        "files": [
+          "tg_verifier/analytic.py",
+          "tg_verifier/a7_flint.py",
+          "tg_verifier/a7_boundary_wire.py",
+          "SparkInterval/TernaryGoldbach/A7BoundaryWire.lean"
+        ]
+      },
+      "total_checker": {
+        "status": "lean_finite_geometry_only",
+        "files": [
+          "SparkInterval/TernaryGoldbach/A7BoundaryCertificate.lean",
+          "SparkInterval/TernaryGoldbach/A7BoundaryWire.lean"
+        ]
+      },
+      "lean_soundness": {
+        "status": "conditional_source_theorem_analytic_realization_missing",
+        "files": [
+          "SparkInterval/TernaryGoldbach/A7BoundaryCertificate.lean",
+          "SparkInterval/TernaryGoldbach/A7BoundarySourceSemantics.lean"
+        ]
+      },
+      "azure": {
+        "status": "materializer_complete_not_run",
+        "execution_shape": "one Azure SEV-SNP CPU job",
+        "materializers": [
+          "tools/tg_azure_cpu_a7_materializer.py"
+        ],
+        "site_examples": [
+          "examples/trusted-compute/azure_cpu_a7_materializer_site.redacted.json"
+        ]
+      },
+      "catalog": {
+        "status": "missing",
+        "production_artifact_installed": false,
+        "reviewed_receipt_installed": false
+      },
+      "remaining_blocker": "The retained seven-field finite transcript now has a total identity-pinned Lean wire parser. Add a data-only analytic-enclosure artifact and parser, prove the FLINT zeta/derivative evaluator refines Mathlib rawG, then run, appraise, and admit the Azure receipt."
+    },
+    {
+      "campaign_id": "ch25-psi-two-pass-v1",
+      "logical_atom_ids": [
+        "ch25-psi-1e13"
+      ],
+      "generator_runtime": {
+        "status": "complete_full_range_two_pass_runtime_ready",
+        "detail": "The C++ source worker and supervisor cover all prime-power events through 10^13 in 100,000 summary leaves and 100,000 independent verification leaves.",
+        "files": [
+          "reference/tg_psi_residual_shard.cpp",
+          "tg_verifier/psi_residual_campaign.py",
+          "tools/tg_psi_residual_campaign.py"
+        ]
+      },
+      "complete_artifact_output": {
+        "operational_retained_output": "complete_when_full_two_pass_campaign_runs",
+        "lean_source_artifact": "absent",
+        "detail": "The retained campaign authenticates rows, Q64 state, guards, and coverage commitments, but there is no complete Lean byte envelope for every prime/log/gap record.",
+        "files": [
+          "tg_verifier/psi_residual_campaign.py"
+        ]
+      },
+      "strict_parser": {
+        "status": "external_complete_lean_complete_parser_absent",
+        "files": [
+          "tg_verifier/psi_residual_campaign.py"
+        ]
+      },
+      "total_checker": {
+        "status": "external_two_pass_complete_lean_complete_artifact_bool_absent",
+        "files": [
+          "SparkInterval/TernaryGoldbach/PsiPrimePowerCertificate.lean",
+          "SparkInterval/TernaryGoldbach/PsiEndpointArithmetic.lean"
+        ]
+      },
+      "lean_soundness": {
+        "status": "conditional_source_theorem_data_realization_missing",
+        "files": [
+          "SparkInterval/TernaryGoldbach/PsiPrimePowerCertificate.lean",
+          "SparkInterval/TernaryGoldbach/PsiSourceSemantics.lean"
+        ]
+      },
+      "azure": {
+        "status": "materializer_complete_not_run",
+        "execution_shape": "644-job six-phase Azure SEV-SNP CPU DAG",
+        "materializers": [
+          "tools/tg_azure_cpu_psi_materializer.py"
+        ],
+        "site_examples": [
+          "examples/trusted-compute/azure_cpu_psi_portfolio_materializer_site.redacted.json"
+        ]
+      },
+      "catalog": {
+        "status": "missing",
+        "production_artifact_installed": false,
+        "reviewed_receipt_installed": false
+      },
+      "remaining_blocker": "Define and parse the complete prime-power/Q64 artifact, check roster and gap coverage as data, prove every directed logarithm encloses Real.log, and bind a completed Azure run to GapSourceScaleEvidence."
+    },
+    {
+      "campaign_id": "platt-head-2e4",
+      "logical_atom_ids": [
+        "platt-head-2e4"
+      ],
+      "generator_runtime": {
+        "status": "complete_full_range_runtime_ready_and_locally_exercised",
+        "detail": "The FLINT campaign isolates 22,491 included slots and one sentinel; the literal Q128 table is generated in source.",
+        "files": [
+          "tg_verifier/zeta_zero_campaign.py",
+          "tools/tg_zeta_campaign.py",
+          "tools/tg_platt_head_azure_measured_workload.py",
+          "SparkInterval/Generated/PlattHeadQ128.lean"
+        ]
+      },
+      "complete_artifact_output": {
+        "operational_retained_output": "complete_external_campaign_format_and_generated_q128_table_present",
+        "lean_source_artifact": "absent",
+        "detail": "The Q128 sign-cell table is present, but the endpoint enclosures, multiplicity-aware isolation, and complete Turing/cardinality evidence are not a complete Lean artifact.",
+        "files": [
+          "tg_verifier/zeta_zero_campaign.py",
+          "SparkInterval/Generated/PlattHeadQ128.lean"
+        ]
+      },
+      "strict_parser": {
+        "status": "external_complete_lean_complete_parser_absent",
+        "files": [
+          "tg_verifier/zeta_zero_campaign.py"
+        ]
+      },
+      "total_checker": {
+        "status": "lean_q128_and_rational_bracket_checks_only",
+        "files": [
+          "SparkInterval/TernaryGoldbach/ZetaHeadSourceSemantics.lean",
+          "SparkInterval/Zeta/TouchingVerifier.lean"
+        ]
+      },
+      "lean_soundness": {
+        "status": "conditional_source_theorem_hardy_z_and_count_realization_missing",
+        "files": [
+          "SparkInterval/TernaryGoldbach/ZetaHeadSourceSemantics.lean"
+        ]
+      },
+      "azure": {
+        "status": "materializer_complete_not_run",
+        "execution_shape": "one Azure SEV-SNP CPU job",
+        "materializers": [
+          "tools/tg_azure_cpu_platt_head_materializer.py"
+        ],
+        "site_examples": [
+          "examples/trusted-compute/azure_cpu_platt_head_materializer_site.redacted.json"
+        ]
+      },
+      "catalog": {
+        "status": "missing",
+        "production_artifact_installed": false,
+        "reviewed_receipt_installed": false
+      },
+      "remaining_blocker": "Parse retained outward endpoints and Turing data in Lean, prove the FLINT endpoint evaluator realizes Hardy Z, preserve multiplicities, derive the exact 22,491-slot count, and admit a reviewed run."
+    },
+    {
+      "campaign_id": "platt-trudgian-rh-3e12",
+      "logical_atom_ids": [
+        "platt-trudgian-rh-3e12"
+      ],
+      "generator_runtime": {
+        "status": "complete_reference_runtime_ready_but_impractical_optimized_runtime_incomplete",
+        "detail": "The literal FLINT reference campaign is complete in form but projects to years; the PT21 optimized route still lacks an end-to-end source-window worker.",
+        "files": [
+          "reference/tg_platt_zeta_shard.cpp",
+          "tg_verifier/platt_zeta_campaign.py",
+          "tg_verifier/platt_pt21_native_finalizer.py",
+          "tools/tg_platt_zeta_campaign.py"
+        ]
+      },
+      "complete_artifact_output": {
+        "operational_retained_output": "complete_when_literal_reference_campaign_runs_optimized_output_incomplete",
+        "lean_source_artifact": "partial",
+        "detail": "Lean strictly checks one 320-byte PT21BLK1 finite record, but not the ordered 2,966,443,783-record campaign stream or its analytic endpoint and Turing artifacts.",
+        "files": [
+          "tg_verifier/platt_pt21_native_finalizer.py",
+          "SparkInterval/Zeta/PT21NativeBlockWire.lean"
+        ]
+      },
+      "strict_parser": {
+        "status": "external_reference_complete_lean_one_block_only",
+        "files": [
+          "tg_verifier/platt_zeta_campaign.py",
+          "tg_verifier/platt_pt21_native_finalizer.py",
+          "SparkInterval/Zeta/PT21NativeBlockWire.lean"
+        ]
+      },
+      "total_checker": {
+        "status": "lean_one_block_finite_checker_only",
+        "files": [
+          "SparkInterval/Zeta/PT21NativeBlockWire.lean"
+        ]
+      },
+      "lean_soundness": {
+        "status": "finite_wire_soundness_only_source_realization_missing",
+        "files": [
+          "SparkInterval/Zeta/PT21NativeBlockWire.lean",
+          "SparkInterval/TernaryGoldbach/ZetaRHSourceSemantics.lean"
+        ]
+      },
+      "azure": {
+        "status": "reference_materializer_complete_not_run_optimized_materializer_refused",
+        "execution_shape": "five-phase Azure SEV-SNP CPU reference DAG; optimized H100 path remains fail-closed",
+        "materializers": [
+          "tools/tg_azure_cpu_platt_pt21_materializer.py"
+        ],
+        "site_examples": [
+          "examples/trusted-compute/azure_cpu_platt_pt21_materializer_site.redacted.json"
+        ]
+      },
+      "catalog": {
+        "status": "missing",
+        "production_artifact_installed": false,
+        "reviewed_receipt_installed": false
+      },
+      "remaining_blocker": "Add a bounded-memory multi-artifact Lean stream boundary, endpoint/Hardy-Z and multiplicity-aware Turing realization, and either finish the economical PT21 worker or execute the impractical reference campaign."
+    },
+    {
+      "campaign_id": "helfgott-prop-12-2-4-mpfr-v1",
+      "logical_atom_ids": [
+        "helfgott-prop-12-2-4"
+      ],
+      "generator_runtime": {
+        "status": "complete_full_range_parallel_two_replay_runtime_ready",
+        "detail": "The MPFR/GMP worker covers all 3,389,047,618 admissible q ranks in 12,930 immutable leaves.",
+        "files": [
+          "reference/tg_prop1224_mpfr_shard.cpp",
+          "tg_verifier/prop1224_mpfr_campaign.py",
+          "tools/tg_prop1224_mpfr_campaign.py"
+        ]
+      },
+      "complete_artifact_output": {
+        "operational_retained_output": "complete_candidate_emitter_after_full_two_replay_campaign",
+        "lean_source_artifact": "partial",
+        "detail": "The terminal now emits and manifests the exact strict Lean candidate bytes only after independently replaying the full fixed-plan merge. The candidate carries full-range shard geometry but deliberately omits the MPFR/GMP row enclosures required by the source claim.",
+        "files": [
+          "tg_verifier/prop1224_mpfr_campaign.py",
+          "tg_verifier/prop1224_candidate_artifact.py",
+          "tools/tg_prop1224_azure_measured_workload.py",
+          "SparkInterval/TernaryGoldbach/Prop1224CandidateArtifact.lean"
+        ]
+      },
+      "strict_parser": {
+        "status": "python_and_lean_exact_candidate_wire_geometry_only",
+        "files": [
+          "tg_verifier/prop1224_mpfr_campaign.py",
+          "tg_verifier/prop1224_candidate_artifact.py",
+          "SparkInterval/TernaryGoldbach/Prop1224CandidateArtifact.lean"
+        ]
+      },
+      "total_checker": {
+        "status": "lean_partial_arithmetic_checker_then_explicit_reject",
+        "files": [
+          "SparkInterval/TernaryGoldbach/Prop1224CandidateArtifact.lean",
+          "SparkInterval/TernaryGoldbach/Prop1224SourceSemantics.lean"
+        ]
+      },
+      "lean_soundness": {
+        "status": "partial_chain_soundness_source_row_realization_missing",
+        "files": [
+          "SparkInterval/TernaryGoldbach/Prop1224CandidateArtifact.lean",
+          "SparkInterval/TernaryGoldbach/Prop1224SourceSemantics.lean"
+        ]
+      },
+      "azure": {
+        "status": "materializer_complete_candidate_bound_not_run",
+        "execution_shape": "four 96-worker source jobs plus one terminal merge/replay job",
+        "materializers": [
+          "tools/tg_azure_cpu_prop1224_materializer.py"
+        ],
+        "site_examples": [
+          "examples/trusted-compute/azure_cpu_prop1224_materializer_site.redacted.json"
+        ]
+      },
+      "catalog": {
+        "status": "missing",
+        "production_artifact_installed": false,
+        "reviewed_receipt_installed": false
+      },
+      "remaining_blocker": "Extend the candidate artifact with every factorization, totient, MPFR enclosure, GMP accumulator, and window decision; prove row soundness and coverage; smoke-test x86 materialization and run the Azure DAG."
+    },
+    {
+      "campaign_id": "hurst-four-residuals-v1",
+      "logical_atom_ids": [
+        "cdem-squarefree",
+        "mertens-hurst",
+        "platt-little-mertens-2-11",
+        "platt-little-mertens-stronger"
+      ],
+      "generator_runtime": {
+        "status": "complete_full_range_shared_two_pass_runtime_ready",
+        "detail": "One 10,000-leaf summary pass and one independent 10,000-leaf verification pass jointly cover all four Mobius-family atoms through 10^16.",
+        "files": [
+          "reference/tg_hurst_residual_shard.cpp",
+          "tg_verifier/hurst_residual_campaign.py",
+          "tools/tg_hurst_residual_campaign.py"
+        ]
+      },
+      "complete_artifact_output": {
+        "operational_retained_output": "complete_candidate_emitter_after_full_two_pass_campaign",
+        "lean_source_artifact": "partial",
+        "detail": "The terminal reconstructs, emits, and manifests the exact strict Lean candidate bytes only after full campaign replay and registered-result replay. The candidate carries the affine block chain and four-coordinate states but deliberately omits primitive segmented-sieve and Q96 row data.",
+        "files": [
+          "tg_verifier/hurst_residual_campaign.py",
+          "tg_verifier/hurst_candidate_artifact.py",
+          "tools/tg_hurst_azure_measured_workload.py",
+          "SparkInterval/TernaryGoldbach/HurstCandidateArtifact.lean"
+        ]
+      },
+      "strict_parser": {
+        "status": "python_and_lean_exact_candidate_wire_affine_chain_only",
+        "files": [
+          "tg_verifier/hurst_residual_campaign.py",
+          "tg_verifier/hurst_candidate_artifact.py",
+          "SparkInterval/TernaryGoldbach/HurstCandidateArtifact.lean"
+        ]
+      },
+      "total_checker": {
+        "status": "lean_partial_affine_checker_then_explicit_reject",
+        "files": [
+          "SparkInterval/TernaryGoldbach/HurstCandidateArtifact.lean",
+          "SparkInterval/TernaryGoldbach/HurstAffineCertificate.lean"
+        ]
+      },
+      "lean_soundness": {
+        "status": "partial_chain_soundness_primitive_row_realization_missing",
+        "files": [
+          "SparkInterval/TernaryGoldbach/HurstCandidateArtifact.lean",
+          "SparkInterval/TernaryGoldbach/HurstSourceSemantics.lean"
+        ]
+      },
+      "azure": {
+        "status": "materializer_complete_candidate_bound_not_run",
+        "execution_shape": "644-job six-phase Azure SEV-SNP CPU DAG shared by four atoms",
+        "materializers": [
+          "tools/tg_azure_cpu_hurst_materializer.py"
+        ],
+        "site_examples": [
+          "examples/trusted-compute/azure_cpu_hurst_materializer_site.redacted.json"
+        ]
+      },
+      "catalog": {
+        "status": "missing",
+        "production_artifact_installed": false,
+        "reviewed_receipt_installed": false
+      },
+      "remaining_blocker": "Add data-only Mobius, squarefree, Q96 reciprocal, local-prefix, and guard rows; prove their Boolean replay constructs all four source claims; calibrate and run the shared Azure campaign."
+    },
+    {
+      "campaign_id": "cdem-table-abel",
+      "logical_atom_ids": [
+        "cdem-table-abel"
+      ],
+      "generator_runtime": {
+        "status": "complete_full_range_producer_and_independent_replay_ready",
+        "detail": "The reviewed C++ producer and independent bounded-memory replay cover all five billion events and emit 1,000 checked chunks. A separate no-shell artifact-input terminal is implemented for the stronger two-stage architecture boundary.",
+        "files": [
+          "reference/tg_cdem_abel.cpp",
+          "reference/tg_cdem_abel_chunk_replay.cpp",
+          "reference/tg_cdem_abel_measured_workload.cpp",
+          "reference/tg_cdem_abel_artifact_terminal.cpp",
+          "tools/tg_verify.py"
+        ]
+      },
+      "complete_artifact_output": {
+        "operational_retained_output": "complete_exact_binary_emitter_implemented",
+        "lean_source_artifact": "complete",
+        "detail": "TG-CDEM-ABEL-ARTIFACT-V1 contains the complete recurrence transcript. Python and the measured C++ worker emit it only after independent replay; a generated typed 1,000-chunk transcript is also present in source.",
+        "files": [
+          "tg_verifier/cdem_abel_artifact.py",
+          "SparkInterval/Generated/CDEMAbelProduction.lean",
+          "SparkInterval/TernaryGoldbach/CDEMAbelArtifactProgram.lean"
+        ]
+      },
+      "strict_parser": {
+        "status": "external_and_lean_complete",
+        "files": [
+          "tg_verifier/cdem_abel_artifact.py",
+          "SparkInterval/TernaryGoldbach/CDEMAbelArtifactProgram.lean"
+        ]
+      },
+      "total_checker": {
+        "status": "complete_total_lean_bool_and_standalone_cpp_artifact_terminal",
+        "files": [
+          "reference/tg_cdem_abel_artifact_terminal.cpp",
+          "SparkInterval/TernaryGoldbach/CDEMAbelClosedReplay.lean",
+          "SparkInterval/TernaryGoldbach/CDEMAbelArtifactProgram.lean"
+        ]
+      },
+      "lean_soundness": {
+        "status": "complete_artifact_acceptance_to_exact_source_claim",
+        "files": [
+          "SparkInterval/Execution/ProjectedCertificateProgram.lean",
+          "SparkInterval/TernaryGoldbach/CDEMAbelClosedReplay.lean",
+          "SparkInterval/TernaryGoldbach/CDEMAbelArtifactProgram.lean"
+        ]
+      },
+      "azure": {
+        "status": "single_stage_materializer_complete_and_additive_two_stage_artifact_input_materializer_complete_not_run",
+        "execution_shape": "one producer Azure SEV-SNP CPU job followed by one fresh-challenge artifact-input terminal job",
+        "materializers": [
+          "tools/tg_azure_cpu_portfolio_materializer.py",
+          "tools/tg_azure_cpu_cdem_artifact_terminal_materializer.py"
+        ],
+        "site_examples": [
+          "examples/trusted-compute/azure_cpu_portfolio_materializer_site.redacted.json",
+          "examples/trusted-compute/azure_cpu_cdem_artifact_terminal_materializer_site.redacted.json"
+        ]
+      },
+      "catalog": {
+        "status": "artifact_concrete_source_only",
+        "production_artifact_installed": false,
+        "reviewed_receipt_installed": false
+      },
+      "remaining_blocker": "Install reviewed production verifier/deployment pins, prove or explicitly trust the C++/compiler/ELF refinement from the implemented second-stage terminal to the Lean artifact checker without weakening the legacy descriptor identity, then run both Azure stages and install the reviewed artifact pins and receipts."
+    },
+    {
+      "campaign_id": "ramare-zuniga-lemma-6-2",
+      "logical_atom_ids": [
+        "ramare-zuniga-lemma-6-2"
+      ],
+      "generator_runtime": {
+        "status": "complete_full_range_h100_producer_and_cpu_replay_ready",
+        "detail": "The CUDA producer covers 21 billion endpoints and the independent CPU program reconstructs factor support, directed logs, prefixes, and envelope minima.",
+        "files": [
+          "gpu/platform/h100/h100_tg_r2star_chunk_kernel.cu",
+          "reference/tg_r2star_arithmetic_replay.cpp",
+          "tg_verifier/r2star_campaign.py"
+        ]
+      },
+      "complete_artifact_output": {
+        "operational_retained_output": "complete_when_full_h100_and_cpu_replay_runs",
+        "lean_source_artifact": "partial",
+        "detail": "External chunks and replay rows are complete in form. Lean currently parses only a digest-bearing transitive child manifest, not the retained arithmetic export.",
+        "files": [
+          "tg_verifier/r2star_campaign.py",
+          "tg_verifier/transitive_child_manifest.py",
+          "SparkInterval/Execution/TransitiveChildManifest.lean",
+          "SparkInterval/TernaryGoldbach/PendingExternalArtifactPrograms.lean"
+        ]
+      },
+      "strict_parser": {
+        "status": "external_complete_lean_structural_manifest_only",
+        "files": [
+          "tg_verifier/r2star_campaign.py",
+          "SparkInterval/Execution/TransitiveChildManifest.lean"
+        ]
+      },
+      "total_checker": {
+        "status": "external_complete_lean_manifest_and_chain_checks_only_fail_closed",
+        "files": [
+          "SparkInterval/TernaryGoldbach/R2StarSourceSemantics.lean",
+          "SparkInterval/TernaryGoldbach/PendingExternalArtifactPrograms.lean"
+        ]
+      },
+      "lean_soundness": {
+        "status": "conditional_source_theorem_coefficient_and_log_realization_missing",
+        "files": [
+          "SparkInterval/TernaryGoldbach/R2StarSourceSemantics.lean"
+        ]
+      },
+      "azure": {
+        "status": "materializer_complete_not_run_target_sku_calibration_pending",
+        "execution_shape": "one NCCads H100 v5 producer/finalizer job with mandatory independent CPU replay",
+        "materializers": [
+          "tools/tg_azure_h100_r2star_materializer.py"
+        ],
+        "site_examples": [
+          "examples/trusted-compute/azure_h100_r2star_materializer_site.redacted.json"
+        ]
+      },
+      "catalog": {
+        "status": "missing_fail_closed_installed_artifact_none",
+        "production_artifact_installed": false,
+        "reviewed_receipt_installed": false
+      },
+      "remaining_blocker": "Parse the complete retained arithmetic export in Lean, authenticate the child receipt, replay every factor/log/prefix relation as data, prove r2Coeff and Real.log realization, calibrate the target H100 SKU, and run."
+    },
+    {
+      "campaign_id": "helfgott-platt-goldbach-gpu-v1",
+      "logical_atom_ids": [
+        "helfgott-platt-theorem-4-1"
+      ],
+      "generator_runtime": {
+      "status": "complete_full_range_base_and_optimized_two_branch_runtimes_ready_but_unrun",
+      "detail": "The exact wheel-47/warp-32749/shifted/packed source identity now has distinct historical plan, runner, receipt, aggregate, independent checker, and domain-separated binary-plus-ladder combiner routes. The registered v1 Azure terminal remains pinned to the hardened base source; neither route has run.",
+      "files": [
+        "tg_verifier/goldbach_gpu_campaign.py",
+        "tg_verifier/goldbach_optimized_source.py",
+        "tg_verifier/goldbach_optimized_candidate.py",
+        "tg_verifier/goldbach_campaign.py",
+        "tg_verifier/goldbach_native_ladder.py",
+        "reference/tg_goldbach_ladder_native.cpp",
+        "tools/tg_goldbach_gpu_binary_checker.py",
+        "tools/tg_goldbach_campaign.py",
+        "tools/tg_goldbach_historical_finalizer.py",
+        "SparkInterval/TernaryGoldbach/GoldbachOptimizedSourceRefinement.lean"
+        ]
+      },
+      "complete_artifact_output": {
+        "operational_retained_output": "complete_when_both_full_branches_and_terminal_replay_run",
+        "lean_source_artifact": "partial",
+        "detail": "The external finalizer binds binary and ladder artifacts. Lean currently parses only the 8,512-child structural manifest and has no complete binary-plus-ladder byte checker.",
+        "files": [
+          "tg_verifier/goldbach_historical_artifact.py",
+          "SparkInterval/Execution/TransitiveChildManifest.lean",
+          "SparkInterval/TernaryGoldbach/PendingExternalArtifactPrograms.lean"
+        ]
+      },
+      "strict_parser": {
+        "status": "external_complete_lean_structural_manifest_only",
+        "files": [
+          "tg_verifier/goldbach_historical_artifact.py",
+          "SparkInterval/Execution/TransitiveChildManifest.lean"
+        ]
+      },
+      "total_checker": {
+        "status": "external_complete_lean_prime_ladder_and_manifest_only_fail_closed",
+        "files": [
+          "SparkInterval/TernaryGoldbach/GoldbachSourceSemantics.lean",
+          "SparkInterval/TernaryGoldbach/PendingExternalArtifactPrograms.lean"
+        ]
+      },
+      "lean_soundness": {
+        "status": "conditional_binary_plus_ladder_theorem_complete_artifact_refinement_missing",
+        "files": [
+          "SparkInterval/TernaryGoldbach/GoldbachSourceSemantics.lean"
+        ]
+      },
+      "azure": {
+        "status": "materializers_complete_not_run_and_target_eta_unvalidated",
+        "execution_shape": "8,192 H100 binary groups, 320 CPU ladder groups, and one confidential-CPU terminal finalizer",
+        "materializers": [
+          "tools/tg_azure_h100_goldbach_historical_materializer.py",
+          "tools/tg_azure_cpu_goldbach_historical_operational_materializer.py",
+          "tools/tg_azure_cpu_goldbach_historical_materializer.py"
+        ],
+        "site_examples": [
+          "examples/trusted-compute/azure_h100_goldbach_historical_materializer_site.redacted.json",
+          "examples/trusted-compute/azure_cpu_goldbach_historical_operational_materializer_site.redacted.json",
+          "examples/trusted-compute/azure_cpu_goldbach_historical_terminal_materializer_site.redacted.json"
+        ]
+      },
+      "catalog": {
+        "status": "missing_fail_closed_installed_artifact_none",
+        "production_artifact_installed": false,
+        "reviewed_receipt_installed": false
+      },
+    "remaining_blocker": "Promote one reviewed optimized x86_64/SM90 build into a new registered Azure identity (the current v1 registration deliberately rejects it), add a complete binary-plus-ladder artifact parser and total checker, finish CUDA/compiler realization of the packed Lean model, authenticate all 8,512 child results and raw streams, establish a credible target-SKU execution plan, and run."
+    },
+    {
+      "campaign_id": "platt-dirichlet-theorem-7-1",
+      "logical_atom_ids": [
+        "platt-dirichlet-theorem-7-1"
+      ],
+      "generator_runtime": {
+        "status": "complete_literal_reference_runtime_unscaled_optimized_runtime_incomplete",
+        "detail": "The direct FLINT argument-principle backend is full-range in form but astronomical; the optimized CPU/H100 route has many checked components but no source-wide end-to-end producer.",
+        "files": [
+          "tools/tg_dirichlet_flint_backend.py",
+          "tg_verifier/dirichlet_campaign.py",
+          "tools/tg_dirichlet_azure_measured_workload.py"
+        ]
+      },
+      "complete_artifact_output": {
+        "operational_retained_output": "complete_when_literal_reference_campaign_runs_optimized_source_artifact_incomplete",
+        "lean_source_artifact": "partial",
+        "detail": "Many small-q and fixed-q inner formats have strict Lean parsers, but there is no complete q=1 plus q=2..400000 source-evidence envelope. The current transitive manifest is structural only.",
+        "files": [
+          "tg_verifier/dirichlet_campaign.py",
+          "SparkInterval/Dirichlet/FactoredSmallQRawCompletedSignPayloadModulusCampaign.lean",
+          "SparkInterval/Execution/TransitiveChildManifest.lean",
+          "SparkInterval/TernaryGoldbach/PendingExternalArtifactPrograms.lean"
+        ]
+      },
+      "strict_parser": {
+        "status": "external_reference_complete_lean_inner_formats_and_structural_manifest_only",
+        "files": [
+          "tg_verifier/dirichlet_campaign.py",
+          "SparkInterval/Dirichlet/FactoredSmallQRawCompletedSignPayloadModulusCampaign.lean",
+          "SparkInterval/Execution/TransitiveChildManifest.lean"
+        ]
+      },
+      "total_checker": {
+        "status": "lean_inner_small_q_checkers_only_full_campaign_fail_closed",
+        "files": [
+          "SparkInterval/Dirichlet/FactoredSmallQRawCompletedSignPayloadModulusCampaign.lean",
+          "SparkInterval/Dirichlet/FactoredSmallQRosterGRHBridge.lean",
+          "SparkInterval/TernaryGoldbach/PendingExternalArtifactPrograms.lean"
+        ]
+      },
+      "lean_soundness": {
+        "status": "conditional_source_theorem_completed_l_hardy_z_and_count_realization_missing",
+        "files": [
+          "SparkInterval/Dirichlet/PlattTheorem71Contract.lean",
+          "SparkInterval/Dirichlet/FactoredSmallQRosterGRHBridge.lean"
+        ]
+      },
+      "azure": {
+        "status": "literal_cpu_materializer_complete_not_run_optimized_h100_path_nonterminal",
+        "execution_shape": "confidential-CPU source job plus postcheck; an H100 packed small-q materializer exists but source admission remains disabled",
+        "materializers": [
+          "tools/tg_azure_cpu_dirichlet_materializer.py",
+          "tools/tg_azure_h100_dirichlet_packed_materializer.py"
+        ],
+        "site_examples": [
+          "examples/trusted-compute/azure_cpu_dirichlet_materializer_site.redacted.json",
+          "examples/trusted-compute/azure_cpu_dirichlet_postcheck_materializer_site.redacted.json",
+          "examples/trusted-compute/azure_h100_dirichlet_packed_materializer_site.redacted.json"
+        ]
+      },
+      "catalog": {
+        "status": "missing_fail_closed_installed_artifact_none",
+        "production_artifact_installed": false,
+        "reviewed_receipt_installed": false
+      },
+      "remaining_blocker": "Either run the astronomical literal backend or finish the optimized source-wide cache/spool/completed-L pipeline; then parse the full two-branch archive, prove roster, endpoint, multiplicity, and Turing realization in Lean, and admit the reviewed receipts."
+    }
+  ]
+}

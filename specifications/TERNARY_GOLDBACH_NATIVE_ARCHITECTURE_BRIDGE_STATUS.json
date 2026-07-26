@@ -1,0 +1,378 @@
+{
+  "schema_version": 1,
+  "kind": "sparkinterval.ternary-goldbach.native-architecture-bridge-status.v1",
+  "assessment_date": "2026-07-24",
+  "classification": "production-data-free-conditional-bridge-status-not-a-current-axiom-print",
+  "scope": "all 15 native-generated families, 1371 generated roots, and 1214 source decisions in the pinned capstone snapshot",
+  "aggregate_invocation": "nativeGeneratedAggregateProductionV1",
+  "families": [
+    {
+      "family_id": "analyticnt-chebyshev",
+      "lean_family": "AnalyticNT.Chebyshev",
+      "generated_roots": 3,
+      "source_decisions": 3,
+      "aggregate_invocation": "nativeGeneratedAggregateProductionV1",
+      "aggregate_adapter": {
+        "repository": "claude_math",
+        "path": "Math/Problems/TernaryGoldbach/CompactChebyshevNativeInputs.lean",
+        "claim_bundle": "Math.Problems.TernaryGoldbach.CompactChebyshevNativeInputs.SourceClaims",
+        "checker": "Math.Problems.TernaryGoldbach.CompactChebyshevNativeInputs.nativeChecker",
+        "registered_physical_outcome_to_claim": "Math.Problems.TernaryGoldbach.CompactChebyshevNativeInputs.sourceClaims_of_registeredPhysicalOutcome"
+      },
+      "specialized_fallback": null,
+      "stages": {
+        "aggregate_invocation_mapped": true,
+        "exact_fixed_checker_bundle_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "family_id": "analyticnt-large-sieve",
+      "lean_family": "AnalyticNT.LargeSieve",
+      "generated_roots": 18,
+      "source_decisions": 18,
+      "aggregate_invocation": "nativeGeneratedAggregateProductionV1",
+      "aggregate_adapter": {
+        "repository": "claude_math",
+        "path": "Math/Problems/TernaryGoldbach/CompactLargeSieveNativeInputs.lean",
+        "claim_bundle": "Math.Problems.TernaryGoldbach.CompactLargeSieveNativeInputs.SourceClaims",
+        "checker": "Math.Problems.TernaryGoldbach.CompactLargeSieveNativeInputs.nativeChecker",
+        "registered_physical_outcome_to_claim": "Math.Problems.TernaryGoldbach.CompactLargeSieveNativeInputs.sourceClaims_of_registeredPhysicalOutcome"
+      },
+      "specialized_fallback": null,
+      "stages": {
+        "aggregate_invocation_mapped": true,
+        "exact_fixed_checker_bundle_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "family_id": "helfgott-certificates",
+      "lean_family": "HelfgottCertificates",
+      "generated_roots": 4,
+      "source_decisions": 4,
+      "aggregate_invocation": "nativeGeneratedAggregateProductionV1",
+      "aggregate_adapter": {
+        "repository": "claude_math",
+        "path": "Math/Problems/TernaryGoldbach/CompactHelfgottCertificatesNativeInputs.lean",
+        "claim_bundle": "Math.Problems.TernaryGoldbach.CompactHelfgottCertificatesNativeInputs.SourceClaims",
+        "checker": "Math.Problems.TernaryGoldbach.CompactHelfgottCertificatesNativeInputs.nativeChecker",
+        "registered_physical_outcome_to_claim": "Math.Problems.TernaryGoldbach.CompactHelfgottCertificatesNativeInputs.sourceClaims_of_registeredPhysicalOutcome"
+      },
+      "specialized_fallback": null,
+      "stages": {
+        "aggregate_invocation_mapped": true,
+        "exact_fixed_checker_bundle_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "family_id": "ternary-goldbach-arithmetic-certs",
+      "lean_family": "Math.Problems.TernaryGoldbach.Certs",
+      "generated_roots": 7,
+      "source_decisions": 7,
+      "aggregate_invocation": "nativeGeneratedAggregateProductionV1",
+      "aggregate_adapter": {
+        "repository": "claude_math",
+        "path": "Math/Problems/TernaryGoldbach/CompactArithmeticNativeInputs.lean",
+        "claim_bundle": "Math.Problems.TernaryGoldbach.CompactArithmeticNativeInputs.SourceClaims",
+        "checker": "Math.Problems.TernaryGoldbach.CompactArithmeticNativeInputs.nativeChecker",
+        "registered_physical_outcome_to_claim": "Math.Problems.TernaryGoldbach.CompactArithmeticNativeInputs.sourceClaims_of_registeredPhysicalOutcome"
+      },
+      "specialized_fallback": null,
+      "stages": {
+        "aggregate_invocation_mapped": true,
+        "exact_fixed_checker_bundle_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "family_id": "chapter14-minor-arcs",
+      "lean_family": "Math.Problems.TernaryGoldbach.MinorArcs.Chapter14",
+      "generated_roots": 34,
+      "source_decisions": 19,
+      "aggregate_invocation": "nativeGeneratedAggregateProductionV1",
+      "aggregate_adapter": {
+        "repository": "claude_math",
+        "path": "Math/Problems/TernaryGoldbach/CompactChapter14NativeInputs.lean",
+        "claim_bundle": "Math.Problems.TernaryGoldbach.CompactChapter14NativeInputs.SourceClaims",
+        "checker": "Math.Problems.TernaryGoldbach.CompactChapter14NativeInputs.nativeChecker",
+        "registered_physical_outcome_to_claim": "Math.Problems.TernaryGoldbach.CompactChapter14NativeInputs.sourceClaims_of_registeredPhysicalOutcome"
+      },
+      "specialized_fallback": null,
+      "stages": {
+        "aggregate_invocation_mapped": true,
+        "exact_fixed_checker_bundle_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "family_id": "mean-value-floor-grid",
+      "lean_family": "MathExtras.NumberTheory.Analysis",
+      "generated_roots": 3,
+      "source_decisions": 3,
+      "aggregate_invocation": "nativeGeneratedAggregateProductionV1",
+      "aggregate_adapter": {
+        "repository": "claude_math",
+        "path": "Math/Problems/TernaryGoldbach/CompactNumberTheoryAnalysisNativeInputs.lean",
+        "claim_bundle": "Math.Problems.TernaryGoldbach.CompactNumberTheoryAnalysisNativeInputs.SourceClaims",
+        "checker": "Math.Problems.TernaryGoldbach.CompactNumberTheoryAnalysisNativeInputs.nativeChecker",
+        "registered_physical_outcome_to_claim": "Math.Problems.TernaryGoldbach.CompactNumberTheoryAnalysisNativeInputs.sourceClaims_of_registeredPhysicalOutcome"
+      },
+      "specialized_fallback": null,
+      "stages": {
+        "aggregate_invocation_mapped": true,
+        "exact_fixed_checker_bundle_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "family_id": "little-mertens-liouville",
+      "lean_family": "MathExtras.NumberTheory.Certs",
+      "generated_roots": 2,
+      "source_decisions": 2,
+      "aggregate_invocation": "nativeGeneratedAggregateProductionV1",
+      "aggregate_adapter": {
+        "repository": "claude_math",
+        "path": "Math/Problems/TernaryGoldbach/CompactNumberTheoryCertsNativeInputs.lean",
+        "claim_bundle": "Math.Problems.TernaryGoldbach.CompactNumberTheoryCertsNativeInputs.SourceClaims",
+        "checker": "Math.Problems.TernaryGoldbach.CompactNumberTheoryCertsNativeInputs.nativeChecker",
+        "registered_physical_outcome_to_claim": "Math.Problems.TernaryGoldbach.CompactNumberTheoryCertsNativeInputs.sourceClaims_of_registeredPhysicalOutcome"
+      },
+      "specialized_fallback": null,
+      "stages": {
+        "aggregate_invocation_mapped": true,
+        "exact_fixed_checker_bundle_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "family_id": "helfgott-analytic-intervals",
+      "lean_family": "MathExtras.NumberTheory.Helfgott",
+      "generated_roots": 202,
+      "source_decisions": 60,
+      "aggregate_invocation": "nativeGeneratedAggregateProductionV1",
+      "aggregate_adapter": {
+        "repository": "claude_math",
+        "path": "Math/Problems/TernaryGoldbach/CompactHelfgottAnalyticIntervalsNativeInputs.lean",
+        "claim_bundle_path": "Math/Problems/TernaryGoldbach/CompactHelfgottAnalyticIntervalsNativeSourceClaims.lean",
+        "claim_bundle": "Math.Problems.TernaryGoldbach.CompactHelfgottAnalyticIntervalsNativeInputs.SourceClaims",
+        "checker": "Math.Problems.TernaryGoldbach.CompactHelfgottAnalyticIntervalsNativeInputs.nativeChecker",
+        "registered_physical_outcome_to_claim": "Math.Problems.TernaryGoldbach.CompactHelfgottAnalyticIntervalsNativeInputs.sourceClaims_of_registeredPhysicalOutcome"
+      },
+      "specialized_fallback": null,
+      "stages": {
+        "aggregate_invocation_mapped": true,
+        "exact_fixed_checker_bundle_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "family_id": "helfgott-section24-head",
+      "lean_family": "MathExtras.NumberTheory.Helfgott.Certs",
+      "generated_roots": 1,
+      "source_decisions": 1,
+      "aggregate_invocation": "nativeGeneratedAggregateProductionV1",
+      "aggregate_adapter": {
+        "repository": "claude_math",
+        "path": "Math/Problems/TernaryGoldbach/CompactNumberTheoryHelfgottCertsNativeInputs.lean",
+        "claim_bundle": "Math.Problems.TernaryGoldbach.CompactNumberTheoryHelfgottCertsNativeInputs.SourceClaims",
+        "checker": "Math.Problems.TernaryGoldbach.CompactNumberTheoryHelfgottCertsNativeInputs.nativeChecker",
+        "registered_physical_outcome_to_claim": "Math.Problems.TernaryGoldbach.CompactNumberTheoryHelfgottCertsNativeInputs.sourceClaims_of_registeredPhysicalOutcome"
+      },
+      "specialized_fallback": null,
+      "stages": {
+        "aggregate_invocation_mapped": true,
+        "exact_fixed_checker_bundle_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "family_id": "chirre-helfgott-a6",
+      "lean_family": "MathExtras.NumberTheory.LSeries",
+      "generated_roots": 2,
+      "source_decisions": 2,
+      "aggregate_invocation": "nativeGeneratedAggregateProductionV1",
+      "aggregate_adapter": {
+        "repository": "claude_math",
+        "path": "Math/Problems/TernaryGoldbach/CompactNumberTheoryLSeriesNativeInputs.lean",
+        "claim_bundle": "Math.Problems.TernaryGoldbach.CompactNumberTheoryLSeriesNativeInputs.SourceClaims",
+        "checker": "Math.Problems.TernaryGoldbach.CompactNumberTheoryLSeriesNativeInputs.nativeChecker",
+        "registered_physical_outcome_to_claim": "Math.Problems.TernaryGoldbach.CompactNumberTheoryLSeriesNativeInputs.sourceClaims_of_registeredPhysicalOutcome"
+      },
+      "specialized_fallback": null,
+      "stages": {
+        "aggregate_invocation_mapped": true,
+        "exact_fixed_checker_bundle_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "family_id": "ramare-little-mertens",
+      "lean_family": "MathExtras.NumberTheory.Mertens",
+      "generated_roots": 1,
+      "source_decisions": 1,
+      "aggregate_invocation": "nativeGeneratedAggregateProductionV1",
+      "aggregate_adapter": {
+        "repository": "claude_math",
+        "path": "Math/Problems/TernaryGoldbach/CompactNumberTheoryMertensNativeInputs.lean",
+        "claim_bundle": "Math.Problems.TernaryGoldbach.CompactNumberTheoryMertensNativeInputs.SourceClaims",
+        "checker": "Math.Problems.TernaryGoldbach.CompactNumberTheoryMertensNativeInputs.nativeChecker",
+        "registered_physical_outcome_to_claim": "Math.Problems.TernaryGoldbach.CompactNumberTheoryMertensNativeInputs.sourceClaims_of_registeredPhysicalOutcome"
+      },
+      "specialized_fallback": null,
+      "stages": {
+        "aggregate_invocation_mapped": true,
+        "exact_fixed_checker_bundle_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "family_id": "vinogradov-finite-intervals",
+      "lean_family": "MathExtras.NumberTheory.Vinogradov",
+      "generated_roots": 55,
+      "source_decisions": 55,
+      "aggregate_invocation": "nativeGeneratedAggregateProductionV1",
+      "aggregate_adapter": {
+        "repository": "claude_math",
+        "path": "Math/Problems/TernaryGoldbach/CompactVinogradovNativeInputs.lean",
+        "claim_bundle": "Math.Problems.TernaryGoldbach.CompactVinogradovNativeInputs.SourceClaims",
+        "checker": "Math.Problems.TernaryGoldbach.CompactVinogradovNativeInputs.nativeChecker",
+        "registered_physical_outcome_to_claim": "Math.Problems.TernaryGoldbach.CompactVinogradovNativeInputs.sourceClaims_of_registeredPhysicalOutcome"
+      },
+      "specialized_fallback": null,
+      "stages": {
+        "aggregate_invocation_mapped": true,
+        "exact_fixed_checker_bundle_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "family_id": "rosser-schoenfeld",
+      "lean_family": "Rs62Certificates",
+      "generated_roots": 1025,
+      "source_decisions": 1025,
+      "aggregate_invocation": "nativeGeneratedAggregateProductionV1",
+      "aggregate_adapter": {
+        "repository": "claude_math",
+        "path": "Math/Problems/TernaryGoldbach/CompactRS62NativeInputs.lean",
+        "claim_bundle_path": "Math/Problems/TernaryGoldbach/CompactRS62NativeSourceClaims.lean",
+        "claim_bundle": "Math.Problems.TernaryGoldbach.CompactRS62NativeInputs.SourceClaims",
+        "checker": "Math.Problems.TernaryGoldbach.CompactRS62NativeInputs.nativeChecker",
+        "registered_physical_outcome_to_claim": "Math.Problems.TernaryGoldbach.CompactRS62NativeInputs.sourceClaims_of_registeredPhysicalOutcome"
+      },
+      "specialized_fallback": null,
+      "stages": {
+        "aggregate_invocation_mapped": true,
+        "exact_fixed_checker_bundle_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "family_id": "standalone-tg-native",
+      "lean_family": "TGNativeCertificates",
+      "generated_roots": 11,
+      "source_decisions": 11,
+      "aggregate_invocation": "nativeGeneratedAggregateProductionV1",
+      "aggregate_adapter": {
+        "repository": "claude_math",
+        "path": "Math/Problems/TernaryGoldbach/CompactTGNativeInputs.lean",
+        "claim_bundle": "Math.Problems.TernaryGoldbach.CompactTGNativeInputs.SourceClaims",
+        "checker": "Math.Problems.TernaryGoldbach.CompactTGNativeInputs.nativeChecker",
+        "registered_physical_outcome_to_claim": "Math.Problems.TernaryGoldbach.CompactTGNativeInputs.sourceClaims_of_registeredPhysicalOutcome"
+      },
+      "specialized_fallback": null,
+      "stages": {
+        "aggregate_invocation_mapped": true,
+        "exact_fixed_checker_bundle_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    },
+    {
+      "family_id": "ramare-production-folds",
+      "lean_family": "TGNativeCertificates.Ramare",
+      "generated_roots": 3,
+      "source_decisions": 3,
+      "aggregate_invocation": "nativeGeneratedAggregateProductionV1",
+      "aggregate_adapter": {
+        "repository": "gpu_prover",
+        "path": "SparkInterval/TernaryGoldbach/RamareNativeFoldsCompactChecker.lean",
+        "claim_bundle": "SparkInterval.TernaryGoldbach.RamareNativeFoldContracts.SourceClaims",
+        "checker": "SparkInterval.TernaryGoldbach.RamareNativeFoldsCompactChecker.nativeChecker",
+        "registered_physical_outcome_to_claim": "SparkInterval.TernaryGoldbach.RamareNativeFoldsCompactChecker.sourceClaims_of_aggregatePhysicalOutcome"
+      },
+      "specialized_fallback": {
+        "repository": "gpu_prover",
+        "path": "SparkInterval/TernaryGoldbach/RamareNativeFoldsCompactChecker.lean",
+        "registry_invocation": "ramareProductionFoldsCompactV1",
+        "claim_bundle": "SparkInterval.TernaryGoldbach.RamareNativeFoldContracts.SourceClaims",
+        "registered_physical_outcome_to_claim": "SparkInterval.TernaryGoldbach.RamareNativeFoldsCompactChecker.sourceClaims_of_registeredPhysicalOutcome"
+      },
+      "stages": {
+        "aggregate_invocation_mapped": true,
+        "exact_fixed_checker_bundle_mapped": true,
+        "exact_executable_refinement_present": false,
+        "reviewed_receipt_present": false,
+        "live_provider_switched": false,
+        "fresh_retirement_confirmed": false
+      }
+    }
+  ],
+  "summary": {
+    "family_count": 15,
+    "generated_roots": 1371,
+    "source_decisions": 1214,
+    "aggregate_invocation_mapped_families": 15,
+    "aggregate_invocation_mapped_roots": 1371,
+    "exact_fixed_checker_bundle_mapped_families": 15,
+    "exact_fixed_checker_bundle_mapped_roots": 1371,
+    "exact_fixed_checker_bundle_mapped_source_decisions": 1214,
+    "specialized_fallback_families": 1,
+    "exact_executable_refinement_present": 0,
+    "reviewed_receipt_present": 0,
+    "live_provider_switched": 0,
+    "fresh_retirement_confirmed": 0
+  }
+}

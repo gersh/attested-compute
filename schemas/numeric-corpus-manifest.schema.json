@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/numeric-corpus-manifest.schema.json",
+  "title": "SparkInterval content-addressed numeric-corpus manifest",
+  "description": "Canonical metadata for numeric payload shards, their exact logical ranges, the source-shaped claim, and the reviewed source closure.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "claim",
+    "corpus_id",
+    "corpus_version",
+    "coverage",
+    "kind",
+    "parameters",
+    "payload_prefix",
+    "payload_root",
+    "payloads",
+    "schema_version",
+    "semantic_commitments",
+    "source_files",
+    "source_root"
+  ],
+  "properties": {
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "claim_version",
+        "lean_theorem",
+        "lean_type",
+        "statement",
+        "statement_encoding",
+        "statement_sha256"
+      ],
+      "properties": {
+        "claim_id": { "$ref": "#/$defs/id" },
+        "claim_version": { "$ref": "#/$defs/version" },
+        "lean_theorem": { "$ref": "#/$defs/leanName" },
+        "lean_type": { "$ref": "#/$defs/leanName" },
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536,
+          "pattern": "^[^\\u0000]*$(?![\\s\\S])"
+        },
+        "statement_encoding": {
+          "const": "utf8-exact-v1"
+        },
+        "statement_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "corpus_id": { "$ref": "#/$defs/id" },
+    "corpus_version": { "$ref": "#/$defs/version" },
+    "coverage": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "axis",
+          "coverage_id",
+          "index_start",
+          "index_stop",
+          "role"
+        ],
+        "properties": {
+          "axis": { "$ref": "#/$defs/id" },
+          "coverage_id": { "$ref": "#/$defs/id" },
+          "index_start": { "$ref": "#/$defs/index" },
+          "index_stop": { "$ref": "#/$defs/index" },
+          "role": { "$ref": "#/$defs/id" }
+        }
+      }
+    },
+    "kind": {
+      "const": "sparkinterval.numeric_corpus_manifest.v1"
+    },
+    "parameters": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 10000,
+      "propertyNames": { "$ref": "#/$defs/id" },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 4096
+      }
+    },
+    "payload_prefix": { "$ref": "#/$defs/path" },
+    "payload_root": { "$ref": "#/$defs/root" },
+    "payloads": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "coverage_id",
+          "encoding",
+          "index_start",
+          "index_stop",
+          "path",
+          "role",
+          "row_count",
+          "sha256",
+          "size_bytes"
+        ],
+        "properties": {
+          "coverage_id": { "$ref": "#/$defs/id" },
+          "encoding": { "$ref": "#/$defs/id" },
+          "index_start": { "$ref": "#/$defs/index" },
+          "index_stop": { "$ref": "#/$defs/index" },
+          "path": { "$ref": "#/$defs/path" },
+          "role": { "$ref": "#/$defs/id" },
+          "row_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1125899906842624
+          }
+        }
+      }
+    },
+    "schema_version": { "const": 1 },
+    "semantic_commitments": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["hash_domain", "name", "sha256"],
+        "properties": {
+          "hash_domain": { "$ref": "#/$defs/hashDomain" },
+          "name": { "$ref": "#/$defs/id" },
+          "sha256": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "source_files": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "executable",
+          "path",
+          "role",
+          "sha256",
+          "size_bytes"
+        ],
+        "properties": {
+          "executable": { "type": "boolean" },
+          "path": { "$ref": "#/$defs/path" },
+          "role": { "$ref": "#/$defs/id" },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1125899906842624
+          }
+        }
+      }
+    },
+    "source_root": { "$ref": "#/$defs/root" }
+  },
+  "$defs": {
+    "hashDomain": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._/:-]{0,255}$(?![\\s\\S])"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$(?![\\s\\S])"
+    },
+    "index": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "leanName": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$(?![\\s\\S])",
+      "maxLength": 1024
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$(?![\\s\\S])"
+    },
+    "root": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file_count",
+        "hash_domain",
+        "sha256",
+        "total_size_bytes"
+      ],
+      "properties": {
+        "file_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "hash_domain": { "$ref": "#/$defs/hashDomain" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "total_size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1125899906842624
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
+      "not": {
+        "const": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    }
+  }
+}

@@ -15,6 +15,10 @@ import sys
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY_ROOT))
 from tg_verifier import r2star
+from tg_verifier.campaign_io import (
+    MeasuredWorkerScopeError,
+    require_azure_measured_worker_for_workload,
+)
 
 
 def invoke(
@@ -107,6 +111,14 @@ def main() -> int:
     args = parser.parse_args()
     if not args.runner.is_file():
         raise AssertionError(f"missing CUDA R2Star chunk runner: {args.runner}")
+    try:
+        require_azure_measured_worker_for_workload(
+            exact_production=True,
+            work_bounds=(),
+        )
+    except MeasuredWorkerScopeError:
+        print("SKIP: extended R2Star CUDA contract is cloud-only")
+        return 77
 
     malformed = subprocess.run(
         [str(args.runner), "--count", "0"],

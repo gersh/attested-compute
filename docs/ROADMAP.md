@@ -91,13 +91,16 @@ is not yet a project dependency or endorsement.
 
 The target end-to-end workflow needs:
 
-- production verification of CPU-TEE and GPU confidential-computing evidence;
-- measurement, TCB, freshness, artifact, input, coverage, output, and completion
-  binding;
-- a reviewed trusted importer into Lean's private evidence type;
+- production review and pinning of the implemented Azure/AMD/vTPM and NVIDIA
+  appraisal adapters and policies;
+- deployment of a measured runner that enforces TCB, freshness, artifact,
+  input, coverage, output, and completion binding;
+- a production Managed HSM key, key-attestation review, and source review of
+  the implemented trusted-receipt registry import;
 - a content-addressed certificate library with mirroring and
   revocation/supersession metadata; and
-- at least one small registered computation exercised through the whole path.
+- at least one real Azure run of a small registered computation exercised
+  through the whole path.
 
 This area is successful only when positive and negative cases have been
 independently reviewed. A local run, mock evidence, operator signature, or

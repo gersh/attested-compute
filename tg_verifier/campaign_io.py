@@ -23,10 +23,183 @@ from typing import Any, Iterator
 
 
 MAX_CONTROL_BYTES = 64 * 1024 * 1024
+LOCAL_KAT_MAX_WORK_ITEMS = 64
+AZURE_MEASURED_WORKER_SCOPE = "sparkinterval.azure-measured-worker.v1"
+AZURE_MEASURED_WORKER_SCOPE_ENV = "SPARKINTERVAL_MEASURED_WORKER_SCOPE"
+AZURE_MEASURED_WORKER_BACKEND_ENV = "SPARKINTERVAL_MEASURED_WORKER_BACKEND"
+AZURE_MEASURED_WORKER_CHALLENGE_ENV = (
+    "SPARKINTERVAL_MEASURED_WORKER_CHALLENGE_NONCE"
+)
+AZURE_MEASURED_WORKER_JOB_BINDING_ENV = (
+    "SPARKINTERVAL_MEASURED_WORKER_JOB_BINDING_SHA256"
+)
+AZURE_MEASURED_WORKER_BACKENDS = frozenset(
+    {"azure_ncc40ads_h100_v5", "azure_sevsnp_cpu"}
+)
+AZURE_MEASURED_WORKER_ENVIRONMENT_KEYS = frozenset(
+    {
+        AZURE_MEASURED_WORKER_SCOPE_ENV,
+        AZURE_MEASURED_WORKER_BACKEND_ENV,
+        AZURE_MEASURED_WORKER_CHALLENGE_ENV,
+        AZURE_MEASURED_WORKER_JOB_BINDING_ENV,
+    }
+)
 
 
 class CampaignIOError(ValueError):
     """Campaign control data is malformed or cannot be updated safely."""
+
+
+class MeasuredWorkerScopeError(CampaignIOError):
+    """A production workload escaped its measured Azure worker scope."""
+
+
+def _lower_hex256(value: str, what: str) -> str:
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise MeasuredWorkerScopeError(f"{what} must be lowercase SHA-256")
+    return value
+
+
+def azure_measured_worker_environment(
+    environment: dict[str, str],
+    *,
+    backend: str,
+    challenge_nonce: str,
+    job_binding: str,
+) -> dict[str, str]:
+    """Return the exact environment for one measured production child.
+
+    These variables are injected by ``azure/measured_runner.py`` only after it
+    has validated the challenge, job, immutable closure, profiles, runner
+    policy, and PCR start binding.  They are an execution-scope guard against
+    accidentally launching production arithmetic through an ordinary local
+    CLI.  They are not attestation evidence and never replace independent
+    appraisal of the measured-run transcript.
+    """
+
+    if not isinstance(environment, dict) or any(
+        not isinstance(key, str) or not isinstance(value, str)
+        for key, value in environment.items()
+    ):
+        raise MeasuredWorkerScopeError(
+            "measured child environment must map strings to strings"
+        )
+    overlap = AZURE_MEASURED_WORKER_ENVIRONMENT_KEYS.intersection(environment)
+    if overlap:
+        raise MeasuredWorkerScopeError(
+            "job environment attempts to set runner-reserved execution scope: "
+            + ", ".join(sorted(overlap))
+        )
+    if backend not in AZURE_MEASURED_WORKER_BACKENDS:
+        raise MeasuredWorkerScopeError(
+            f"unsupported measured Azure worker backend: {backend!r}"
+        )
+    challenge = _lower_hex256(challenge_nonce, "challenge nonce")
+    binding = _lower_hex256(job_binding, "job binding")
+    return {
+        **environment,
+        AZURE_MEASURED_WORKER_SCOPE_ENV: AZURE_MEASURED_WORKER_SCOPE,
+        AZURE_MEASURED_WORKER_BACKEND_ENV: backend,
+        AZURE_MEASURED_WORKER_CHALLENGE_ENV: challenge,
+        AZURE_MEASURED_WORKER_JOB_BINDING_ENV: binding,
+    }
+
+
+def require_azure_measured_worker(
+    *,
+    challenge_nonce: str,
+    job_binding: str,
+    environment: dict[str, str] | None = None,
+) -> str:
+    """Fail closed unless this call is the runner-bound Azure worker.
+
+    Normal local development must use symbolic/static checks or a dedicated
+    tiny KAT with every finite bound at most 64.  Production workload CLIs
+    call this before either their producer or independent replay path.
+    """
+
+    challenge = _lower_hex256(challenge_nonce, "challenge nonce")
+    binding = _lower_hex256(job_binding, "job binding")
+    actual = os.environ if environment is None else environment
+    expected = {
+        AZURE_MEASURED_WORKER_SCOPE_ENV: AZURE_MEASURED_WORKER_SCOPE,
+        AZURE_MEASURED_WORKER_CHALLENGE_ENV: challenge,
+        AZURE_MEASURED_WORKER_JOB_BINDING_ENV: binding,
+    }
+    for key, value in expected.items():
+        if actual.get(key) != value:
+            raise MeasuredWorkerScopeError(
+                "production arithmetic/replay is cloud-only: the exact "
+                f"measured-runner binding is absent or mismatched ({key})"
+            )
+    backend = actual.get(AZURE_MEASURED_WORKER_BACKEND_ENV)
+    if backend not in AZURE_MEASURED_WORKER_BACKENDS:
+        raise MeasuredWorkerScopeError(
+            "production arithmetic/replay is cloud-only: measured Azure "
+            "worker backend is absent or unsupported"
+        )
+    return backend
+
+
+def require_azure_measured_worker_for_workload(
+    *,
+    exact_production: bool,
+    work_bounds: tuple[int, ...],
+    environment: dict[str, str] | None = None,
+) -> str | None:
+    """Keep production and non-tiny finite work inside a measured Azure child.
+
+    ``work_bounds`` contains counts or spans, never absolute mathematical
+    endpoints.  A non-production KAT is local only when every supplied bound
+    is at most 64.  Metadata-only commands do not call this function.
+
+    The measured runner owns the four reserved environment variables and
+    rejects attempts by a job to preseed them.  This helper consumes that
+    injected binding and delegates the actual scope check to
+    :func:`require_azure_measured_worker`.  Like the underlying scope guard,
+    this prevents accidental dispatch; the signed measured-run transcript is
+    still the security evidence.
+    """
+
+    if not isinstance(exact_production, bool):
+        raise MeasuredWorkerScopeError("exact_production must be Boolean")
+    if (
+        not isinstance(work_bounds, tuple)
+        or any(
+            isinstance(bound, bool) or not isinstance(bound, int) or bound < 0
+            for bound in work_bounds
+        )
+    ):
+        raise MeasuredWorkerScopeError(
+            "finite workload bounds must be nonnegative integers"
+        )
+    if not exact_production and not work_bounds:
+        raise MeasuredWorkerScopeError(
+            "non-production arithmetic must declare at least one finite "
+            "workload bound"
+        )
+    if not exact_production and all(
+        bound <= LOCAL_KAT_MAX_WORK_ITEMS for bound in work_bounds
+    ):
+        return None
+
+    actual = os.environ if environment is None else environment
+    challenge = actual.get(AZURE_MEASURED_WORKER_CHALLENGE_ENV)
+    binding = actual.get(AZURE_MEASURED_WORKER_JOB_BINDING_ENV)
+    if not isinstance(challenge, str) or not isinstance(binding, str):
+        raise MeasuredWorkerScopeError(
+            "production arithmetic/replay is cloud-only: measured-runner "
+            "challenge or job binding is absent"
+        )
+    return require_azure_measured_worker(
+        challenge_nonce=challenge,
+        job_binding=binding,
+        environment=actual,
+    )
 
 
 def _object_without_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:

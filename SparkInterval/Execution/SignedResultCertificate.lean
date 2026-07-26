@@ -126,7 +126,9 @@ outcome check. -/
 def outcomeCheckForRegisteredInvocation
     (certificate : SignedResultCertificate)
     (invocation : RegisteredInvocation) : Bool :=
-  invocation.statementCheck certificate.statement && certificate.outcomeCheck
+  invocation.certificateBindingCheck certificate.statement
+      certificate.attestation &&
+    certificate.outcomeCheck
 
 /-- Complete handoff for a registered invocation: exact statement identity,
 the accepted historical outcome, exact returned bytes, and the fixed formal
@@ -135,6 +137,7 @@ structure CertifiedOutcomeForRegisteredInvocation
     (certificate : SignedResultCertificate)
     (invocation : RegisteredInvocation) : Prop where
   identity : invocation.StatementBound certificate.statement
+  receiptBound : invocation.receiptCheck certificate.attestation = true
   outcome : certificate.CertifiedOutcome
   run : invocation.Runs certificate.resultCertificate
 

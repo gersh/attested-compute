@@ -108,7 +108,7 @@ theorem eq_chiFour_of_ne_one
 
 /-- A finite-strip verification of `chiThree` alone settles modulus 3. -/
 theorem grhVerifiedForModulus_three {lo hi : ℝ}
-    (h : ∀ z ∈ criticalStrip lo hi,
+    (h : ∀ z ∈ nontrivialCriticalStrip lo hi,
       chiThree.LFunction z = 0 → z.re = (1 : ℝ) / 2) :
     GRHVerifiedForModulus 3 lo hi := by
   intro χ hprim
@@ -118,7 +118,7 @@ theorem grhVerifiedForModulus_three {lo hi : ℝ}
 
 /-- A finite-strip verification of `chiFour` alone settles modulus 4. -/
 theorem grhVerifiedForModulus_four {lo hi : ℝ}
-    (h : ∀ z ∈ criticalStrip lo hi,
+    (h : ∀ z ∈ nontrivialCriticalStrip lo hi,
       chiFour.LFunction z = 0 → z.re = (1 : ℝ) / 2) :
     GRHVerifiedForModulus 4 lo hi := by
   intro χ hprim

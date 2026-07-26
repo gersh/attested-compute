@@ -139,13 +139,16 @@ a `statement`, the canonical `statement_sha256`, an evidence object, and a
 
 The statement binds:
 
-- target and trust profile identifiers plus hashes of the complete profiles;
+- target and trust profile identifiers plus hashes of the complete profiles,
+  and a `backend_kind` that must equal the target profile's `cpu` or `gpu`
+  classification;
 - algorithm identifier and definition hash;
 - input and output artifact paths, sizes, and hashes;
 - parameters and domain coverage as canonical integer-only JSON;
 - a 256-bit nonce;
-- the host executable, at least one GPU execution image, and all other named
-  build artifacts;
+- the host executable and all other named build artifacts; GPU targets also
+  require at least one exact GPU execution image, while CPU targets reject GPU
+  execution-image roles;
 - the execution environment; and
 - successful completion, output coverage, timestamps, and an empty CUDA-error
   list.
@@ -170,17 +173,24 @@ field list.
 Wire-level algorithm fields do not let a caller invent formal semantics.
 `RegisteredInvocation.statementCheck` accepts only a constructor of Lean's
 closed registry and recomputes its library-defined algorithm-definition,
-canonical-input, parameter, and domain digests. The combined
+canonical-input, parameter, and domain digests. It also rejects results outside
+the constructor's explicit canonical result language before any `Runs`
+semantics can be selected. The combined
 `SignedResultCertificate.outcomeCheckForRegisteredInvocation` also requires
 exact result text and output-digest binding. Only then can the sole execution
 axiom expose that invocation's fixed `Runs` proposition.
 
-The current registry contains only the tutorial invocation
-`cubicSumDivThree20000V1`; no zeta or production GPU checker is registered.
-The bundle/signature tools do not yet import a verified wire record into the
-private positive-evidence capability used by Lean. Consequently, valid JSON
-and signature bytes alone cannot construct a registered Lean theorem in this
-repository.
+The current registry contains the CPU tutorial, the one-row
+`h100FormalPtxConstantOneV1` `sm_90` deployment pilot, and closed
+Ternary-Goldbach computations including an exact conditional PT21 finite-RH
+slice and an exact conditional Platt Dirichlet Theorem 7.1 finalizer.
+Registration is not evidence of a successful run: those success relations
+still require explicit complete source evidence, which has not been
+materialized. The source importer can generate a
+review candidate only after independently verifying the exact wire record,
+evidence appraisal, signature, and closed invocation. The tracked receipt
+registry is empty, so valid JSON and signature bytes alone cannot construct an
+accepted registered Lean theorem in this repository.
 
 ## Target and trust profiles
 
@@ -190,6 +200,8 @@ Targets and evidence classes are separate:
 | --- | --- | --- |
 | [`dgx_spark_sm121`](../profiles/targets/dgx_spark_sm121.json) | `local_unattested` | DGX Spark/GB10 has no supported confidential-computing run attestation in this project |
 | [`h100_sm90`](../profiles/targets/h100_sm90.json) | `local_unattested`, `mock_attested`, `hardware_attested` | Hardware evidence is meaningful only after external NVIDIA CC verification |
+| [`azure_sevsnp_cpu`](../profiles/targets/azure_sevsnp_cpu.json) | `local_unattested`, `hardware_attested` | Generic CPU-only Azure SEV-SNP confidential-VM target |
+| [`azure_ncc40ads_h100_v5`](../profiles/targets/azure_ncc40ads_h100_v5.json) | `local_unattested`, `hardware_attested` | Exact `Standard_NCC40ads_H100_v5` target: 40 AMD EPYC Genoa vCPUs, 320 GiB system memory, and one 94 GB H100 NVL GPU |
 
 The trust profiles are:
 
@@ -198,7 +210,81 @@ The trust profiles are:
 - [`mock_attested`](../profiles/trust/mock_attested.json): parser/integration
   fixture that production policy rejects; and
 - [`h100_hardware_attested`](../profiles/trust/h100_hardware_attested.json):
-  structural profile requiring a trusted external evidence verifier.
+  legacy generic H100 structural profile requiring a trusted external evidence
+  verifier;
+- [`azure_sevsnp_hardware_attested`](../profiles/trust/azure_sevsnp_hardware_attested.json):
+  Azure Attestation/SEV-SNP evidence for the CPU-only target; and
+- [`azure_ncc_sevsnp_vtpm_nvidia_cc_attested`](../profiles/trust/azure_ncc_sevsnp_vtpm_nvidia_cc_attested.json):
+  exact NCC composite policy requiring the external verifier to validate and
+  jointly bind SEV-SNP, vTPM, and NVIDIA confidential-computing evidence.
+
+The exact NCC dimensions and CPU/GPU-spanning TEE are recorded by Microsoft's
+[`NCCads_H100_v5` size reference](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nccadsh100v5-series)
+and [Azure confidential-GPU overview](https://learn.microsoft.com/en-us/azure/confidential-computing/gpu-options).
+The generic `h100_sm90` and `h100_hardware_attested` profiles remain available
+for non-Azure or historical bundles; they are not aliases for the composite
+Azure NCC policy.
+
+### Azure CPU CVM deployment profile
+
+[`azure/cpu_cvm.py`](../azure/cpu_cvm.py) is a separate CPU-only control-plane
+adapter. It admits exactly two reviewed AMD SEV-SNP shapes:
+
+| Azure SKU | Role | vCPUs | Memory | Accelerators |
+| --- | --- | ---: | ---: | --- |
+| `Standard_EC96as_v6` | Default memory-heavy finite computation | 96 | 672 GiB | None |
+| `Standard_DC96as_v6` | Explicit lower-memory alternative | 96 | 384 GiB | None |
+
+These dimensions, Generation 2 support, absence of accelerators, and AMD EPYC
+9004/SEV-SNP classification come from Microsoft's current
+[`ECasv6` reference](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/memory-optimized/ecasv6-series)
+and [`DCasv6` reference](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/general-purpose/dcasv6-series).
+The adapter checks the exact live SKU record, subscription restrictions, SKU
+family quota, and total regional-vCPU quota. Quota is not a capacity guarantee;
+allocation remains the authoritative capacity test.
+Both reviewed shapes currently use the generic `azure_sevsnp_cpu` run-bundle
+target. The exact selected SKU, resolved image, preflight result, and
+post-create inspection therefore remain required execution-environment
+artifacts; the generic profile name alone does not assert either shape.
+
+Deployment requires `ConfidentialVM`, Secure Boot, vTPM,
+`DiskWithVMGuestState`, an existing subnet with `defaultOutboundAccess=false`,
+a subnet-level NSG and explicit NAT gateway or reviewed route table, and no
+public IP. The default Canonical Ubuntu confidential-VM image uses the
+Microsoft-documented CVM offer, but `latest` is resolved to an exact numeric
+marketplace version before creation. Custom images must be exact marketplace
+URNs or Compute Gallery version resource IDs. These settings follow
+Microsoft's [confidential-VM CLI guidance](https://learn.microsoft.com/en-us/azure/confidential-computing/quick-create-confidential-vm-azure-cli)
+and the Compute API's
+[`DiskWithVMGuestState` security profile](https://learn.microsoft.com/en-us/rest/api/compute/virtual-machines/create-or-update?tabs=HTTP&view=rest-compute-2023-10-02).
+
+After allocation, the adapter reads each VM and its NIC back and rejects any
+mismatch in SKU, pinned image, security type, Secure Boot, vTPM, disk security,
+provisioning status, or absence of a private-only NIC. A dry run is
+deliberately reported as `accepted: false`,
+performs no Azure query, creates nothing, and makes no capacity or attestation
+claim. A successful deployment still reports `attestation_collected: false`
+and `resources_proven_attested: 0`; deployment configuration is not execution
+evidence.
+
+```bash
+python3 azure/cpu_cvm.py preflight \
+  --subscription "$AZURE_SUBSCRIPTION_ID" \
+  --location eastus2 \
+  --nodes 1 \
+  --dry-run
+
+python3 azure/cpu_cvm.py deploy \
+  --subscription "$AZURE_SUBSCRIPTION_ID" \
+  --location eastus2 \
+  --nodes 1 \
+  --resource-group tg-private \
+  --name-prefix tg-cpu \
+  --admin-username tgoperator \
+  --ssh-key "$HOME/.ssh/id_ed25519.pub" \
+  --subnet-id "$AZURE_PRIVATE_SUBNET_ID" \
+  --dry-run
+```
 
 Selecting a profile or inserting an evidence object does not itself establish
 hardware evidence.

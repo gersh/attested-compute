@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-cpu-cdem-artifact-terminal-materialization.schema.json",
+  "title": "SparkInterval Azure CPU CDEM artifact-terminal materialization manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["accepted", "artifact_input", "build_steps", "challenge_mode", "classification", "compiler", "cpu_operator_config", "execution_completed", "factory_id", "job_spec", "kind", "lean_theorem_produced", "package", "producer_dependency", "registered_invocation", "schema_version", "terminal_receipt_produced", "transcript_policy"],
+  "properties": {
+    "accepted": {"const": false},
+    "artifact_input": {"$ref": "#/$defs/filePin"},
+    "build_steps": {"type": "array", "minItems": 2},
+    "challenge_mode": {"const": "operator_generated_fresh_v1"},
+    "classification": {"const": "source_reviewed_cdem_two_stage_terminal_operator_validated_materialization_not_execution_evidence"},
+    "compiler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes", "version_line"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+        "version_line": {"type": "string", "minLength": 1}
+      }
+    },
+    "cpu_operator_config": {"$ref": "#/$defs/filePin"},
+    "execution_completed": {"const": false},
+    "factory_id": {"const": "cdem_table_abel_artifact_terminal_static_cpu_v1"},
+    "job_spec": {"$ref": "#/$defs/filePin"},
+    "kind": {"const": "sparkinterval.azure.cpu.cdem-artifact-terminal-materialization.v1"},
+    "lean_theorem_produced": {"const": false},
+    "package": {"$ref": "#/$defs/filePin"},
+    "producer_dependency": {"$ref": "#/$defs/producerDependency"},
+    "registered_invocation": {"const": null},
+    "schema_version": {"const": 1},
+    "terminal_receipt_produced": {"const": false},
+    "transcript_policy": {"$ref": "#/$defs/filePin"}
+  },
+  "$defs": {
+    "absolutePath": {"type": "string", "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}
+      }
+    },
+    "producerDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_sha256", "artifact_size_bytes", "certificate_archive", "chunk_count", "kind", "producer_algorithm_hash", "producer_algorithm_id", "producer_group_id", "producer_input_hash", "producer_nonce", "producer_receipt_file", "producer_receipt_sha256", "producer_run_bundle_sha256", "producer_shard_index", "producer_verifier_key_id", "producer_verifier_key_manifest_sha256", "producer_verifier_public_key_sha256", "producer_wire_statement_sha256", "retained_artifact_path", "schema_version"],
+      "properties": {
+        "artifact_sha256": {"$ref": "#/$defs/sha256"},
+        "artifact_size_bytes": {"const": 195228},
+        "certificate_archive": {"$ref": "#/$defs/filePin"},
+        "chunk_count": {"const": 1000},
+        "kind": {"const": "sparkinterval.azure.cdem-producer-terminal-handoff.v1"},
+        "producer_algorithm_hash": {"$ref": "#/$defs/sha256"},
+        "producer_algorithm_id": {"const": "sparkinterval.ternary-goldbach.cdem-table-abel.v2"},
+        "producer_group_id": {"const": "cdem-table-abel::single-job"},
+        "producer_input_hash": {"$ref": "#/$defs/sha256"},
+        "producer_nonce": {"$ref": "#/$defs/sha256"},
+        "producer_receipt_file": {"$ref": "#/$defs/filePin"},
+        "producer_receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "producer_run_bundle_sha256": {"$ref": "#/$defs/sha256"},
+        "producer_shard_index": {"const": 0},
+        "producer_verifier_key_id": {"type": "string", "minLength": 1},
+        "producer_verifier_key_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "producer_verifier_public_key_sha256": {"$ref": "#/$defs/sha256"},
+        "producer_wire_statement_sha256": {"$ref": "#/$defs/sha256"},
+        "retained_artifact_path": {"const": "work/cdem-abel-artifact.bin"},
+        "schema_version": {"const": 1}
+      }
+    }
+  }
+}

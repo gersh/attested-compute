@@ -49,7 +49,8 @@ if [[ "${actual_mathlib_commit}" != "${expected_mathlib_commit}" ]]; then
   echo "mathlib revision mismatch: expected ${expected_mathlib_commit}, found ${actual_mathlib_commit}" >&2
   exit 1
 fi
-"${script_dir}/audit_axioms.sh"
+python3 "${script_dir}/audit_lean_source.py"
+python3 "${script_dir}/audit_local_lean_boundary.py"
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 "${script_dir}/with_memory_limit.sh" cmake \

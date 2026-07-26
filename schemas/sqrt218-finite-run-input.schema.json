@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/sqrt218-finite-run-input.schema.json",
+  "title": "Sqrt218 exact full-recomputation input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["bound", "claim_id", "expected", "kind", "lean_claim", "log_depth", "log_scale", "reciprocal_scale", "schema_version", "source_statement"],
+  "properties": {
+    "bound": {"const": 2000000},
+    "claim_id": {"const": "helfgott-sqrt218-finite-v1"},
+    "kind": {"const": "sparkinterval.sqrt218-finite-run-input.v1"},
+    "lean_claim": {"const": "SparkInterval.TernaryGoldbach.Sqrt218SourceSemantics.SourceClaim"},
+    "log_depth": {"const": 14},
+    "log_scale": {"const": 281474976710656},
+    "reciprocal_scale": {"const": 1073741824},
+    "schema_version": {"const": 1},
+    "source_statement": {"type": "string", "minLength": 1},
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["anchor_slack", "final_psi_lower", "final_weighted_upper", "fixed_scan_sha256", "layout_sha256", "minimum_head_n", "minimum_head_slack", "power_event_count", "pratt_sha256", "prime_count", "proper_power_count", "reused_prime_count", "tail_prime_count"],
+      "properties": {
+        "anchor_slack": {"const": 2134933357595048382226455716},
+        "final_psi_lower": {"const": 562949761260501289147},
+        "final_weighted_upper": {"const": 854091852238662506255905837},
+        "fixed_scan_sha256": {"const": "0eda447334b59b886d3d2b70e3aed3a8375823dbc1180e190e0ad67517e9c559"},
+        "layout_sha256": {"const": "c7a559cf7dd1a38c97e73b224a4021a44c62f68d2ad17f1a50a31f72c1ca1055"},
+        "minimum_head_n": {"const": 6397},
+        "minimum_head_slack": {"const": 77167896433454640411789476},
+        "power_event_count": {"const": 149235},
+        "pratt_sha256": {"const": "46b67778699d196eec624ba71f8fc07de9d0218afbd0a0930c2113e37ddbfd07"},
+        "prime_count": {"const": 148933},
+        "proper_power_count": {"const": 302},
+        "reused_prime_count": {"const": 115408},
+        "tail_prime_count": {"const": 33525}
+      }
+    }
+  }
+}

@@ -68,7 +68,7 @@ verifier architecture and reuse its generic bracket/endpoint machinery
 | Module | Content |
 | --- | --- |
 | `LZeros` | Zeros of `DirichletCharacter.LFunction` for `chi != 1` form a closed discrete set; compact regions contain finitely many (the Dirichlet analogue of Mathlib's `ZetaZeros`, proved from entirety plus nonvanishing at `s = 2`). |
-| `CriticalLine` | The closed rectangle `criticalStrip lo hi = [0,1] x [lo,hi]`, compactness, and the axiom-free deduction: equal distinct-zero counts force every zero in the rectangle onto `re s = 1/2`. |
+| `CriticalLine` | The source-faithful open strip `nontrivialCriticalStrip lo hi = (0,1) x [lo,hi]`, its closed compact envelope `[0,1] x [lo,hi]`, and the axiom-free deduction: envelope finiteness plus equal distinct-zero counts force every nontrivial zero in the open strip onto `re s = 1/2`. |
 | `Verifier` | `LCriticalLineZeroBridge`, `LZeroCountUpperBound`, and `GRHVerifierEvidence` with the finite-strip conclusion `all_zeros_on_criticalLine`. |
 | `HardyContract` | `DirichletHardyModel`: a continuous real evaluator equal to a nonvanishing phase times `LFunction chi (1/2 + it)`; `verifyEndpointFamily` composes a checked `RationalBracketFamily` with the analytic premises into the finite-strip GRH conclusion. |
 | `GRHVerification` | Primitive characters of modulus `>= 2` are nontrivial; the per-modulus statement `GRHVerifiedForModulus`. |

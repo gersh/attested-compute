@@ -39,6 +39,10 @@ if str(REPOSITORY_ROOT) not in sys.path:
 
 from reference import exact_binary64 as exact  # noqa: E402
 from tools import inspect_expression_ptx  # noqa: E402
+from tg_verifier.campaign_io import (  # noqa: E402
+    MeasuredWorkerScopeError,
+    require_azure_measured_worker_for_workload,
+)
 
 
 FORMAT_VERSION = 1
@@ -965,6 +969,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    try:
+        require_azure_measured_worker_for_workload(
+            exact_production=False,
+            work_bounds=(args.count,),
+        )
+    except MeasuredWorkerScopeError as error:
+        print(error, file=sys.stderr)
+        return 2
     executable = args.executable.resolve()
     if not executable.is_file():
         print(f"CUDA runner does not exist: {executable}", file=sys.stderr)

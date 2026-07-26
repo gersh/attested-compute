@@ -92,7 +92,7 @@ theorem verifyEndpointFamily
     (hlower : ∀ i, lo ≤ ((family.entries i).lower : ℝ))
     (hupper : ∀ i, ((family.entries i).upper : ℝ) ≤ hi)
     (totalUpper : LZeroCountUpperBound χ lo hi count) :
-    ∀ z ∈ criticalStrip lo hi,
+    ∀ z ∈ nontrivialCriticalStrip lo hi,
       χ.LFunction z = 0 → z.re = (1 : ℝ) / 2 := by
   obtain ⟨certificate, hendpoints⟩ :=
     family.exists_zeroCertificate hcheck hencloses

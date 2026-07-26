@@ -1,0 +1,24 @@
+/- Copyright (c) 2026 Gershon Bialer. All rights reserved.
+SPDX-License-Identifier: MIT -/
+
+import SparkInterval.Dirichlet.FactoredSmallQSourceRealization
+
+namespace SparkInterval.Tests.FactoredSmallQSourceRealization
+
+open SparkInterval.Dirichlet.FactoredSmallQSourceRealization
+
+#print axioms PrimitiveRosterRealization.character_primitive
+#print axioms PrimitiveRosterRealization.roster_nonempty_of_primitive
+#print axioms ModulusRosterRealization.primitive_of_full_mem
+#print axioms CharacterInputsRealize.rows_eq
+#print axioms CharacterInputsRealize.parity
+#print axioms SourceEvaluatorRealizes.character_primitive
+#print axioms SourceEvaluatorRealizes.value_im_eq_zero
+#print axioms SourceEvaluatorRealizes.value_re_eq_evaluator
+#print axioms SourceEvaluatorFamilyRealizes.completedValuesReal
+#print axioms SourceEvaluatorFamilyRealizes.decodedCellAt_sourceRealizes
+#print axioms SourceEvaluatorFamilyRealizes.decodedCellAt_evaluatorLink
+#print axioms CharacterEvaluatorInputsRealize.decodedCellAt_character_and_evaluator
+#print axioms requested_source_sample_has_character_and_evaluator
+
+end SparkInterval.Tests.FactoredSmallQSourceRealization

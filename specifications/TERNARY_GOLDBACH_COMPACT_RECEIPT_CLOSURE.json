@@ -1,0 +1,945 @@
+{
+  "schema_version": 1,
+  "kind": "sparkinterval.ternary-goldbach.compact-receipt-closure.v1",
+  "source_pins": {
+    "external_atom_catalog": {
+      "path": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOMS.json",
+      "sha256": "204949b03f342024868667db7b87c4fed600ca2b3951e274e65f2f437dfc5373"
+    },
+    "external_atom_readiness": {
+      "path": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOM_READINESS.json",
+      "sha256": "44a93c6e6e491cea2dcac6432555bcf6854c9700b53715ab966836449e5b2bba"
+    },
+    "semantic_bindings": {
+      "path": "specifications/TERNARY_GOLDBACH_AZURE_SEMANTIC_BINDINGS.json",
+      "sha256": "a2536e7efa688b1f85ffb78a0f54f8c942bf98c7092b789909405eae01c44416"
+    }
+  },
+  "scope": {
+    "external_atom_count": 13,
+    "lowered_endpoint_id": "goldbach-finite-below-10pow27",
+    "logical_claim_count": 14,
+    "physical_campaign_count": 11
+  },
+  "generic_boundary": {
+    "receipt_fact": "SparkInterval.Execution.Architecture.CompactInputReceiptExecutionFact",
+    "universal_executable_refinement": "SparkInterval.Execution.Architecture.ArchitectureRefinesNativeChecker",
+    "claim_composition_theorem": "SparkInterval.Execution.Architecture.claim_of_compactInputReceipt",
+    "local_production_input_replay_required": false
+  },
+  "campaigns": [
+    {
+      "campaign_id": "ch25-a7-boundary",
+      "logical_claim_ids": [
+        "ch25-a7-boundary"
+      ],
+      "backend_class": "cpu_flint_sidecar",
+      "execution_mode": "single_job",
+      "implementation_sources": [
+        "tg_verifier/a7_flint.py",
+        "tg_verifier/a7_lean_certificate.py",
+        "tools/tg_a7_azure_measured_workload.py"
+      ],
+      "registered_identity": {
+        "invocation": "ch25A7BoundaryProductionV1",
+        "algorithm": "ch25A7BoundaryV1",
+        "algorithm_id": "sparkinterval.ternary-goldbach.ch25-lemma-a7-boundary.v1",
+        "algorithm_hash": "340dc36f2ceb992ab16e34c534cd97b786d348ba057e159c295b3abd1328cdfa",
+        "canonical_input_selector": "SparkInterval.Execution.RegisteredAlgorithm.ch25A7BoundaryInput",
+        "input_hash": "4e45410d2d26467dbd5f78f8ea536b1a8bbf44f1cd5248e234b985bd1f595674",
+        "parameters_hash": "f377fb7b8c8d8d033083a0759841411d9bb955e919041f2a5b5be830ed69212e",
+        "domain_hash": "629d9c7b3c084ef33f69d92abbe22b5120bac210fc963191c4b1e8289ff1dea5",
+        "success_result": {
+          "selector": "SparkInterval.Execution.ch25A7BoundarySuccessOutput",
+          "bytes_utf8": "true",
+          "pin": {
+            "byte_length": 4,
+            "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+          }
+        }
+      },
+      "physical_compact_pins": {
+        "status": "incomplete_pre_run",
+        "target": "azure_sev_snp_cpu",
+        "receipt_hash": null,
+        "measurement_scheme_id": null,
+        "machine_semantics_id": null,
+        "entry_point": null,
+        "executable": null,
+        "input": null,
+        "result": {
+          "byte_length": 4,
+          "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+        }
+      },
+      "lean_soundness": {
+        "status": "conditional_evidence_to_claim_present",
+        "evidence_type": "A7BoundarySuccessEvidence.SuccessEvidence",
+        "evidence_to_claim_theorem": "SparkInterval.TernaryGoldbach.A7BoundarySuccessEvidence.sourceClaim_of_successEvidence",
+        "registered_success_theorem": "SparkInterval.Execution.RegisteredInvocation.ch25A7BoundaryProductionV1_sourceClaim",
+        "native_bytes_to_evidence_theorem": null
+      },
+      "machine_refinement": {
+        "status": "missing_exact_binary_refinement",
+        "exact_executable_refinement": false,
+        "compiler_linker_loader_refinement": false
+      },
+      "receipt_closure": {
+        "adapter_kind": "a7-transcript-success-evidence",
+        "receipt_scope": "direct_single_process",
+        "one_ordinary_process_receipt_sufficient": true,
+        "can_one_closed_campaign_receipt_eventually_suffice": true,
+        "can_one_receipt_yield_claim_now": false,
+        "generic_composition_theorem": "SparkInterval.Execution.Architecture.claim_of_compactInputReceipt",
+        "per_campaign_adapter": "SparkInterval.TernaryGoldbach.A7BoundaryCompactChecker.sourceClaim_of_compactRun",
+        "missing_proofs": [
+          "closed_reviewed_physical_pins",
+          "exact_executable_to_native_checker_refinement",
+          "native_checker_acceptance_to_lean_evidence",
+          "source_analytic_realization"
+        ]
+      }
+    },
+    {
+      "campaign_id": "ch25-psi-two-pass-v1",
+      "logical_claim_ids": [
+        "ch25-psi-1e13"
+      ],
+      "backend_class": "cpu_exact_sidecar",
+      "execution_mode": "manual_phase_dag",
+      "implementation_sources": [
+        "reference/tg_psi_residual_shard.cpp",
+        "tg_verifier/psi_residual_campaign.py",
+        "tools/tg_azure_cpu_psi_materializer.py"
+      ],
+      "registered_identity": {
+        "invocation": "ch25PsiLemma92ProductionV1",
+        "algorithm": "ch25PsiLemma92V1",
+        "algorithm_id": "sparkinterval.ternary-goldbach.ch25-psi-lemma-9-2.v1",
+        "algorithm_hash": "b16368f84ca70c2a3e7b9b9814c7e098e79c0c3bb137a51b85851cfd526753b0",
+        "canonical_input_selector": "SparkInterval.Execution.RegisteredAlgorithm.ch25PsiLemma92Input",
+        "input_hash": "35368234a47ea3acdac04c55453f07cc5deb051fdf2238e865d683b17b11d3d8",
+        "parameters_hash": "ddc632e84956e223e9df686d02aab167b52cd902dfcedf6ae3a7ccccdd0f6637",
+        "domain_hash": "2a19d38cb3c36f9371c741701b7046b6c99dfba94f12185bd8625fad2e8f921f",
+        "success_result": {
+          "selector": "SparkInterval.Execution.ch25PsiLemma92SuccessOutput",
+          "bytes_utf8": "true",
+          "pin": {
+            "byte_length": 4,
+            "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+          }
+        }
+      },
+      "physical_compact_pins": {
+        "status": "incomplete_pre_run",
+        "target": "azure_sev_snp_cpu",
+        "receipt_hash": null,
+        "measurement_scheme_id": null,
+        "machine_semantics_id": null,
+        "entry_point": null,
+        "executable": null,
+        "input": null,
+        "result": {
+          "byte_length": 4,
+          "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+        }
+      },
+      "lean_soundness": {
+        "status": "conditional_evidence_to_claim_present",
+        "evidence_type": "PsiPrimePowerCertificate.GapSourceScaleEvidence",
+        "evidence_to_claim_theorem": "SparkInterval.TernaryGoldbach.PsiPrimePowerCertificate.sourceClaim_of_gap_evidence",
+        "registered_success_theorem": "SparkInterval.Execution.RegisteredInvocation.ch25PsiLemma92ProductionV1_sourceClaim",
+        "native_bytes_to_evidence_theorem": null
+      },
+      "machine_refinement": {
+        "status": "missing_exact_binary_refinement",
+        "exact_executable_refinement": false,
+        "compiler_linker_loader_refinement": false
+      },
+      "receipt_closure": {
+        "adapter_kind": "psi-two-pass-gap-source-evidence",
+        "receipt_scope": "transitive_campaign_graph",
+        "one_ordinary_process_receipt_sufficient": false,
+        "can_one_closed_campaign_receipt_eventually_suffice": true,
+        "can_one_receipt_yield_claim_now": false,
+        "generic_composition_theorem": "SparkInterval.Execution.Architecture.claim_of_compactInputReceipt",
+        "per_campaign_adapter": "SparkInterval.TernaryGoldbach.PsiCompactChecker.sourceClaim_of_compactRun",
+        "missing_proofs": [
+          "closed_reviewed_physical_pins",
+          "exact_executable_to_native_checker_refinement",
+          "native_checker_acceptance_to_lean_evidence",
+          "transitive_child_execution_closure"
+        ]
+      }
+    },
+    {
+      "campaign_id": "platt-head-2e4",
+      "logical_claim_ids": [
+        "platt-head-2e4"
+      ],
+      "backend_class": "cpu_flint_sidecar",
+      "execution_mode": "single_job",
+      "implementation_sources": [
+        "tg_verifier/zeta_zero_campaign.py",
+        "tools/tg_zeta_campaign.py",
+        "tools/tg_platt_head_azure_measured_workload.py"
+      ],
+      "registered_identity": {
+        "invocation": "plattHead2e4ProductionV1",
+        "algorithm": "plattHead2e4V1",
+        "algorithm_id": "sparkinterval.ternary-goldbach.platt-head-2e4.v1",
+        "algorithm_hash": "de33cb0d8db40a6b28c32605d9014ca8d593e446e4d1e3390402ea45c13f29ca",
+        "canonical_input_selector": "SparkInterval.Execution.RegisteredAlgorithm.plattHead2e4Input",
+        "input_hash": "a2409d869f3084fec413d4e7035f17749f4d2a572cd03f6f847f3352a78aca1d",
+        "parameters_hash": "af039df434d373002440517fb4b4dd817a8e9fd5028116885df6f2466598986a",
+        "domain_hash": "cfbcfeda2b76f99622befbf795d666b745ec45b82691f73bada7b04399464d11",
+        "success_result": {
+          "selector": "SparkInterval.Execution.plattHead2e4SuccessOutput",
+          "bytes_utf8": "true",
+          "pin": {
+            "byte_length": 4,
+            "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+          }
+        }
+      },
+      "physical_compact_pins": {
+        "status": "incomplete_pre_run",
+        "target": "azure_sev_snp_cpu",
+        "receipt_hash": null,
+        "measurement_scheme_id": null,
+        "machine_semantics_id": null,
+        "entry_point": null,
+        "executable": null,
+        "input": null,
+        "result": {
+          "byte_length": 4,
+          "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+        }
+      },
+      "lean_soundness": {
+        "status": "conditional_evidence_to_claim_present",
+        "evidence_type": "ZetaHeadSourceSemantics.CheckedQ128HeadEvidence",
+        "evidence_to_claim_theorem": "SparkInterval.TernaryGoldbach.ZetaHeadSourceSemantics.q128SourceClaim_of_checked_evidence",
+        "registered_success_theorem": "SparkInterval.Execution.RegisteredInvocation.plattHead2e4ProductionV1_sourceClaim",
+        "native_bytes_to_evidence_theorem": null
+      },
+      "machine_refinement": {
+        "status": "missing_exact_binary_refinement",
+        "exact_executable_refinement": false,
+        "compiler_linker_loader_refinement": false
+      },
+      "receipt_closure": {
+        "adapter_kind": "q128-head-table-evidence",
+        "receipt_scope": "direct_single_process",
+        "one_ordinary_process_receipt_sufficient": true,
+        "can_one_closed_campaign_receipt_eventually_suffice": true,
+        "can_one_receipt_yield_claim_now": false,
+        "generic_composition_theorem": "SparkInterval.Execution.Architecture.claim_of_compactInputReceipt",
+        "per_campaign_adapter": "SparkInterval.TernaryGoldbach.ZetaHeadCompactChecker.committedSourceClaim_of_compactRun",
+        "missing_proofs": [
+          "closed_reviewed_physical_pins",
+          "exact_executable_to_native_checker_refinement",
+          "native_checker_acceptance_to_lean_evidence",
+          "downstream_table_identity",
+          "source_analytic_realization"
+        ]
+      }
+    },
+    {
+      "campaign_id": "platt-trudgian-rh-3e12",
+      "logical_claim_ids": [
+        "platt-trudgian-rh-3e12"
+      ],
+      "backend_class": "cpu_flint_sidecar",
+      "execution_mode": "manual_phase_dag",
+      "implementation_sources": [
+        "reference/tg_platt_zeta_shard.cpp",
+        "tg_verifier/platt_zeta_campaign.py",
+        "tools/tg_azure_cpu_platt_pt21_materializer.py"
+      ],
+      "registered_identity": {
+        "invocation": "plattTrudgianFiniteRHProductionV1",
+        "algorithm": "plattTrudgianFiniteRHV1",
+        "algorithm_id": "sparkinterval.ternary-goldbach.platt-trudgian-finite-rh.v1",
+        "algorithm_hash": "3f162d7b531d7bd1aca532f13ee8460c6e86cef315b38da6849b74b422906d5f",
+        "canonical_input_selector": "SparkInterval.Execution.RegisteredAlgorithm.plattTrudgianFiniteRHInput",
+        "input_hash": "0af73e082ef1673a90ca668e395b71166b0320d6e3a99b6cd2af6d09ea18adce",
+        "parameters_hash": "be6cf9610adc9590ec746c28a48a6a3980d40ee9da1b01885167a309b5190672",
+        "domain_hash": "e8d26bae0efc9c3acfa968e7b0e5a76d81902b9fb87ac7126605770f48e751fa",
+        "success_result": {
+          "selector": "SparkInterval.Execution.plattTrudgianFiniteRHSuccessOutput",
+          "bytes_utf8": "true",
+          "pin": {
+            "byte_length": 4,
+            "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+          }
+        }
+      },
+      "physical_compact_pins": {
+        "status": "incomplete_pre_run",
+        "target": "azure_sev_snp_cpu",
+        "receipt_hash": null,
+        "measurement_scheme_id": null,
+        "machine_semantics_id": null,
+        "entry_point": null,
+        "executable": null,
+        "input": null,
+        "result": {
+          "byte_length": 4,
+          "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+        }
+      },
+      "lean_soundness": {
+        "status": "conditional_evidence_to_claim_present",
+        "evidence_type": "ZetaRHSourceSemantics.SourceEvidence",
+        "evidence_to_claim_theorem": "SparkInterval.TernaryGoldbach.ZetaRHSourceSemantics.sourceClaim_of_evidence",
+        "registered_success_theorem": "SparkInterval.Execution.RegisteredInvocation.plattTrudgianFiniteRHProductionV1_sourceClaim",
+        "native_bytes_to_evidence_theorem": null
+      },
+      "machine_refinement": {
+        "status": "missing_exact_binary_refinement",
+        "exact_executable_refinement": false,
+        "compiler_linker_loader_refinement": false
+      },
+      "receipt_closure": {
+        "adapter_kind": "zeta-turing-source-evidence",
+        "receipt_scope": "transitive_campaign_graph",
+        "one_ordinary_process_receipt_sufficient": false,
+        "can_one_closed_campaign_receipt_eventually_suffice": true,
+        "can_one_receipt_yield_claim_now": false,
+        "generic_composition_theorem": "SparkInterval.Execution.Architecture.claim_of_compactInputReceipt",
+        "per_campaign_adapter": "SparkInterval.TernaryGoldbach.ZetaRHCompactChecker.sourceClaim_of_compactRun",
+        "missing_proofs": [
+          "closed_reviewed_physical_pins",
+          "exact_executable_to_native_checker_refinement",
+          "native_checker_acceptance_to_lean_evidence",
+          "transitive_child_execution_closure",
+          "source_analytic_realization"
+        ]
+      }
+    },
+    {
+      "campaign_id": "helfgott-prop-12-2-4-mpfr-v1",
+      "logical_claim_ids": [
+        "helfgott-prop-12-2-4"
+      ],
+      "backend_class": "cpu_exact_sidecar",
+      "execution_mode": "manual_phase_dag",
+      "implementation_sources": [
+        "reference/tg_prop1224_mpfr_shard.cpp",
+        "tg_verifier/prop1224_mpfr_campaign.py",
+        "tools/tg_azure_cpu_prop1224_materializer.py"
+      ],
+      "registered_identity": {
+        "invocation": "helfgottProp1224ProductionV1",
+        "algorithm": "helfgottProp1224MpfrV1",
+        "algorithm_id": "sparkinterval.ternary-goldbach.helfgott-proposition-12-2-4-mpfr.v1",
+        "algorithm_hash": "184e8f8f60f511868d39a7a1ab7599a4b725415892e99c8fd84a35f8bf6c38a1",
+        "canonical_input_selector": "SparkInterval.Execution.RegisteredAlgorithm.helfgottProp1224MpfrInput",
+        "input_hash": "ced1a63532a63b6e24290c51082ff8865ce38c75daae0d4f3439a63eef2444ec",
+        "parameters_hash": "fac07cd6c76a9e2caf7e475107046d76683788426b1c9e26ac8d66aed8114853",
+        "domain_hash": "effa0ec90992a66d497c13fba77923a9fb96996d93be9d8d6fd54b21a09e92a3",
+        "success_result": {
+          "selector": "SparkInterval.Execution.helfgottProp1224SuccessOutput",
+          "bytes_utf8": "true",
+          "pin": {
+            "byte_length": 4,
+            "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+          }
+        }
+      },
+      "physical_compact_pins": {
+        "status": "incomplete_pre_run",
+        "target": "azure_sev_snp_cpu",
+        "receipt_hash": null,
+        "measurement_scheme_id": null,
+        "machine_semantics_id": null,
+        "entry_point": null,
+        "executable": null,
+        "input": null,
+        "result": {
+          "byte_length": 4,
+          "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+        }
+      },
+      "lean_soundness": {
+        "status": "conditional_evidence_to_claim_present",
+        "evidence_type": "Prop1224SourceSemantics.SourceScaleEvidence",
+        "evidence_to_claim_theorem": "SparkInterval.TernaryGoldbach.Prop1224SourceSemantics.sourceClaim_of_checked_certificate",
+        "registered_success_theorem": "SparkInterval.Execution.RegisteredInvocation.helfgottProp1224ProductionV1_sourceClaim",
+        "native_bytes_to_evidence_theorem": null
+      },
+      "machine_refinement": {
+        "status": "missing_exact_binary_refinement",
+        "exact_executable_refinement": false,
+        "compiler_linker_loader_refinement": false
+      },
+      "receipt_closure": {
+        "adapter_kind": "prop1224-mpfr-source-scale-evidence",
+        "receipt_scope": "transitive_campaign_graph",
+        "one_ordinary_process_receipt_sufficient": false,
+        "can_one_closed_campaign_receipt_eventually_suffice": true,
+        "can_one_receipt_yield_claim_now": false,
+        "generic_composition_theorem": "SparkInterval.Execution.Architecture.claim_of_compactInputReceipt",
+        "per_campaign_adapter": "SparkInterval.TernaryGoldbach.Prop1224CompactChecker.sourceClaim_of_compactRun",
+        "missing_proofs": [
+          "closed_reviewed_physical_pins",
+          "exact_executable_to_native_checker_refinement",
+          "native_checker_acceptance_to_lean_evidence",
+          "transitive_child_execution_closure",
+          "source_analytic_realization"
+        ]
+      }
+    },
+    {
+      "campaign_id": "hurst-four-residuals-v1",
+      "logical_claim_ids": [
+        "cdem-squarefree",
+        "mertens-hurst",
+        "platt-little-mertens-2-11",
+        "platt-little-mertens-stronger"
+      ],
+      "backend_class": "cpu_exact_sidecar",
+      "execution_mode": "manual_phase_dag",
+      "implementation_sources": [
+        "reference/tg_hurst_residual_shard.cpp",
+        "tg_verifier/hurst_residual_campaign.py",
+        "tools/tg_azure_cpu_hurst_materializer.py"
+      ],
+      "registered_identity": {
+        "invocation": "hurstSharedFourResidualProductionV2",
+        "algorithm": "hurstSharedFourResidualV2",
+        "algorithm_id": "sparkinterval.ternary-goldbach.hurst-shared-four-residual.v2",
+        "algorithm_hash": "7ba331f8cc0457f3a19bbce0887be65b12ba005952ed480aeb5b98c86611a6cd",
+        "canonical_input_selector": "SparkInterval.Execution.RegisteredAlgorithm.hurstSharedFourResidualInput",
+        "input_hash": "84cad6505119c2498b1213c73c13e379ebcc0e8bbd2d445d1539d45ec06fc5b7",
+        "parameters_hash": "78f8cf9ecdcac464c1711f877c57e31518dd66d6070882fb6de1d2a199068d1d",
+        "domain_hash": "fbbe3abc2d158bebb2a9f9b06c0379c3fd9eff168c86c9900a7997172ec91f0a",
+        "success_result": {
+          "selector": "SparkInterval.Execution.hurstSharedFourResidualSuccessOutput",
+          "bytes_utf8": "true",
+          "pin": {
+            "byte_length": 4,
+            "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+          }
+        }
+      },
+      "physical_compact_pins": {
+        "status": "incomplete_pre_run",
+        "target": "azure_sev_snp_cpu",
+        "receipt_hash": null,
+        "measurement_scheme_id": null,
+        "machine_semantics_id": null,
+        "entry_point": null,
+        "executable": null,
+        "input": null,
+        "result": {
+          "byte_length": 4,
+          "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+        }
+      },
+      "lean_soundness": {
+        "status": "conditional_evidence_to_claim_present",
+        "evidence_type": "HurstSourceSemantics.LocalSourceScaleEvidence",
+        "evidence_to_claim_theorem": "SparkInterval.TernaryGoldbach.HurstSourceSemantics.checked_real_source_claims_of_local",
+        "registered_success_theorem": "SparkInterval.Execution.RegisteredInvocation.hurstSharedFourResidualProductionV2_realClaims",
+        "native_bytes_to_evidence_theorem": null
+      },
+      "machine_refinement": {
+        "status": "missing_exact_binary_refinement",
+        "exact_executable_refinement": false,
+        "compiler_linker_loader_refinement": false
+      },
+      "receipt_closure": {
+        "adapter_kind": "hurst-shared-local-source-scale-evidence",
+        "receipt_scope": "transitive_campaign_graph",
+        "one_ordinary_process_receipt_sufficient": false,
+        "can_one_closed_campaign_receipt_eventually_suffice": true,
+        "can_one_receipt_yield_claim_now": false,
+        "generic_composition_theorem": "SparkInterval.Execution.Architecture.claim_of_compactInputReceipt",
+        "per_campaign_adapter": "SparkInterval.TernaryGoldbach.HurstCompactChecker.realClaims_of_compactRun",
+        "missing_proofs": [
+          "closed_reviewed_physical_pins",
+          "exact_executable_to_native_checker_refinement",
+          "native_checker_acceptance_to_lean_evidence",
+          "transitive_child_execution_closure"
+        ]
+      }
+    },
+    {
+      "campaign_id": "cdem-table-abel",
+      "logical_claim_ids": [
+        "cdem-table-abel"
+      ],
+      "backend_class": "cpu_exact_sidecar",
+      "execution_mode": "single_job",
+      "implementation_sources": [
+        "reference/tg_cdem_abel.cpp",
+        "reference/tg_cdem_abel_chunk_replay.cpp",
+        "tools/tg_verify.py"
+      ],
+      "registered_identity": {
+        "invocation": "cdemTableAbelProductionV2",
+        "algorithm": "cdemTableAbelExactScanV2",
+        "algorithm_id": "sparkinterval.ternary-goldbach.cdem-table-abel.v2",
+        "algorithm_hash": "f924a59b7569a9407b78bbbe5931c03fa76532b7dd88c64401263402ac4575b0",
+        "canonical_input_selector": "SparkInterval.Execution.RegisteredAlgorithm.cdemTableAbelInput",
+        "input_hash": "f14d4dd60e39b2b4f655d3b82333659167d78246de8c5aab923db8a69347742a",
+        "parameters_hash": "9c7ac1c656f2228f36b68095dba7ce1f317a024e51bfa49878434d616d97dca8",
+        "domain_hash": "298811e1d0ab933c02ff8afb71eb21d715052d414d3b400473b3f36807969a76",
+        "success_result": {
+          "selector": "SparkInterval.Execution.cdemTableAbelProductionOutput",
+          "bytes_utf8": "2372685835387717172679029560108650251645442524",
+          "pin": {
+            "byte_length": 46,
+            "sha256": "84e7c2b56de45b48776e4239bfc82e80ef5c80940f232b83c85eefc44648b73c"
+          }
+        }
+      },
+      "physical_compact_pins": {
+        "status": "incomplete_pre_run",
+        "target": "azure_sev_snp_cpu",
+        "receipt_hash": null,
+        "measurement_scheme_id": null,
+        "machine_semantics_id": null,
+        "entry_point": null,
+        "executable": null,
+        "input": null,
+        "result": {
+          "byte_length": 46,
+          "sha256": "84e7c2b56de45b48776e4239bfc82e80ef5c80940f232b83c85eefc44648b73c"
+        }
+      },
+      "lean_soundness": {
+        "status": "conditional_evidence_to_claim_present",
+        "evidence_type": "CDEMAbelRecurrenceCertificate.LocalSourceScaleEvidence",
+        "evidence_to_claim_theorem": "SparkInterval.TernaryGoldbach.CDEMAbelRecurrenceCertificate.sourceClaim_of_checked_local_production_certificate",
+        "registered_success_theorem": "SparkInterval.Execution.RegisteredInvocation.cdemTableAbelProductionV2_sourceClaim",
+        "native_bytes_to_evidence_theorem": null
+      },
+      "machine_refinement": {
+        "status": "missing_exact_binary_refinement",
+        "exact_executable_refinement": false,
+        "compiler_linker_loader_refinement": false
+      },
+      "receipt_closure": {
+        "adapter_kind": "cdem-local-recurrence-certificate",
+        "receipt_scope": "direct_single_process",
+        "one_ordinary_process_receipt_sufficient": true,
+        "can_one_closed_campaign_receipt_eventually_suffice": true,
+        "can_one_receipt_yield_claim_now": false,
+        "generic_composition_theorem": "SparkInterval.Execution.Architecture.claim_of_compactInputReceipt",
+        "per_campaign_adapter": "SparkInterval.TernaryGoldbach.CDEMAbelCompactChecker.sourceClaim_of_compactRun",
+        "missing_proofs": [
+          "closed_reviewed_physical_pins",
+          "exact_executable_to_native_checker_refinement",
+          "native_checker_acceptance_to_lean_evidence"
+        ]
+      }
+    },
+    {
+      "campaign_id": "ramare-zuniga-lemma-6-2",
+      "logical_claim_ids": [
+        "ramare-zuniga-lemma-6-2"
+      ],
+      "backend_class": "h100_cuda",
+      "execution_mode": "single_job",
+      "implementation_sources": [
+        "gpu/platform/h100/h100_tg_r2star_chunk_kernel.cu",
+        "reference/tg_r2star_arithmetic_replay.cpp",
+        "tg_verifier/r2star_campaign.py",
+        "tools/tg_azure_h100_r2star_materializer.py"
+      ],
+      "registered_identity": {
+        "invocation": "ramareZunigaLemma62ProductionV1",
+        "algorithm": "ramareZunigaLemma62V1",
+        "algorithm_id": "sparkinterval.ternary-goldbach.ramare-zuniga-lemma-6-2.v1",
+        "algorithm_hash": "1c95ab10e8f25ed7f87739bc2ea13190bb32e520272f05a3611d13b95e7f9d9c",
+        "canonical_input_selector": "SparkInterval.Execution.RegisteredAlgorithm.ramareZunigaLemma62Input",
+        "input_hash": "386168a18f1c8639736118a2beb057efe0a1a53871561a9a7b54dafd50024c5c",
+        "parameters_hash": "515707b2ec16c0ffa90cd4b36cb64353e1da4f93a2c94dd21523fe42939407d5",
+        "domain_hash": "9cafd963de87e0f4f36904a616a9191b7fdf1b4ae29d05fe12a27bc60c6392f3",
+        "success_result": {
+          "selector": "SparkInterval.Execution.ramareZunigaLemma62SuccessOutput",
+          "bytes_utf8": "true",
+          "pin": {
+            "byte_length": 4,
+            "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+          }
+        }
+      },
+      "physical_compact_pins": {
+        "status": "incomplete_pre_run",
+        "target": "azure_sev_snp_cpu",
+        "receipt_hash": null,
+        "measurement_scheme_id": null,
+        "machine_semantics_id": null,
+        "entry_point": null,
+        "executable": null,
+        "input": null,
+        "result": {
+          "byte_length": 4,
+          "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+        }
+      },
+      "lean_soundness": {
+        "status": "conditional_evidence_to_claim_present",
+        "evidence_type": "R2StarSourceSemantics.SourceScaleEvidence",
+        "evidence_to_claim_theorem": "SparkInterval.TernaryGoldbach.R2StarSourceSemantics.sourceClaim_of_checked_certificate",
+        "registered_success_theorem": "SparkInterval.Execution.RegisteredInvocation.ramareZunigaLemma62ProductionV1_sourceClaim",
+        "native_bytes_to_evidence_theorem": null
+      },
+      "machine_refinement": {
+        "status": "missing_exact_binary_refinement",
+        "exact_executable_refinement": false,
+        "compiler_linker_loader_refinement": false
+      },
+      "receipt_closure": {
+        "adapter_kind": "r2star-source-scale-evidence",
+        "receipt_scope": "composite_h100_producer_cpu_finalizer",
+        "one_ordinary_process_receipt_sufficient": false,
+        "can_one_closed_campaign_receipt_eventually_suffice": true,
+        "can_one_receipt_yield_claim_now": false,
+        "generic_composition_theorem": "SparkInterval.Execution.Architecture.claim_of_compactInputReceipt",
+        "per_campaign_adapter": "SparkInterval.TernaryGoldbach.R2StarCompactChecker.sourceClaim_of_compactRun",
+      "missing_proofs": [
+        "closed_reviewed_physical_pins",
+        "exact_h100_producer_and_cpu_finalizer_refinements",
+        "transitive_child_execution_closure",
+        "transitive_child_receipt_binding",
+        "native_checker_acceptance_to_lean_evidence",
+        "source_analytic_realization"
+      ]
+      }
+    },
+    {
+      "campaign_id": "helfgott-platt-goldbach-gpu-v1",
+      "logical_claim_ids": [
+        "helfgott-platt-theorem-4-1"
+      ],
+      "backend_class": "h100_cuda",
+      "execution_mode": "manual_phase_dag",
+      "implementation_sources": [
+        "tg_verifier/goldbach_gpu_campaign.py",
+        "tg_verifier/goldbach_native_ladder.py",
+        "reference/tg_goldbach_ladder_native.cpp",
+        "tools/tg_goldbach_historical_finalizer.py"
+      ],
+      "registered_identity": {
+        "invocation": "helfgottPlattGoldbachProductionV1",
+        "algorithm": "helfgottPlattGoldbachV1",
+        "algorithm_id": "sparkinterval.ternary-goldbach.helfgott-platt-finite-goldbach.v1",
+        "algorithm_hash": "93652e39a76fff96f8463f19f000ddaa15e2fafec4e0b5ea3a9870e2be8f8832",
+        "canonical_input_selector": "SparkInterval.Execution.RegisteredAlgorithm.helfgottPlattGoldbachInput",
+        "input_hash": "19591d644a11591ac7aeffc9d507ded00f2f63993d68b2ceb7629c8ae62e0691",
+        "parameters_hash": "dfafec3f7ed744b1e3fbc0e5f97aec1ec5540f106c896c7481329e6371ff0607",
+        "domain_hash": "cf9cb3c9f1c3825c7ddfa3a91aa474f2f8cb03064570bad6d51cf7287bbdc47b",
+        "success_result": {
+          "selector": "SparkInterval.Execution.helfgottPlattGoldbachSuccessOutput",
+          "bytes_utf8": "true",
+          "pin": {
+            "byte_length": 4,
+            "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+          }
+        }
+      },
+      "physical_compact_pins": {
+        "status": "incomplete_pre_run",
+        "target": "azure_sev_snp_cpu",
+        "receipt_hash": null,
+        "measurement_scheme_id": null,
+        "machine_semantics_id": null,
+        "entry_point": null,
+        "executable": null,
+        "input": null,
+        "result": {
+          "byte_length": 4,
+          "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+        }
+      },
+      "lean_soundness": {
+        "status": "conditional_evidence_to_claim_present",
+        "evidence_type": "GoldbachSourceSemantics.CheckedSourceEvidence",
+        "evidence_to_claim_theorem": "SparkInterval.TernaryGoldbach.GoldbachSourceSemantics.sourceClaim_of_checked_evidence",
+        "registered_success_theorem": "SparkInterval.Execution.RegisteredInvocation.helfgottPlattGoldbachProductionV1_sourceClaim",
+        "native_bytes_to_evidence_theorem": null
+      },
+      "machine_refinement": {
+        "status": "missing_exact_binary_refinement",
+        "exact_executable_refinement": false,
+        "compiler_linker_loader_refinement": false
+      },
+      "receipt_closure": {
+        "adapter_kind": "goldbach-binary-plus-ladder-evidence",
+        "receipt_scope": "transitive_campaign_graph",
+        "one_ordinary_process_receipt_sufficient": false,
+        "can_one_closed_campaign_receipt_eventually_suffice": true,
+        "can_one_receipt_yield_claim_now": false,
+        "generic_composition_theorem": "SparkInterval.Execution.Architecture.claim_of_compactInputReceipt",
+        "per_campaign_adapter": "SparkInterval.TernaryGoldbach.GoldbachCompactChecker.sourceClaim_of_compactRun",
+        "missing_proofs": [
+          "closed_reviewed_physical_pins",
+          "exact_executable_to_native_checker_refinement",
+          "native_checker_acceptance_to_lean_evidence",
+          "transitive_child_execution_closure"
+        ]
+      }
+    },
+    {
+      "campaign_id": "platt-dirichlet-theorem-7-1",
+      "logical_claim_ids": [
+        "platt-dirichlet-theorem-7-1"
+      ],
+      "backend_class": "cpu_flint_sidecar",
+      "execution_mode": "single_job",
+      "implementation_sources": [
+        "tools/tg_dirichlet_flint_backend.py",
+        "tg_verifier/dirichlet_campaign.py",
+        "tools/tg_dirichlet_azure_measured_workload.py"
+      ],
+      "registered_identity": {
+        "invocation": "plattDirichletTheorem71ProductionV1",
+        "algorithm": "plattDirichletTheorem71V1",
+        "algorithm_id": "sparkinterval.ternary-goldbach.platt-dirichlet-theorem-7-1.v1",
+        "algorithm_hash": "7b956d4a04403f9ba32fa2908a72cfa1483928991b3fa478d4bcfd79b089f33c",
+        "canonical_input_selector": "SparkInterval.Execution.RegisteredAlgorithm.plattDirichletTheorem71Input",
+        "input_hash": "42fe4b88a40a22d854292bf030a1eff009d32cf211e47085d43d79a6f2b8c8e9",
+        "parameters_hash": "975b05caf3057f499a0d5673a438e74ff781702ceb0ffe8ca8f018f582c269f0",
+        "domain_hash": "9b914c30a535b241a17b3180b52f759e3e52ed4424f2a93be4481323b627f31e",
+        "success_result": {
+          "selector": "SparkInterval.Execution.plattDirichletTheorem71SuccessOutput",
+          "bytes_utf8": "true",
+          "pin": {
+            "byte_length": 4,
+            "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+          }
+        }
+      },
+      "physical_compact_pins": {
+        "status": "incomplete_pre_run",
+        "target": "azure_sev_snp_cpu",
+        "receipt_hash": null,
+        "measurement_scheme_id": null,
+        "machine_semantics_id": null,
+        "entry_point": null,
+        "executable": null,
+        "input": null,
+        "result": {
+          "byte_length": 4,
+          "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+        }
+      },
+      "lean_soundness": {
+        "status": "conditional_evidence_to_claim_present",
+        "evidence_type": "Dirichlet.PlattTheorem71SourceEvidence",
+        "evidence_to_claim_theorem": "SparkInterval.Dirichlet.plattTheorem71_of_source_evidence",
+        "registered_success_theorem": "SparkInterval.Execution.RegisteredInvocation.plattDirichletTheorem71ProductionV1_sourceClaim",
+        "native_bytes_to_evidence_theorem": null
+      },
+      "machine_refinement": {
+        "status": "missing_exact_binary_refinement",
+        "exact_executable_refinement": false,
+        "compiler_linker_loader_refinement": false
+      },
+      "receipt_closure": {
+        "adapter_kind": "dirichlet-even-odd-source-evidence",
+        "receipt_scope": "transitive_campaign_graph_with_external_dependency",
+        "one_ordinary_process_receipt_sufficient": false,
+        "can_one_closed_campaign_receipt_eventually_suffice": true,
+        "can_one_receipt_yield_claim_now": false,
+        "generic_composition_theorem": "SparkInterval.Execution.Architecture.claim_of_compactInputReceipt",
+        "per_campaign_adapter": "SparkInterval.Dirichlet.PlattTheorem71CompactChecker.sourceClaim_of_compactRun",
+        "missing_proofs": [
+          "closed_reviewed_physical_pins",
+          "exact_executable_to_native_checker_refinement",
+          "native_checker_acceptance_to_lean_evidence",
+          "transitive_child_execution_closure",
+          "source_analytic_realization"
+        ]
+      }
+    },
+    {
+      "campaign_id": "ternary-goldbach-finite-below-10pow27-v1",
+      "logical_claim_ids": [
+        "goldbach-finite-below-10pow27"
+      ],
+      "backend_class": "h100_cuda",
+      "execution_mode": "manual_phase_dag",
+      "implementation_sources": [
+        "tg_verifier/goldbach_gpu_campaign.py",
+        "tg_verifier/goldbach_native_ladder.py",
+        "tg_verifier/goldbach_10pow27_campaign.py",
+        "tools/tg_goldbach_10pow27_finalizer.py"
+      ],
+      "registered_identity": {
+        "invocation": "goldbach10Pow27ProductionV1",
+        "algorithm": "goldbach10Pow27V1",
+        "algorithm_id": "sparkinterval.ternary-goldbach.finite-below-10pow27.v1",
+        "algorithm_hash": "23ade6c8a6069feec88b20c24ad118a2ed8b93f16d673f20591caa7cbdf167c9",
+        "canonical_input_selector": "SparkInterval.Execution.RegisteredAlgorithm.goldbach10Pow27Input",
+        "input_hash": "5e34a58a14883600c91b891a78749cdcff1210ce48f64e41f7bf965f2331ad27",
+        "parameters_hash": "ee334b42905942c4d3232007e2a67c27fee4e89a8143bbf6adb0d1957b0b8cb9",
+        "domain_hash": "4a01f0bc8f042f6605fc42fca28c73416a694e7541759abb5e7fec04720f9fa7",
+        "success_result": {
+          "selector": "SparkInterval.Execution.goldbach10Pow27SuccessOutput",
+          "bytes_utf8": "true",
+          "pin": {
+            "byte_length": 4,
+            "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+          }
+        }
+      },
+      "physical_compact_pins": {
+        "status": "incomplete_pre_run",
+        "target": "azure_sev_snp_cpu",
+        "receipt_hash": null,
+        "measurement_scheme_id": null,
+        "machine_semantics_id": null,
+        "entry_point": null,
+        "executable": null,
+        "input": null,
+        "result": {
+          "byte_length": 4,
+          "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+        }
+      },
+      "lean_soundness": {
+        "status": "conditional_evidence_to_claim_present",
+        "evidence_type": "Goldbach10Pow27CampaignSemantics.CheckedCampaignEvidence",
+        "evidence_to_claim_theorem": "SparkInterval.TernaryGoldbach.Goldbach10Pow27CampaignSemantics.sourceClaim",
+        "registered_success_theorem": "SparkInterval.Execution.RegisteredInvocation.goldbach10Pow27ProductionV1_sourceClaim",
+        "native_bytes_to_evidence_theorem": null
+      },
+      "machine_refinement": {
+        "status": "missing_exact_binary_refinement",
+        "exact_executable_refinement": false,
+        "compiler_linker_loader_refinement": false
+      },
+      "receipt_closure": {
+        "adapter_kind": "goldbach-10pow27-binary-plus-ladder-evidence",
+        "receipt_scope": "transitive_campaign_graph",
+        "one_ordinary_process_receipt_sufficient": false,
+        "can_one_closed_campaign_receipt_eventually_suffice": true,
+        "can_one_receipt_yield_claim_now": false,
+        "generic_composition_theorem": "SparkInterval.Execution.Architecture.claim_of_compactInputReceipt",
+        "per_campaign_adapter": "SparkInterval.TernaryGoldbach.Goldbach10Pow27CompactChecker.sourceClaim_of_compactRun",
+        "missing_proofs": [
+          "closed_reviewed_physical_pins",
+          "exact_executable_to_native_checker_refinement",
+          "native_checker_acceptance_to_lean_evidence",
+          "transitive_child_execution_closure"
+        ]
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "ch25-a7-boundary",
+      "catalog_kind": "external_atom",
+      "campaign_id": "ch25-a7-boundary",
+      "lean_claim": "AnalyticNT.ChebyshevPsi.finite_check_ch25_lemA7_arb_boundary_source",
+      "projection": "A7BoundarySourceSemantics.SourceClaim"
+    },
+    {
+      "claim_id": "ch25-psi-1e13",
+      "catalog_kind": "external_atom",
+      "campaign_id": "ch25-psi-two-pass-v1",
+      "lean_claim": "AnalyticNT.ChebyshevPsi.finite_check_ch25_lemma_9_2_psi_source",
+      "projection": "PsiSourceSemantics.SourceClaim"
+    },
+    {
+      "claim_id": "platt-head-2e4",
+      "catalog_kind": "external_atom",
+      "campaign_id": "platt-head-2e4",
+      "lean_claim": "AnalyticNT.ChebyshevPsi.finite_check_platt_zero_enumeration_2e4_source",
+      "projection": "ZetaHeadSourceSemantics.Q128SourceClaim"
+    },
+    {
+      "claim_id": "platt-trudgian-rh-3e12",
+      "catalog_kind": "external_atom",
+      "campaign_id": "platt-trudgian-rh-3e12",
+      "lean_claim": "AnalyticNT.ChebyshevPsi.finite_check_platt_trudgian_rh_zeta_3e12",
+      "projection": "ZetaRHSourceSemantics.SourceClaim"
+    },
+    {
+      "claim_id": "helfgott-prop-12-2-4",
+      "catalog_kind": "external_atom",
+      "campaign_id": "helfgott-prop-12-2-4-mpfr-v1",
+      "lean_claim": "AnalyticNT.LargeSieve.finite_check_helfgott_prop_12_2_4_computation_source",
+      "projection": "Prop1224SourceSemantics.SourceClaim"
+    },
+    {
+      "claim_id": "cdem-squarefree",
+      "catalog_kind": "external_atom",
+      "campaign_id": "hurst-four-residuals-v1",
+      "lean_claim": "MathExtras.CohenDressElMarraki.reproducibleSquarefree_verifier_output",
+      "projection": "HurstSourceSemantics.RealSourceClaims.squarefreeB1+squarefreeB2"
+    },
+    {
+      "claim_id": "cdem-table-abel",
+      "catalog_kind": "external_atom",
+      "campaign_id": "cdem-table-abel",
+      "lean_claim": "MathExtras.CohenDressElMarraki.reproducibleTable_abel_verifier_output",
+      "projection": "CDEMAbelSource.SourceClaim"
+    },
+    {
+      "claim_id": "mertens-hurst",
+      "catalog_kind": "external_atom",
+      "campaign_id": "hurst-four-residuals-v1",
+      "lean_claim": "MathExtras.EffectiveMertensDecay.mertensM_hurst_sqrt_source",
+      "projection": "HurstSourceSemantics.RealSourceClaims.hurst"
+    },
+    {
+      "claim_id": "ramare-zuniga-lemma-6-2",
+      "catalog_kind": "external_atom",
+      "campaign_id": "ramare-zuniga-lemma-6-2",
+      "lean_claim": "MathExtras.RamareMertens2025.ramare_zuniga_2024_lemma_6_2_source",
+      "projection": "R2StarSourceSemantics.SourceClaim"
+    },
+    {
+      "claim_id": "helfgott-platt-theorem-4-1",
+      "catalog_kind": "external_atom",
+      "campaign_id": "helfgott-platt-goldbach-gpu-v1",
+      "lean_claim": "Math.Problems.TernaryGoldbach.helfgott_platt_theorem_4_1_source",
+      "projection": "GoldbachSourceSemantics.SourceClaim"
+    },
+    {
+      "claim_id": "platt-dirichlet-theorem-7-1",
+      "catalog_kind": "external_atom",
+      "campaign_id": "platt-dirichlet-theorem-7-1",
+      "lean_claim": "MathExtras.Helfgott.MajorArcsStart.platt_theorem_7_1_dirichlet_verification_source",
+      "projection": "Dirichlet.PlattTheorem71DirichletVerification"
+    },
+    {
+      "claim_id": "platt-little-mertens-2-11",
+      "catalog_kind": "external_atom",
+      "campaign_id": "hurst-four-residuals-v1",
+      "lean_claim": "MathExtras.Helfgott.Section24.residual_platt_2_11",
+      "projection": "HurstSourceSemantics.RealSourceClaims.little211"
+    },
+    {
+      "claim_id": "platt-little-mertens-stronger",
+      "catalog_kind": "external_atom",
+      "campaign_id": "hurst-four-residuals-v1",
+      "lean_claim": "MathExtras.Helfgott.Section24.residual_platt_stronger_range",
+      "projection": "HurstSourceSemantics.RealSourceClaims.littleStronger"
+    },
+    {
+      "claim_id": "goldbach-finite-below-10pow27",
+      "catalog_kind": "lowered_finite_endpoint",
+      "campaign_id": "ternary-goldbach-finite-below-10pow27-v1",
+      "lean_claim": "SparkInterval.TernaryGoldbach.Goldbach10Pow27SourceSemantics.SourceClaim",
+      "projection": "Goldbach10Pow27SourceSemantics.SourceClaim"
+    }
+  ],
+  "summary": {
+    "campaigns_with_source_scale_implementation": 11,
+    "logical_claims_with_conditional_lean_soundness": 14,
+    "campaigns_with_acceptance_to_claim_adapter": 11,
+    "campaigns_with_complete_physical_pins": 0,
+    "campaigns_with_exact_executable_refinement": 0,
+    "campaigns_with_native_bytes_to_evidence_theorem": 0,
+    "campaigns_with_transitive_graph_closure_proof": 0,
+    "campaigns_with_one_receipt_claim_authority_now": 0
+  }
+}

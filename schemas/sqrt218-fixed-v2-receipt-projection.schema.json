@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/sqrt218-fixed-v2-receipt-projection.schema.json",
+  "title": "Sqrt218 fixed-width V2 trusted-receipt audit projection",
+  "description": "Unsigned human-audit aid. It is not a receipt, an attestation, a Lean capability, or evidence that the production computation ran. A verifier must compare every field with an already signature-verified generic receipt, its exact wire-statement preimage, and the retained artifacts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "binary_protocol",
+    "bound",
+    "certificate_sha256",
+    "certificate_size_bytes",
+    "checker_executable_sha256",
+    "checker_executable_size_bytes",
+    "execution_closure_sha256",
+    "execution_closure_size_bytes",
+    "job_binding_sha256",
+    "kind",
+    "native_result_protocol",
+    "native_result_sha256",
+    "native_result_size_bytes",
+    "result_envelope_protocol",
+    "result_envelope_sha256",
+    "result_envelope_size_bytes",
+    "schema_version",
+    "start_challenge_sha256",
+    "verification_report_sha256",
+    "verification_report_size_bytes",
+    "wire_statement_sha256",
+    "work_trace_artifact_sha256",
+    "work_trace_artifact_size_bytes",
+    "work_trace_chain_sha256"
+  ],
+  "properties": {
+    "binary_protocol": {
+      "const": "sparkinterval.sqrt218-fixed-certificate.v2"
+    },
+    "bound": {"const": 2000000},
+    "certificate_sha256": {"$ref": "#/$defs/sha256"},
+    "certificate_size_bytes": {"$ref": "#/$defs/positiveSize"},
+    "checker_executable_sha256": {"$ref": "#/$defs/sha256"},
+    "checker_executable_size_bytes": {"$ref": "#/$defs/positiveSize"},
+    "execution_closure_sha256": {"$ref": "#/$defs/sha256"},
+    "execution_closure_size_bytes": {"$ref": "#/$defs/positiveSize"},
+    "job_binding_sha256": {"$ref": "#/$defs/sha256"},
+    "kind": {
+      "const": "sparkinterval.sqrt218-fixed-v2-receipt-projection.v1"
+    },
+    "native_result_protocol": {
+      "const": "sparkinterval.sqrt218-fixed-result.v1"
+    },
+    "native_result_sha256": {"$ref": "#/$defs/sha256"},
+    "native_result_size_bytes": {"const": 120},
+    "result_envelope_protocol": {
+      "const": "sparkinterval.sqrt218-fixed-v2-result.v1"
+    },
+    "result_envelope_sha256": {"$ref": "#/$defs/sha256"},
+    "result_envelope_size_bytes": {"const": 281},
+    "schema_version": {"const": 1},
+    "start_challenge_sha256": {"$ref": "#/$defs/sha256"},
+    "verification_report_sha256": {"$ref": "#/$defs/sha256"},
+    "verification_report_size_bytes": {"$ref": "#/$defs/positiveSize"},
+    "wire_statement_sha256": {"$ref": "#/$defs/sha256"},
+    "work_trace_artifact_sha256": {"$ref": "#/$defs/sha256"},
+    "work_trace_artifact_size_bytes": {"$ref": "#/$defs/positiveSize"},
+    "work_trace_chain_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "positiveSize": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "not": {
+        "const": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  }
+}

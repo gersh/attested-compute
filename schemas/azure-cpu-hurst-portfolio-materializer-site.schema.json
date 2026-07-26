@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-cpu-hurst-portfolio-materializer-site.schema.json",
+  "title": "SparkInterval shared Hurst Azure CPU materializer site",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["base_site", "hurst", "kind", "schema_version"],
+  "properties": {
+    "base_site": {"$ref": "#/$defs/filePin"},
+    "hurst": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["boost_include_root", "hurst_source_root", "predecessor_exports"],
+      "properties": {
+        "boost_include_root": {"$ref": "#/$defs/absolutePath"},
+        "hurst_source_root": {"$ref": "#/$defs/absolutePath"},
+        "predecessor_exports": {
+          "type": "array",
+          "maxItems": 321,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["export", "group_id", "shard_index"],
+            "properties": {
+              "export": {"$ref": "#/$defs/filePin"},
+              "group_id": {"type": "string", "pattern": "^hurst-four-residuals-v1::[a-z0-9-]+$"},
+              "shard_index": {"type": "integer", "minimum": 0, "maximum": 319}
+            }
+          }
+        }
+      }
+    },
+    "kind": {"const": "sparkinterval.azure.cpu.hurst-portfolio-materializer-site.v1"},
+    "schema_version": {"const": 1}
+  },
+  "$defs": {
+    "absolutePath": {"type": "string", "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"},
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}
+      }
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

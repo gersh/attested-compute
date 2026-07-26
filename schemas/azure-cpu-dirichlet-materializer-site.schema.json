@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-cpu-dirichlet-materializer-site.schema.json",
+  "title": "SparkInterval Dirichlet Azure CPU materializer site",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["base_site", "dirichlet", "kind", "schema_version"],
+  "properties": {
+    "base_site": {"$ref": "#/$defs/filePin"},
+    "dirichlet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "flint_source_root",
+        "platt_trudgian_campaign_archive",
+        "platt_trudgian_trusted_receipt",
+        "python_flint_source_root",
+        "python_flint_wheel"
+      ],
+      "properties": {
+        "flint_source_root": {"$ref": "#/$defs/absolutePath"},
+        "platt_trudgian_campaign_archive": {"$ref": "#/$defs/filePin"},
+        "platt_trudgian_trusted_receipt": {"$ref": "#/$defs/filePin"},
+        "python_flint_source_root": {"$ref": "#/$defs/absolutePath"},
+        "python_flint_wheel": {"$ref": "#/$defs/filePin"}
+      }
+    },
+    "kind": {"const": "sparkinterval.azure.cpu.dirichlet-materializer-site.v1"},
+    "schema_version": {"const": 1}
+  },
+  "$defs": {
+    "absolutePath": {"type": "string", "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"},
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}
+      }
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-tg-semantic-bindings.schema.json",
+  "title": "SparkInterval Azure TG terminal semantic bindings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["bindings", "kind", "schema_version"],
+  "properties": {
+    "bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "campaign_id",
+          "enabled",
+          "lean_theorem",
+          "realization_id",
+          "registered_invocation"
+        ],
+        "properties": {
+          "campaign_id": { "$ref": "#/$defs/name" },
+          "enabled": { "type": "boolean" },
+          "lean_theorem": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$"
+              },
+              { "type": "null" }
+            ]
+          },
+          "realization_id": {
+            "oneOf": [{ "$ref": "#/$defs/name" }, { "type": "null" }]
+          },
+          "registered_invocation": {
+            "oneOf": [{ "$ref": "#/$defs/name" }, { "type": "null" }]
+          }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "enabled": { "const": true } } },
+            "then": {
+              "properties": {
+                "lean_theorem": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$"
+                },
+                "realization_id": { "$ref": "#/$defs/name" },
+                "registered_invocation": { "$ref": "#/$defs/name" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "kind": { "const": "sparkinterval.azure.tg.semantic-bindings.v1" },
+    "schema_version": { "const": 1 }
+  },
+  "$defs": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    }
+  }
+}

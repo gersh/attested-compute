@@ -94,8 +94,9 @@ accepted external execution evidence.
 ### 5. Lean consumption
 
 Lean code should name a registered invocation and an exact certificate digest.
-An importer validates the canonical external record and constructs a private
-positive-evidence capability. The project's single execution axiom then turns
+The Azure importer validates the canonical external record and source-pins its
+normalized receipt as the positive-evidence capability. The project's single
+execution axiom then turns
 acceptance of that particular record into its historical outcome and the
 registered invocation's fixed `Runs` relation.
 
@@ -113,13 +114,17 @@ The repository already contains substantial pieces of this design:
 - a typed polynomial compiler and one-thread GPU machine model;
 - CUDA validation and artifact auditing for DGX Spark and H100;
 - canonical run bundles, signatures, closed invocation registration, and one
-  explicit Lean execution axiom; and
-- fail-closed mock and production-attestation boundaries.
+  explicit Lean execution axiom;
+- Azure SEV-SNP CPU and NCC H100 deployment/evidence collectors, an
+  independent-appraisal adapter, compact receipt signing, and source-pinned
+  Lean import; and
+- fail-closed mock and legacy-attestation boundaries.
 
-The end-to-end secure path is not complete. In particular, the repository does
-not yet include a production NVIDIA confidential-computing evidence verifier,
-a trusted importer that can create positive Lean evidence, or the shared
-content-addressed certificate library. Current H100 runs are local and
+The infrastructure path is implemented, but no production admission is
+complete. The repository does not include a production Azure appraiser/policy,
+Managed HSM key-attestation approval, measured production runner, real Azure
+run, admitted receipt, or shared content-addressed certificate service. The
+tracked receipt registry is empty and current retained H100 runs are local and
 unattested. The exact implemented claims are maintained in
 [Correctness claims](CORRECTNESS_CLAIMS.md).
 

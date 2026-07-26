@@ -46,6 +46,7 @@ from tg_verifier.campaign_io import (  # noqa: E402
     canonical_sha256,
     hash_file_once,
     load_json,
+    require_azure_measured_worker_for_workload,
     write_immutable_json,
 )
 
@@ -211,6 +212,13 @@ def _run_plan(
     *,
     resume: bool,
 ) -> int:
+    # Every registry plan is source-wide by construction.  Keep this guard
+    # before resolving, creating, locking, or reading the workspace so an
+    # ordinary local invocation cannot even begin a production campaign.
+    require_azure_measured_worker_for_workload(
+        exact_production=True,
+        work_bounds=(),
+    )
     workspace = args.workspace.resolve()
     workspace.mkdir(parents=True, exist_ok=True)
     lock_path = workspace / ".campaign.lock"

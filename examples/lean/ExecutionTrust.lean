@@ -2,9 +2,9 @@ import SparkInterval.Execution.Trusted.DGXOperatorSignature
 import SparkInterval.Execution.Trusted.H100Attestation
 
 /-!
-Both policy-specific entry points route through one deliberate
-run-certificate assumption, not a mathematical proof. Local unsigned evidence
-cannot satisfy either positive policy.
+Only the source-pinned trusted-compute receipt policy reaches the deliberate
+run-certificate assumption.  The older DGX and H100 structural checkers remain
+diagnostic and are rejected by the unified theorem-admission checker.
 -/
 
 namespace SparkInterval.Examples
@@ -15,7 +15,7 @@ open SparkInterval.Execution.Trusted
 example {certificate : RunCertificate}
     (accepted : certificate.check = true) :
     certificate.ProducedOutcome :=
-  accepted_run_certificate_sound accepted
+  checked_run_certificate_sound accepted
 
 example (statement : RunStatement) (claim : RunClaim) :
     checkDGXOperatorSignature statement (.local claim) = false := by
@@ -26,8 +26,8 @@ example (statement : RunStatement) (claim : RunClaim) :
   rfl
 
 example {statement : RunStatement} {evidence : Attestation}
-    (accepted : checkDGXOperatorSignature statement evidence = true) :
-    AlgorithmReturned statement statement.result :=
-  dgx_operator_signed_run_sound accepted
+    (diagnostic : checkDGXOperatorSignature statement evidence = true) :
+    RunCertificate.check { statement, attestation := evidence } = false :=
+  dgx_operator_signature_not_admitted diagnostic
 
 end SparkInterval.Examples

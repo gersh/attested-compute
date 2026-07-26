@@ -1,6 +1,9 @@
 name = "SparkInterval"
 version = "0.1.0"
-defaultTargets = ["SparkInterval", "sparkinterval-gen"]
+# The bare `lake build` path is deliberately compact and data-independent.
+# The broad `SparkInterval` namespace includes materialized production
+# certificates and is available only as an explicit target.
+defaultTargets = ["SparkIntervalCompact"]
 
 # Keep both batch elaboration and editor workers bounded.  These are weak
 # arguments so changing the operational limits does not invalidate proof
@@ -15,19 +18,35 @@ moreGlobalServerArgs = ["-j1", "-M4096"]
 [[require]]
 name = "LeanArchitect"
 git = "https://github.com/hanwenzhu/LeanArchitect.git"
-rev = "d9013cc08bd2b5483e837368dfa4cc7ead92a5c2"
+rev = "3810ba48f2e5bbd83b32623d21fc059b279dbf81"
 
 # Keep mathlib last so its already-pinned transitive revisions take precedence
 # over compatible but older revisions requested by documentation tooling.
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4.git"
-rev = "88d006abbcd1f157f567bd21c7a33c271df9b83b"
+rev = "81a5d257c8e410db227a6665ed08f64fea08e997"
 
 [[lean_lib]]
 name = "SparkInterval"
 roots = ["SparkInterval"]
 globs = ["SparkInterval.+"]
+precompileModules = false
+
+# Axiom-free source-shaped contracts compiled by both gpu_prover and its
+# downstream theorem consumers.  This library intentionally contains no
+# receipt decoder or execution boundary yet.
+[[lean_lib]]
+name = "TGComputeContracts"
+roots = ["TGComputeContracts"]
+globs = ["TGComputeContracts.+"]
+precompileModules = false
+
+# Small default root for ordinary local proof compilation.  Keep this root
+# outside the broad `SparkInterval.+` glob so its closure remains explicit.
+[[lean_lib]]
+name = "SparkIntervalCompact"
+roots = ["SparkIntervalCompact"]
 precompileModules = false
 
 [[lean_exe]]
@@ -37,3 +56,33 @@ root = "SparkInterval.GeneratePTX"
 [[lean_exe]]
 name = "sparkinterval-check-certificate"
 root = "SparkInterval.Certificate.CLI"
+
+[[lean_exe]]
+name = "sparkinterval-check-dirichlet-qorder"
+root = "SparkInterval.Dirichlet.QOrderManifestCLI"
+
+[[lean_exe]]
+name = "sparkinterval-check-dirichlet-chirp-state"
+root = "SparkInterval.Dirichlet.CertifiedChirpStateCLI"
+
+[[lean_exe]]
+name = "sparkinterval-check-dirichlet-fft-roots"
+root = "SparkInterval.Dirichlet.CertifiedFFTRootTableCLI"
+
+[[lean_exe]]
+name = "sparkinterval-check-dirichlet-basis-one-output"
+root = "SparkInterval.Dirichlet.CertifiedBasisOneOutputCLI"
+
+[[lean_exe]]
+name = "sparkinterval-check-pt21-containment"
+root = "SparkInterval.Certified.ComplexDiskContainmentArtifactCLI"
+
+# Native-code benchmark for the kernel-checked rational DFT-root generator.
+# This is an explicit target and does not enlarge the compact default build.
+[[lean_exe]]
+name = "sparkinterval-certified-root-benchmark"
+root = "SparkInterval.Tests.CertifiedRootBenchmark"
+
+[[lean_exe]]
+name = "sparkinterval-certified-root-parameter-sweep"
+root = "SparkInterval.Tests.CertifiedRootParameterSweep"

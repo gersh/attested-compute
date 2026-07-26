@@ -1,0 +1,254 @@
+{
+  "authority": {
+    "architecture_execution_proved": false,
+    "authorizes_lean_theorem": false,
+    "compiler_correctness_established_by_lane_metadata": false,
+    "production_certificate_opened": false,
+    "production_execution_performed": false
+  },
+  "azure": {
+    "acr_build_argv": [
+      "az",
+      "acr",
+      "build",
+      "--registry",
+      "${ACR_NAME}",
+      "--platform",
+      "linux/amd64",
+      "--image",
+      "sqrt218-proof-build:${LANE_MANIFEST_SHA256}",
+      "--file",
+      "proof_build/sqrt218/Dockerfile",
+      "."
+    ],
+    "acr_resolve_digest_argv": [
+      "az",
+      "acr",
+      "manifest",
+      "show-metadata",
+      "--registry",
+      "${ACR_NAME}",
+      "--name",
+      "sqrt218-proof-build:${LANE_MANIFEST_SHA256}",
+      "--query",
+      "digest",
+      "--output",
+      "tsv"
+    ],
+    "aci_run_argv": [
+      "az",
+      "container",
+      "create",
+      "--resource-group",
+      "${RESOURCE_GROUP}",
+      "--name",
+      "${CONTAINER_NAME}",
+      "--location",
+      "${LOCATION}",
+      "--image",
+      "${ACR_LOGIN_SERVER}/sqrt218-proof-build@sha256:${FINAL_IMAGE_DIGEST}",
+      "--os-type",
+      "Linux",
+      "--cpu",
+      "16",
+      "--memory",
+      "64",
+      "--restart-policy",
+      "Never",
+      "--acr-identity",
+      "${USER_ASSIGNED_IDENTITY}",
+      "--assign-identity",
+      "${USER_ASSIGNED_IDENTITY}",
+      "--vnet",
+      "${VNET_RESOURCE_ID}",
+      "--subnet",
+      "${SUBNET_NAME}",
+      "--azure-file-volume-account-name",
+      "${STORAGE_ACCOUNT}",
+      "--azure-file-volume-account-key",
+      "${AZURE_STORAGE_KEY}",
+      "--azure-file-volume-share-name",
+      "${STORAGE_SHARE}",
+      "--azure-file-volume-mount-path",
+      "/workspace",
+      "--environment-variables",
+      "TG_CLOUD_PROOF_BUILD=1",
+      "TG_REPOSITORY_ROOT=/workspace/repository",
+      "TG_PROOF_ROOT=/workspace/proof",
+      "TG_OUTPUT_ROOT=/workspace/output",
+      "TG_FINAL_IMAGE_REFERENCE=${ACR_LOGIN_SERVER}/sqrt218-proof-build@sha256:${FINAL_IMAGE_DIGEST}"
+    ],
+    "final_image_digest_required": true,
+    "network_policy": "toolchain-image-build-official-source-egress-proof-run-operator-deny-egress-vnet-required",
+    "workspace_mount": "/workspace"
+  },
+  "container": {
+    "base_image": "docker.io/rocq/rocq-prover@sha256:b85a80a11bb65c7c843f91c7cbcce282f22ee397c9ca42f123d568ab6cef68b0",
+    "base_platform": "linux/amd64",
+    "dockerfile": {
+      "path": "proof_build/sqrt218/Dockerfile",
+      "sha256": "f97a8e4904ccb3725c013bcb8c2b8dd72ef1c6c80a161c8fd55ceec97c63b4d7",
+      "size_bytes": 3336
+    },
+    "entrypoint": "/opt/sparkinterval/run_cloud_proof_build.sh",
+    "final_image_must_be_registry_digest_pinned": true
+  },
+  "evidence_outputs": {
+    "assembler.command": "commands/assembler.argv0",
+    "assembler.stderr": "commands/assembler.stderr",
+    "assembler.stdout": "commands/assembler.stdout",
+    "assembler.output_object": "retained/sqrt218_pure_entry.o",
+    "c_translation.clight_ast": "retained/Sqrt218Clight.v",
+    "c_translation.compcert_c_ast": "retained/Sqrt218CompCertC.v",
+    "c_translation.preprocessed_source": "retained/sqrt218_pure_entry.i",
+    "c_translation.source": "retained/source-closure.json",
+    "compcert.abstract_assembly": "retained/sqrt218_pure_entry.sdump",
+    "compcert.command": "commands/compcert.argv0",
+    "compcert.configuration": "retained/compcert.ini",
+    "compcert.stderr": "commands/compcert.stderr",
+    "compcert.stdout": "commands/compcert.stdout",
+    "compcert.textual_assembly": "retained/sqrt218_pure_entry.s",
+    "elf.dependencies_report": "commands/elf_dependencies.stdout",
+    "elf.file": "retained/sqrt218_cpu_checker_pure_entry_x86_64_v2",
+    "elf.header_report": "commands/elf_header.stdout",
+    "elf.program_headers_report": "commands/elf_program_headers.stdout",
+    "elf.section_headers_report": "commands/elf_section_headers.stdout",
+    "elf.symbols_report": "commands/elf_symbols.stdout",
+    "linker.command": "commands/linker.argv0",
+    "linker.link_map": "retained/sqrt218-link.map",
+    "linker.stderr": "commands/linker.stderr",
+    "linker.stdout": "commands/linker.stdout",
+    "vst.assumptions_report": "retained/vst-assumptions.txt",
+    "vst.proof_bundle": "retained/vst-proof-bundle.tar",
+    "vst.rocqchk_command": "commands/rocqchk.argv0",
+    "vst.rocqchk_stderr": "retained/rocqchk.stderr",
+    "vst.rocqchk_stdout": "retained/rocqchk.stdout"
+  },
+  "kind": "sparkinterval.sqrt218-cloud-proof-build-lane.v1",
+  "manifest_sha256": "c56b43b643e924cb6bb26667a9737350d92deb86dd2cbba691198e5bc765edee",
+  "pipeline": {
+    "entry_symbol": "tg_sq218_verify_snapshot_v2",
+    "ordered_steps": [
+      "source_closure",
+      "preprocess",
+      "csyntaxgen",
+      "clightgen",
+      "rocq_makefile",
+      "vst_proof",
+      "rocqchk",
+      "assumption_audit",
+      "proof_bundle",
+      "compcert",
+      "assembler",
+      "linker",
+      "elf_header",
+      "elf_program_headers",
+      "elf_section_headers",
+      "elf_symbols",
+      "elf_dependencies",
+      "artifact_index"
+    ],
+    "preprocessing_is_outside_verified_compcert": true,
+    "proof_run_reads_production_certificate": false,
+    "system_assembler_and_linker_are_outside_verified_compcert": true,
+    "target": "x86_64-linux",
+    "vst_statement_proves_clight_not_elf_or_physical_cpu": true
+  },
+  "proof_project": {
+    "architecture_obligation": "ArchitectureExecutionSuppliesSuccessfulPureEntry",
+    "blockers": [
+      "missing-reviewed-vst-specification-and-proof-source-pins"
+    ],
+    "checker_definition": "successfulPureEntryChecker",
+    "checker_id_source": "NativeImplementationIdentity.neutralContractId",
+    "execution_ready": false,
+    "required_files": [
+      {
+        "path": "Sqrt218Spec.v",
+        "sha256": null,
+        "size_bytes": null
+      },
+      {
+        "path": "Sqrt218Proof.v",
+        "sha256": null,
+        "size_bytes": null
+      }
+    ],
+    "source_trace": "CSuccessfulPureEntryTrace",
+    "specification_id": "sqrt218_vst_spec",
+    "verification_theorem_id": "body_tg_sq218_verify_snapshot_v2",
+    "verified_function_id": "tg_sq218_verify_snapshot_v2"
+  },
+  "schema_version": 1,
+  "source_inputs": [
+    {
+      "path": "cpu_checker/sqrt218/sqrt218_cpu_checker.c",
+      "sha256": "9444117c43f4fde219d24dbc33fba29c8b59aa91a146b88b2f83ccb7add80b6a",
+      "size_bytes": 41978
+    },
+    {
+      "path": "cpu_checker/sqrt218/sqrt218_cpu_command.c",
+      "sha256": "b7aa9e740f221d1ba12913b44d05acb5587b725316e164697abfe01385c627cb",
+      "size_bytes": 16141
+    },
+    {
+      "path": "cpu_checker/sqrt218/sqrt218_cpu_checker.h",
+      "sha256": "7bbca1f910ff436517a565a975f9f014252ccd8aca48ee9e0a3d6bd4f6fdc0f4",
+      "size_bytes": 7421
+    },
+    {
+      "path": "cpu_checker/sqrt218/sqrt218_cpu_command.h",
+      "sha256": "e0a1a579122db51c4ad3d9504663175df86e509eaac80a07ae926564bfc38cf5",
+      "size_bytes": 2844
+    },
+    {
+      "path": "proof_build/sqrt218/sqrt218_pure_entry_unit.c",
+      "sha256": "7298b3cc405d40b23f6b6ac4a9ebf57bda64954ef23d9757a345fb3092f6969f",
+      "size_bytes": 652
+    },
+    {
+      "path": "proof_build/sqrt218/Sqrt218AssumptionAudit.v",
+      "sha256": "f3f59767d4323ef40e7799a4619a93c791a83bfbbd2aa3004d9d2eb12551efe5",
+      "size_bytes": 357
+    },
+    {
+      "path": "proof_build/sqrt218/run_cloud_proof_build.sh",
+      "sha256": "c491e2cd27908356707ecbf220a3083c3aa6e937e8cc4d060a398675e9f07b09",
+      "size_bytes": 10621
+    },
+    {
+      "path": "tools/tg_sqrt218_proof_build.py",
+      "sha256": "6e35697090424ee43d3d1805da95a72068ebd1f95164554b978ffc8918e5a7a9",
+      "size_bytes": 5580
+    },
+    {
+      "path": "tg_verifier/campaign_io.py",
+      "sha256": "43d1fc2dbab398e906755a03d7abcc3fec514a73eeab4ab69871e6d40c566413",
+      "size_bytes": 15435
+    },
+    {
+      "path": "tg_verifier/sqrt218_proof_build.py",
+      "sha256": "d3d32d4248dc3aaa531d21f92177808e02ab8807a1bafa55b72a97d3f2b44ddb",
+      "size_bytes": 25830
+    }
+  ],
+  "toolchain": {
+    "compcert": {
+      "configuration": "x86_64-linux",
+      "repository": "https://github.com/AbsInt/CompCert.git",
+      "revision": "7b1f02b09954b9b916eb2a91d283c9b5355bf172",
+      "tag": "v3.17",
+      "version": "3.17"
+    },
+    "rocq": {
+      "base_image_digest": "b85a80a11bb65c7c843f91c7cbcce282f22ee397c9ca42f123d568ab6cef68b0",
+      "image": "docker.io/rocq/rocq-prover",
+      "version": "9.1.1"
+    },
+    "vst": {
+      "repository": "https://github.com/PrincetonUniversity/VST.git",
+      "revision": "cbee87efb4bee2b588f8321e16b4cb7664d5cf60",
+      "version": "2.16"
+    }
+  }
+}

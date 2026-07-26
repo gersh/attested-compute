@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-cpu-portfolio-materializer-site.schema.json",
+  "title": "SparkInterval Azure CPU portfolio materializer site",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["azure", "kind", "lean_namespace", "managed_hsm", "output_root", "policies", "schema_version", "worker"],
+  "properties": {
+    "azure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["admin_username", "image", "location", "name_prefix", "nodes", "os_disk_size_gb", "resource_group", "sku", "ssh_public_key", "subnet_id", "subscription_id", "zone"],
+      "properties": {
+        "admin_username": {"$ref": "#/$defs/azureName"},
+        "image": {"type": "string", "minLength": 1},
+        "location": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$"},
+        "name_prefix": {"$ref": "#/$defs/azureName"},
+        "nodes": {"const": 1},
+        "os_disk_size_gb": {"type": "integer", "minimum": 64, "maximum": 32767},
+        "resource_group": {"$ref": "#/$defs/azureName"},
+        "sku": {"enum": ["Standard_EC96as_v6", "Standard_DC96as_v6"]},
+        "ssh_public_key": {"$ref": "#/$defs/filePin"},
+        "subnet_id": {"type": "string", "pattern": "^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.Network/virtualNetworks/[^/]+/subnets/[^/]+$"},
+        "subscription_id": {"type": "string", "minLength": 1},
+        "zone": {"enum": ["1", "2", "3", null]}
+      }
+    },
+    "kind": {"const": "sparkinterval.azure.cpu.portfolio-materializer-site.v1"},
+    "lean_namespace": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+    "managed_hsm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key_id", "key_manifest", "key_uri", "public_key"],
+      "properties": {
+        "key_id": {"$ref": "#/$defs/name"},
+        "key_manifest": {"$ref": "#/$defs/filePin"},
+        "key_uri": {"type": "string", "pattern": "^https://[a-z0-9-]+\\.managedhsm\\.azure\\.net/keys/[A-Za-z0-9-]+/[0-9a-f]{32}$"},
+        "public_key": {"$ref": "#/$defs/filePin"}
+      }
+    },
+    "output_root": {"$ref": "#/$defs/absolutePath"},
+    "policies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["composite_appraisal", "evidence_verifier", "runner", "transcript_policy_id"],
+      "properties": {
+        "composite_appraisal": {"$ref": "#/$defs/policyPin"},
+        "evidence_verifier": {"$ref": "#/$defs/filePin"},
+        "runner": {"$ref": "#/$defs/policyPin"},
+        "transcript_policy_id": {"$ref": "#/$defs/name"}
+      }
+    },
+    "schema_version": {"const": 1},
+    "worker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["guest_root", "maa_attestation_url"],
+      "properties": {
+        "guest_root": {"$ref": "#/$defs/absolutePath"},
+        "maa_attestation_url": {"type": "string", "pattern": "^https://[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\\.attest\\.azure\\.net/attest/SevSnpVm\\?api-version=2022-08-01$"}
+      }
+    }
+  },
+  "$defs": {
+    "absolutePath": {"type": "string", "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"},
+    "azureName": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}
+      }
+    },
+    "name": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "policyPin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classification", "path", "policy_id", "sha256", "size_bytes"],
+      "properties": {
+        "classification": {"const": "production"},
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "policy_id": {"$ref": "#/$defs/name"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}
+      }
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

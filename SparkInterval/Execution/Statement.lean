@@ -36,6 +36,8 @@ structure ArtifactHashes where
 inductive ExecutionTarget where
   | dgxSparkSM121
   | nvidiaH100SM90
+  /-- Azure confidential CPU VM backed by AMD SEV-SNP, with no GPU required. -/
+  | azureSEVSNPCPU
   deriving Repr, DecidableEq, BEq
 
 /-- Trust profile named by a statement and its attested claim. -/
@@ -43,6 +45,8 @@ inductive TrustProfile where
   | localUnattested
   | mockAttested
   | nvidiaH100ConfidentialCompute
+  /-- Azure confidential-VM evidence rooted in AMD SEV-SNP and its vTPM. -/
+  | azureSEVSNPConfidentialCompute
   deriving Repr, DecidableEq, BEq
 
 /-- Completion state asserted by the external run claim. -/

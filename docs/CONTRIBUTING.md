@@ -76,11 +76,12 @@ that each area is ready to advance.
 
 ### Secure execution and certificates
 
-- Implement a production H100 confidential-computing evidence verifier with
-  pinned roots, TCB policy, measurement policy, freshness, and report-data
-  binding.
-- Design and review the trusted importer from canonical verifier output to
-  Lean's private positive-evidence capability.
+- Independently review and production-pin the Azure/AMD/vTPM and NVIDIA
+  appraisers consumed by the implemented composite evidence adapter, including
+  roots, revocation, TCB, measurements, freshness, and report-data binding.
+- Review and exercise the implemented signed-receipt/source-registry importer,
+  including Managed HSM key attestation, measured-runner policy, replay
+  durability, negative cases, and the exact generated Lean source diff.
 - Specify a content-addressed computation-certificate library, including
   immutable records, indexing, mirroring, revocation/supersession metadata,
   and a Lean-facing lookup workflow.
@@ -146,8 +147,12 @@ For Lean changes, use the safe entry point and audit dependencies:
 
 ```bash
 ./tools/safe_lake_build.py
-./tools/audit_axioms.sh
+make audit
 ```
+
+The no-argument build and local audit use `SparkIntervalCompact`. The full
+materialized axiom audit is a measured Azure qualification job; do not run
+`tools/audit_axioms.sh` as an ordinary local check.
 
 For Python changes, run the relevant focused test first, then the suite when
 practical:

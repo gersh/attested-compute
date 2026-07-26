@@ -1,0 +1,377 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/sqrt218-cloud-proof-build-lane.schema.json",
+  "title": "Sqrt218 cloud Clight/VST/CompCert proof-build lane",
+  "description": "A fail-closed command and evidence-retention plan. Validity is not a VST proof, compiler theorem, ELF refinement, architecture execution, or Lean authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "authority",
+    "azure",
+    "container",
+    "evidence_outputs",
+    "kind",
+    "manifest_sha256",
+    "pipeline",
+    "proof_project",
+    "schema_version",
+    "source_inputs",
+    "toolchain"
+  ],
+  "properties": {
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "architecture_execution_proved",
+        "authorizes_lean_theorem",
+        "compiler_correctness_established_by_lane_metadata",
+        "production_certificate_opened",
+        "production_execution_performed"
+      ],
+      "properties": {
+        "architecture_execution_proved": {"const": false},
+        "authorizes_lean_theorem": {"const": false},
+        "compiler_correctness_established_by_lane_metadata": {"const": false},
+        "production_certificate_opened": {"const": false},
+        "production_execution_performed": {"const": false}
+      }
+    },
+    "azure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "acr_build_argv",
+        "acr_resolve_digest_argv",
+        "aci_run_argv",
+        "final_image_digest_required",
+        "network_policy",
+        "workspace_mount"
+      ],
+      "properties": {
+        "acr_build_argv": {"$ref": "#/$defs/argv"},
+        "acr_resolve_digest_argv": {"$ref": "#/$defs/argv"},
+        "aci_run_argv": {"$ref": "#/$defs/argv"},
+        "final_image_digest_required": {"const": true},
+        "network_policy": {
+          "const": "toolchain-image-build-official-source-egress-proof-run-operator-deny-egress-vnet-required"
+        },
+        "workspace_mount": {"const": "/workspace"}
+      }
+    },
+    "container": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_image",
+        "base_platform",
+        "dockerfile",
+        "entrypoint",
+        "final_image_must_be_registry_digest_pinned"
+      ],
+      "properties": {
+        "base_image": {"$ref": "#/$defs/imageByDigest"},
+        "base_platform": {"const": "linux/amd64"},
+        "dockerfile": {"$ref": "#/$defs/filePin"},
+        "entrypoint": {"const": "/opt/sparkinterval/run_cloud_proof_build.sh"},
+        "final_image_must_be_registry_digest_pinned": {"const": true}
+      }
+    },
+    "evidence_outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assembler.command",
+        "assembler.output_object",
+        "assembler.stderr",
+        "assembler.stdout",
+        "c_translation.clight_ast",
+        "c_translation.compcert_c_ast",
+        "c_translation.preprocessed_source",
+        "c_translation.source",
+        "compcert.abstract_assembly",
+        "compcert.command",
+        "compcert.configuration",
+        "compcert.stderr",
+        "compcert.stdout",
+        "compcert.textual_assembly",
+        "elf.dependencies_report",
+        "elf.file",
+        "elf.header_report",
+        "elf.program_headers_report",
+        "elf.section_headers_report",
+        "elf.symbols_report",
+        "linker.command",
+        "linker.link_map",
+        "linker.stderr",
+        "linker.stdout",
+        "vst.assumptions_report",
+        "vst.proof_bundle",
+        "vst.rocqchk_command",
+        "vst.rocqchk_stderr",
+        "vst.rocqchk_stdout"
+      ],
+      "properties": {
+        "assembler.command": {"$ref": "#/$defs/relativePath"},
+        "assembler.output_object": {"$ref": "#/$defs/relativePath"},
+        "assembler.stderr": {"$ref": "#/$defs/relativePath"},
+        "assembler.stdout": {"$ref": "#/$defs/relativePath"},
+        "c_translation.clight_ast": {"$ref": "#/$defs/relativePath"},
+        "c_translation.compcert_c_ast": {"$ref": "#/$defs/relativePath"},
+        "c_translation.preprocessed_source": {"$ref": "#/$defs/relativePath"},
+        "c_translation.source": {"$ref": "#/$defs/relativePath"},
+        "compcert.abstract_assembly": {"$ref": "#/$defs/relativePath"},
+        "compcert.command": {"$ref": "#/$defs/relativePath"},
+        "compcert.configuration": {"$ref": "#/$defs/relativePath"},
+        "compcert.stderr": {"$ref": "#/$defs/relativePath"},
+        "compcert.stdout": {"$ref": "#/$defs/relativePath"},
+        "compcert.textual_assembly": {"$ref": "#/$defs/relativePath"},
+        "elf.dependencies_report": {"$ref": "#/$defs/relativePath"},
+        "elf.file": {"$ref": "#/$defs/relativePath"},
+        "elf.header_report": {"$ref": "#/$defs/relativePath"},
+        "elf.program_headers_report": {"$ref": "#/$defs/relativePath"},
+        "elf.section_headers_report": {"$ref": "#/$defs/relativePath"},
+        "elf.symbols_report": {"$ref": "#/$defs/relativePath"},
+        "linker.command": {"$ref": "#/$defs/relativePath"},
+        "linker.link_map": {"$ref": "#/$defs/relativePath"},
+        "linker.stderr": {"$ref": "#/$defs/relativePath"},
+        "linker.stdout": {"$ref": "#/$defs/relativePath"},
+        "vst.assumptions_report": {"$ref": "#/$defs/relativePath"},
+        "vst.proof_bundle": {"$ref": "#/$defs/relativePath"},
+        "vst.rocqchk_command": {"$ref": "#/$defs/relativePath"},
+        "vst.rocqchk_stderr": {"$ref": "#/$defs/relativePath"},
+        "vst.rocqchk_stdout": {"$ref": "#/$defs/relativePath"}
+      }
+    },
+    "kind": {
+      "const": "sparkinterval.sqrt218-cloud-proof-build-lane.v1"
+    },
+    "manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entry_symbol",
+        "ordered_steps",
+        "preprocessing_is_outside_verified_compcert",
+        "proof_run_reads_production_certificate",
+        "system_assembler_and_linker_are_outside_verified_compcert",
+        "target",
+        "vst_statement_proves_clight_not_elf_or_physical_cpu"
+      ],
+      "properties": {
+        "entry_symbol": {"const": "tg_sq218_verify_snapshot_v2"},
+        "ordered_steps": {
+          "type": "array",
+          "minItems": 18,
+          "maxItems": 18,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/name"}
+        },
+        "preprocessing_is_outside_verified_compcert": {"const": true},
+        "proof_run_reads_production_certificate": {"const": false},
+        "system_assembler_and_linker_are_outside_verified_compcert": {
+          "const": true
+        },
+        "target": {"const": "x86_64-linux"},
+        "vst_statement_proves_clight_not_elf_or_physical_cpu": {"const": true}
+      }
+    },
+    "proof_project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "architecture_obligation",
+        "blockers",
+        "checker_definition",
+        "checker_id_source",
+        "execution_ready",
+        "required_files",
+        "source_trace",
+        "specification_id",
+        "verification_theorem_id",
+        "verified_function_id"
+      ],
+      "properties": {
+        "architecture_obligation": {
+          "const": "ArchitectureExecutionSuppliesSuccessfulPureEntry"
+        },
+        "blockers": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/name"}
+        },
+        "execution_ready": {"type": "boolean"},
+        "checker_definition": {"const": "successfulPureEntryChecker"},
+        "checker_id_source": {
+          "const": "NativeImplementationIdentity.neutralContractId"
+        },
+        "required_files": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"$ref": "#/$defs/nullableFilePin"}
+        },
+        "source_trace": {"const": "CSuccessfulPureEntryTrace"},
+        "specification_id": {"const": "sqrt218_vst_spec"},
+        "verification_theorem_id": {
+          "const": "body_tg_sq218_verify_snapshot_v2"
+        },
+        "verified_function_id": {"const": "tg_sq218_verify_snapshot_v2"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"execution_ready": {"const": true}},
+            "required": ["execution_ready"]
+          },
+          "then": {
+            "properties": {
+              "blockers": {"maxItems": 0},
+              "required_files": {
+                "items": {"$ref": "#/$defs/filePin"}
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"execution_ready": {"const": false}},
+            "required": ["execution_ready"]
+          },
+          "then": {
+            "properties": {"blockers": {"minItems": 1}}
+          }
+        }
+      ]
+    },
+    "schema_version": {"const": 1},
+    "source_inputs": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/filePin"}
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compcert", "rocq", "vst"],
+      "properties": {
+        "compcert": {"$ref": "#/$defs/sourceTool"},
+        "rocq": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["base_image_digest", "image", "version"],
+          "properties": {
+            "base_image_digest": {"$ref": "#/$defs/sha256"},
+            "image": {"const": "docker.io/rocq/rocq-prover"},
+            "version": {"const": "9.1.1"}
+          }
+        },
+        "vst": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repository", "revision", "version"],
+          "properties": {
+            "repository": {
+              "const": "https://github.com/PrincetonUniversity/VST.git"
+            },
+            "revision": {"$ref": "#/$defs/gitRevision"},
+            "version": {"const": "2.16"}
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "argv": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024,
+        "pattern": "^[^\\u0000\\r\\n]+$"
+      }
+    },
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/relativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "gitRevision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "imageByDigest": {
+      "type": "string",
+      "pattern": "^[^@\\s]+@sha256:[0-9a-f]{64}$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+    },
+    "nullableFilePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/relativePath"},
+        "sha256": {
+          "oneOf": [{"type": "null"}, {"$ref": "#/$defs/sha256"}]
+        },
+        "size_bytes": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            }
+          ]
+        }
+      }
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!\\.\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9_.+-]+(?:/[A-Za-z0-9_.+-]+)*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "not": {
+        "const": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    "sourceTool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "configuration",
+        "repository",
+        "revision",
+        "tag",
+        "version"
+      ],
+      "properties": {
+        "configuration": {"const": "x86_64-linux"},
+        "repository": {"const": "https://github.com/AbsInt/CompCert.git"},
+        "revision": {"$ref": "#/$defs/gitRevision"},
+        "tag": {"const": "v3.17"},
+        "version": {"const": "3.17"}
+      }
+    }
+  }
+}

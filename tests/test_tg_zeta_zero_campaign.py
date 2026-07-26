@@ -28,7 +28,10 @@ from tg_verifier.zeta_zero_campaign import (  # noqa: E402
     create_plan,
     finalize_campaign,
     initialize_campaign,
+    q128_cell_from_interval,
     replay_chunk,
+    render_head_q128_lean_module,
+    retained_head_q128_cells,
     run_campaign,
     verify_campaign,
 )
@@ -182,6 +185,63 @@ class ZetaZeroCampaignTests(unittest.TestCase):
             run_campaign(root, replay_count=False, backend=backend)
             with self.assertRaisesRegex(ZetaCampaignError, "fresh FLINT replay differs"):
                 replay_chunk(root, 0, backend=ShiftedFakeBackend())
+
+    def test_head_chunks_retain_and_authenticate_every_interval_preimage(self) -> None:
+        backend = FakeBackend()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            initialize_campaign(
+                root,
+                PLATT_HEAD_2E4,
+                batch_size=22_492,
+                backend=backend,
+            )
+            run_campaign(root, replay_count=False, backend=backend)
+            path = root / "chunk-000000000000.json"
+            document = json.loads(path.read_text(encoding="ascii"))
+            retained = document["retained_ordinate_intervals"]
+            self.assertEqual(len(retained), 22_492)
+            self.assertEqual(retained[0]["index"], 1)
+            self.assertEqual(retained[-1]["index"], 22_492)
+            changed = Fraction(
+                retained[1]["lower"]["numerator"] + 1,
+                retained[1]["lower"]["denominator"],
+            )
+            retained[1]["lower"] = {
+                "numerator": changed.numerator,
+                "denominator": changed.denominator,
+            }
+            retained[1]["upper"] = dict(retained[1]["lower"])
+            path.write_bytes(canonical_json_bytes(document))
+            with self.assertRaisesRegex(ZetaCampaignError, "retained interval digest"):
+                verify_campaign(root, require_complete=True)
+
+    def test_q128_rounding_and_reviewed_table_gate(self) -> None:
+        cell = q128_cell_from_interval(
+            1, IsolatedOrdinate(Fraction(3, 2), Fraction(3, 2))
+        )
+        self.assertEqual(cell.lower, 3 * (1 << 127))
+        self.assertEqual(cell.upper, cell.lower)
+        self.assertGreaterEqual(cell.reciprocal_upper * cell.lower, 1 << 256)
+        with self.assertRaisesRegex(ZetaCampaignError, "namespace is malformed"):
+            render_head_q128_lean_module((), namespace="Bad; #eval 1")
+
+    def test_fake_campaign_cannot_impersonate_reviewed_q128_table(self) -> None:
+        backend = FakeBackend()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            initialize_campaign(
+                root,
+                PLATT_HEAD_2E4,
+                batch_size=22_492,
+                backend=backend,
+            )
+            run_campaign(root, replay_count=False, backend=backend)
+            finalize_campaign(root)
+            with self.assertRaisesRegex(
+                ZetaCampaignError, "differ from the reviewed claude_math table"
+            ):
+                retained_head_q128_cells(root)
 
     def test_cli_exposes_profiles_without_importing_flint(self) -> None:
         completed = subprocess.run(

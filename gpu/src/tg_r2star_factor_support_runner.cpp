@@ -3,6 +3,7 @@
 
 #include "tg_r2star_factor_support.h"
 
+#include "sparkinterval/measured_worker_scope.hpp"
 #include "sparkinterval/sha256.hpp"
 
 #include <array>
@@ -237,6 +238,9 @@ bool same_record(const TgR2StarFactorSupport& left,
 
 int main(int argc, char** argv) {
   const Options options = parse_options(argc, argv);
+  if (!sparkinterval::permits_finite_work(options.count)) {
+    fail(sparkinterval::kCloudOnlyWorkloadError);
+  }
   const std::size_t count = static_cast<std::size_t>(options.count);
   const std::uint64_t upper = options.lower + options.count - 1;
   const std::uint64_t base_prime_limit = integer_square_root(upper);

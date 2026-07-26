@@ -262,14 +262,141 @@ them explicitly with `--reference-max-precision`,
 `--reference-max-contour-evaluations` (`0` means unlimited), and
 `--reference-max-grid-refinements`; changing one on resume fails closed.
 
-## Remaining implementation work
+## Implemented optimized components
 
-The principal remaining computation work is a practical implementation of
-Platt's high-height lattice/Taylor, unit-group FFT, and Turing pipeline, plus
-an independently implemented checker. FLINT's built-in certified Turing and
-indexed-zero facilities are for Riemann zeta, not a drop-in Dirichlet
-completeness proof. The reference backend avoids that gap with a general
-zero-free-contour argument, but its interval subdivision cost is unsuitable
-for claiming a feasible source run. On the formal side, Lean still needs the
-theorems connecting FLINT's raw-`L` contour/Hardy-Z computations and the
-external multiplicity count to `DirichletCharacter.LFunction`.
+The repository now implements substantially more than the original direct
+FLINT fallback, while retaining a fail-closed boundary around their
+composition:
+
+- [DIRICHLET_LATTICE_CERTIFICATES.md](DIRICHLET_LATTICE_CERTIFICATES.md)
+  generates pinned-Arb `D=2048`, `c=0..15` Hurwitz rectangles, finite addback,
+  and a project-derived exact-rational Taylor-tail certificate;
+- [DIRICHLET_LATTICE_H100_STAGE.md](DIRICHLET_LATTICE_H100_STAGE.md) performs
+  every sixteen-term large-`q` Taylor reconstruction with directed CUDA
+  arithmetic and an exact independent checker;
+- [DIRICHLET_RESIDUE_COMPOSITION.md](DIRICHLET_RESIDUE_COMPOSITION.md) validates
+  the complete lattice/replay chain, encloses `q^(-s)` with MPFR, and emits
+  canonical transform frames through a persistent bounded adapter;
+- [DIRICHLET_LARGEQ_BATCH_STAGE.md](DIRICHLET_LARGEQ_BATCH_STAGE.md) alternatively
+  fuses Taylor reconstruction and residue composition for up to 64 ordinates
+  in one directed CUDA kernel with no device transcendental;
+- [DIRICHLET_RECOVERY_SEEDED_STAGE.md](DIRICHLET_RECOVERY_SEEDED_STAGE.md)
+  replaces the 13.084-PB per-value finite-recovery/tail stream by one fully
+  Arb-replayed 96-MB recurrence-seed artifact and a compact fused CUDA format.
+  The exact logical input falls to 5.180 PB, with no device transcendental;
+- [DIRICHLET_ALL_CHARACTER_FFT_STAGE.md](DIRICHLET_ALL_CHARACTER_FFT_STAGE.md)
+  implements the quasi-linear all-character CRT/Bluestein directed interval
+  transform, canonical residue/Conrey adapters, persistent per-modulus plans,
+  and 192-bit MPFR replay;
+- [DIRICHLET_BOOKER_SMALLQ_STAGE.md](DIRICHLET_BOOKER_SMALLQ_STAGE.md)
+  implements the complete small-`q` Gaussian formulas and explicit tails, an
+  untrusted midpoint accelerator, and a separate v2 directed-disk finite-sum
+  and persistent DFT engine whose seeds are independently checked with Arb.
+  Its q-level semantic reducer separately replays both parity time-tail
+  controls and retains one strict-sign-or-ambiguity code for every bound
+  character/sample coordinate;
+- [DIRICHLET_ROOT_NUMBER_STAGE.md](DIRICHLET_ROOT_NUMBER_STAGE.md) constructs
+  primitive-only, convention-bound all-character Gauss/root-number artifacts
+  and supplies them to the completed-L consumer without quadratic work;
+- [DIRICHLET_STREAM_ZERO_CONSUMER.md](DIRICHLET_STREAM_ZERO_CONSUMER.md)
+  consumes persistent all-character frames without materializing them,
+  reconstructs primitive identities, forms completed values, and retains
+  multiplicity-lower-bound sign brackets in compact hash-bound receipts;
+- [DIRICHLET_ZERO_CLOSURE_STAGE.md](DIRICHLET_ZERO_CLOSURE_STAGE.md) implements
+  completed-value reconstruction from interval `L`, finite sinc interpolation,
+  separate Weiss/tail budgets, direct-Arb exception closure, multiplicity-
+  preserving zero lists, and conjugate-paired Turing arithmetic;
+- [DIRICHLET_FACTOR8_POSTPROCESS.md](DIRICHLET_FACTOR8_POSTPROCESS.md) isolates
+  the routine factor-eight grid into a directed forty-tap CUDA convolution and
+  two-bit sign reducer. Its 280 source coefficients have a complete fresh Arb
+  replay, and bounded strict signs have an independent exact-rational endpoint
+  checker. It does not prove the uniform interpolation allowance or upstream
+  completed values;
+- [DIRICHLET_LARGEQ_PIPELINE.md](DIRICHLET_LARGEQ_PIPELINE.md) launches one
+  back-pressured persistent composition/FFT/completed-L graph per q shard and
+  verifies all cross-stage stream hashes and counts;
+- [DIRICHLET_FFT_PIPELINE_RECEIPT_BUNDLE.md](DIRICHLET_FFT_PIPELINE_RECEIPT_BUNDLE.md)
+  reparses every retained artifact and binds one pipeline receipt to one exact
+  fixed-q source-supervisor FFT target without claiming replay of discarded
+  stream arithmetic;
+- [DIRICHLET_ROOT_CATALOG.md](DIRICHLET_ROOT_CATALOG.md) parses, receipt-binds,
+  and commits
+  the exact monotone 292,500-modulus `TGDRNRO1` artifact set; and
+- [DIRICHLET_SOURCE_SUPERVISOR.md](DIRICHLET_SOURCE_SUPERVISOR.md) binds the
+  cache, fresh recovery replay, root catalog, and the retained legacy-V1
+  eight-lane q-tile assignment and 76,770,217 fixed-q FFT batch roster; it
+  must be versioned to the primitive-only V2 roster before production use; and
+- [DIRICHLET_TMAJOR_SPOOL.md](DIRICHLET_TMAJOR_SPOOL.md) stores each
+  authenticated lane row once and emits the exact hash-bound fixed-q run
+  roster without petabyte-scale row copying; and
+- [DIRICHLET_TMAJOR_CUDA_BLOCK.md](DIRICHLET_TMAJOR_CUDA_BLOCK.md) directly
+  generates replayed MPFR factors and exact-rational tails, packages the
+  authenticated rows into a 286,556,459,000-byte primitive-only V2
+  source-wide `TGDLTMB1`
+  model, and runs the seeded composition kernel after one row-block upload;
+  and
+- [DIRICHLET_FUSED_CHARACTER_STAGE.md](DIRICHLET_FUSED_CHARACTER_STAGE.md)
+  remains a useful sparse selected-character exception/audit oracle.
+
+Every component has explicit source-work counts, KATs, and
+`external_atom_discharged=false`.  The persistent graph removes per-batch
+process creation and never materializes the primitive-only V2 8.534 PB
+transformed
+rectangle stream.  The fused large-q alternative reduces the main-grid kernel
+count from `3,637,613,167` to `56,981,100`. The retained V1 seeded-recovery
+model reduces its literal certified input from 18.264 PB to 5.180 PB. The
+separate t-major
+cache specifies and authenticates the 125-GiB unique lattice payload. The
+former model still repeated canonical descriptor tables and totaled 41.414
+TB. The direct `TGDLTMB1` path reconstructs those descriptors, eliminates
+q-major source frames, and makes the primitive-only V2 binary input
+286.556 GB (286.652 GB including recovery seeds), but the cache is not
+populated and no
+source-scale/H100 run exists.
+
+## Remaining production and analytic work
+
+The optimized component graph is not yet a conforming end-to-end proof of the
+atom.  It still needs:
+
+1. populate the implemented authenticated t-major Hurwitz cache and root
+   catalog, then connect the implemented row-resident CUDA component's
+   mixed-q `TGDAFFI1` output to persistent all-character FFT, typed-bundle
+   admission, completed-\(L\), and authenticated zero-state import/export.
+   The direct component and its independent factor/tail replay are bounded and
+   tested, but no source cache, H100 measurement, source-scale run, or
+   attestation exists;
+2. source-campaign integration and a measured H100 deployment of the
+   implemented small-`q` device classifier and semantic reducer. Its complete
+   even/odd time-tail controls and ordered two-bit sign/ambiguity output are
+   specified and checked; device mode removes the 226.996-TB raw-disk transfer
+   for this component, but only a local synthetic q-level differential run
+   exists. A source-wide proof that the accumulated/scaled directed disks
+   remain useful for zero isolation is also still required;
+3. a uniform proof of the accepted manuscript's interpolation error over every
+   source case, including an explicit replacement for its printed "large
+   enough" condition;
+4. a source-wide exception and window-shift policy;
+5. theorem-level review of the corrected reflected Turing upper bound.  The
+   executable path now uses Booker upper-at-`+t0` minus lower-at-`-t0`, reflects
+   the negative window to `bar-chi`, includes the source `+2/pi`, and scales
+   Phi by `1/(h*pi)` but staircase/S terms by `1/h`.  The literal common-
+   denominator display still fails the `q=3` KAT, and the corrected candidate
+   remains `production_accept=false` until its analytic/Lean bridge exists; and
+6. a completed source run, independent replay, and Lean realization theorem.
+
+The direct argument-principle FLINT backend remains a rigorous full-domain
+fallback and does not rely on the disputed Turing display, but its subdivision
+cost is unsuitable for a practical source-scale claim.  FLINT's indexed-zeta
+facilities are not a drop-in Dirichlet completeness proof.  On the formal
+side, Lean still needs the theorem connecting whichever retained analytic
+certificate is selected to `DirichletCharacter.LFunction`.
+
+The final conditional receipt boundary is already closed. The Azure
+CPU/SEV-SNP invocation `plattDirichletTheorem71ProductionV1` accepts `true`
+only with the exact universal even/odd `PlattTheorem71SourceEvidence` and then
+derives the expanded source proposition by an ordinary Lean theorem; `false`
+proves nothing. This prevents a future scheduler digest or partial run from
+being promoted by itself. There is not yet a source-evidence materializer,
+completed campaign, or successful receipt, so the Azure semantic binding
+remains disabled/null.

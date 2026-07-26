@@ -10,6 +10,8 @@ import sys
 import tempfile
 import unittest
 
+from tools import tg_verify as tg_verify_cli
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 CLI = REPOSITORY_ROOT / "tools" / "tg_verify.py"
@@ -33,13 +35,13 @@ class TernaryGoldbachCliTests(unittest.TestCase):
         self.assertEqual(len(value["atoms"]), 13)
 
     def test_bounded_sample_discloses_scope(self) -> None:
-        completed = self.run_cli("sample-arithmetic", "--limit", "100")
+        completed = self.run_cli("sample-arithmetic", "--limit", "64")
         self.assertEqual(completed.returncode, 0, completed.stderr)
         value = json.loads(completed.stdout)
         self.assertEqual(
             value["classification"], "bounded_exact_sample_not_full_verification"
         )
-        self.assertEqual(value["sample_limit"], 100)
+        self.assertEqual(value["sample_limit"], 64)
         self.assertIn("mertens-hurst", value["results"])
 
     def test_missing_artifact_fails_closed(self) -> None:
@@ -82,16 +84,68 @@ class TernaryGoldbachCliTests(unittest.TestCase):
         completed = self.run_cli("replay-a7-flint", "--help")
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertIn("pinned FLINT/Arb", completed.stdout)
+        self.assertIn("--registered-result-output", completed.stdout)
+
+    def test_a7_registered_result_writer_is_exact_and_exclusive(self) -> None:
+        report = {
+            "accepted": True,
+            "artifact_kind": "ch25_a7_boundary",
+            "verification_class": "complete_external_flint_arb_leaf_replay",
+            "artifact_sha256": tg_verify_cli._A7_RETAINED_ARTIFACT_SHA256,
+            "artifact_bytes_match_pinned_sha256": True,
+            "python_flint_version": "0.9.0",
+            "flint_version": "3.6.0",
+            "flint_release": 30_600,
+            "leaf_count": 16_191,
+            "four_edge_dyadic_cover_verified": True,
+            "every_leaf_flint_box_recomputed": True,
+            "every_exact_leaf_endpoint_matched": True,
+            "all_denominator_and_zeta_nonvanishing_guards_checked": True,
+            "strict_norm_square_bound_verified_under_flint_semantics": True,
+            "external_analytic_verification_complete": True,
+            "ordinary_kernel_lean_proof": False,
+            "mathlib_zeta_realization_theorem_present": False,
+            "lean_atom_discharged": False,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "nested/registered-result.txt"
+            metadata = tg_verify_cli._write_a7_registered_result(report, output)
+            self.assertEqual(output.read_bytes(), b"true")
+            self.assertEqual(
+                metadata,
+                {
+                    "path": str(output.resolve()),
+                    "sha256": (
+                        "b5bea41b6c623f7c09f1bf24dcae58e"
+                        "bab3c0cdd90ad966bc43a45b44867e12b"
+                    ),
+                    "bytes": 4,
+                    "format": "literal_ascii_true_no_newline_v1",
+                },
+            )
+            with self.assertRaisesRegex(
+                tg_verify_cli.EvidenceError, "refusing to overwrite"
+            ):
+                tg_verify_cli._write_a7_registered_result(report, output)
+
+            attacker = dict(report)
+            attacker["artifact_bytes_match_pinned_sha256"] = False
+            with self.assertRaisesRegex(
+                tg_verify_cli.EvidenceError, "closed registered invocation"
+            ):
+                tg_verify_cli._write_a7_registered_result(
+                    attacker, Path(directory) / "attacker.txt"
+                )
 
     def test_bounded_psi_command_checks_exact_stream(self) -> None:
-        completed = self.run_cli("verify-psi-range", "--limit", "1000")
+        completed = self.run_cli("verify-psi-range", "--limit", "64")
         self.assertEqual(completed.returncode, 0, completed.stderr)
         value = json.loads(completed.stdout)
         self.assertEqual(
             value["classification"],
             "bounded_exact_sample_not_full_verification",
         )
-        self.assertEqual(value["result"]["events"], 193)
+        self.assertEqual(value["result"]["events"], 27)
         self.assertFalse(value["result"]["lean_atom_discharged"])
 
     def test_prop1224_scheduler_reports_semantic_gap(self) -> None:
@@ -106,13 +160,13 @@ class TernaryGoldbachCliTests(unittest.TestCase):
         completed = self.run_cli(
             "verify-prop1224-sample",
             "--q",
-            "6469693230",
+            "100000",
             "--bits",
-            "96",
+            "64",
             "--log-terms",
             "32",
             "--max-pairs",
-            "1000",
+            "64",
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
         value = json.loads(completed.stdout)
@@ -120,10 +174,10 @@ class TernaryGoldbachCliTests(unittest.TestCase):
             value["classification"],
             "bounded_directed_rational_sample_not_full_verification",
         )
-        self.assertEqual(value["checked_pairs"], 136)
+        self.assertEqual(value["checked_pairs"], 37)
         self.assertEqual(
             (value["conservative_first_k"], value["conservative_last_k"]),
-            (586, 721),
+            (1, 37),
         )
         self.assertTrue(value["endpoint_enclosures_recomputed"])
         self.assertTrue(value["margin_enclosures_recomputed"])
@@ -138,9 +192,9 @@ class TernaryGoldbachCliTests(unittest.TestCase):
         completed = self.run_cli(
             "verify-r2star-range",
             "--limit",
-            "100",
+            "64",
             "--harmonic-terms",
-            "1000",
+            "64",
             "--block-size",
             "31",
         )

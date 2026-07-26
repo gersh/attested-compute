@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-cpu-goldbach10pow27-materializer-site.schema.json",
+  "title": "SparkInterval finite-Goldbach-below-10^27 Azure CPU materializer site",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["base_site", "goldbach10pow27", "kind", "schema_version"],
+  "properties": {
+    "base_site": {"$ref": "#/$defs/filePin"},
+    "goldbach10pow27": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["build_admission", "gmp_source_root", "goldbach_executable", "hardened_goldbach_source_root", "predecessor_exports", "terminal_child_identity_commitment"],
+      "properties": {
+        "build_admission": {"$ref": "#/$defs/buildAdmission"},
+        "gmp_source_root": {"$ref": "#/$defs/absolutePath"},
+        "goldbach_executable": {"$ref": "#/$defs/filePin"},
+        "hardened_goldbach_source_root": {"$ref": "#/$defs/absolutePath"},
+        "predecessor_exports": {
+          "type": "array",
+          "maxItems": 8193,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["export", "group_id", "shard_index"],
+            "properties": {
+              "export": {"$ref": "#/$defs/filePin"},
+              "group_id": {"type": "string", "pattern": "^ternary-goldbach-finite-below-10pow27-v1::[a-z0-9-]+$"},
+              "shard_index": {"type": "integer", "minimum": 0, "maximum": 8191}
+            }
+          }
+        },
+        "terminal_child_identity_commitment": {"$ref": "#/$defs/terminalChildCommitment"}
+      }
+    },
+    "kind": {"const": "sparkinterval.azure.cpu.goldbach10pow27-materializer-site.v1"},
+    "schema_version": {"const": 1}
+  },
+  "$defs": {
+    "buildAdmission": {
+      "oneOf": [
+        {"$ref": "#/$defs/filePin"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reason", "status"],
+          "properties": {
+            "reason": {"type": "string", "minLength": 1},
+            "status": {"const": "unconfigured"}
+          }
+        }
+      ]
+    },
+    "terminalChildCommitment": {
+      "oneOf": [
+        {"$ref": "#/$defs/filePin"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reason", "status"],
+          "properties": {
+            "reason": {"type": "string", "minLength": 1},
+            "status": {"const": "unconfigured"}
+          }
+        }
+      ]
+    },
+    "absolutePath": {"type": "string", "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"},
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}
+      }
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

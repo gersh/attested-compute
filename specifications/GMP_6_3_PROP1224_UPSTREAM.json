@@ -1,0 +1,16 @@
+{
+  "kind": "sparkinterval.pinned_release_archive_source.v1",
+  "name": "GNU GMP 6.3.0 for Proposition 12.2.4",
+  "version": "6.3.0",
+  "source_url": "https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz",
+  "archive_filename": "gmp-6.3.0.tar.xz",
+  "archive_sha256": "a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898",
+  "archive_size_bytes": 2094196,
+  "archive_root": "gmp-6.3.0",
+  "license": "LGPL-3.0-or-later OR GPL-2.0-or-later",
+  "source_file_count": 2156,
+  "source_bytes": 16998222,
+  "source_tree_hash_domain": "sparkinterval/upstream-source-tree/v1",
+  "source_tree_sha256": "a1cba368a6dcf6d3bd96715628d4837c071f38cb3e35db45aeaac063ad0623a6",
+  "required_paths": ["COPYING", "COPYING.LESSERv3", "configure", "gmp-h.in", "gmpxx.h"]
+}

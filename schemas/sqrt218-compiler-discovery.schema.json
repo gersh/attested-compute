@@ -1,0 +1,336 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/sqrt218-compiler-discovery.schema.json",
+  "title": "Non-authorizing Sqrt218 compiler-discovery metadata",
+  "description": "A cloud-only, currently unready artifact-retention plan. Validation reads only this manifest and proves no source, compiler, decoder, ELF, ISA, execution, receipt, or Lean theorem claim.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "authority",
+    "cloud_policy",
+    "elf_gate",
+    "inventory_contract",
+    "kind",
+    "manifest_sha256",
+    "pipeline",
+    "retained_artifacts",
+    "schema_version",
+    "scope",
+    "source_inputs",
+    "toolchain"
+  ],
+  "properties": {
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "architecture_execution_proved",
+        "authorizes_lean_theorem",
+        "authorizes_receipt",
+        "compiler_correctness_proved",
+        "elf_loader_correctness_proved",
+        "instruction_decoder_correctness_proved",
+        "isa_correctness_proved",
+        "production_certificate_opened",
+        "production_execution_performed",
+        "vst_proof_present"
+      ],
+      "properties": {
+        "architecture_execution_proved": {"const": false},
+        "authorizes_lean_theorem": {"const": false},
+        "authorizes_receipt": {"const": false},
+        "compiler_correctness_proved": {"const": false},
+        "elf_loader_correctness_proved": {"const": false},
+        "instruction_decoder_correctness_proved": {"const": false},
+        "isa_correctness_proved": {"const": false},
+        "production_certificate_opened": {"const": false},
+        "production_execution_performed": {"const": false},
+        "vst_proof_present": {"const": false}
+      }
+    },
+    "cloud_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blockers",
+        "cloud_only",
+        "execution_ready",
+        "generated_elf_execution_allowed",
+        "local_tool_invocation_allowed",
+        "network_policy",
+        "production_certificate_access_allowed",
+        "requires_final_image_registry_digest"
+      ],
+      "properties": {
+        "blockers": {
+          "const": ["missing-pinned-discovery-container-and-runner"]
+        },
+        "cloud_only": {"const": true},
+        "execution_ready": {"const": false},
+        "generated_elf_execution_allowed": {"const": false},
+        "local_tool_invocation_allowed": {"const": false},
+        "network_policy": {
+          "const": "operator-deny-egress-discovery-run-required"
+        },
+        "production_certificate_access_allowed": {"const": false},
+        "requires_final_image_registry_digest": {"const": true}
+      }
+    },
+    "elf_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_pt_load_rows_count_permissions_recorded",
+        "duplicate_entry_symbol_rejected",
+        "dynamic_dependencies_rejected",
+        "entry_must_equal_unique_defined_global_function",
+        "interpreter_rejected",
+        "relocations_in_final_elf_rejected",
+        "undefined_final_symbols_rejected",
+        "writable_executable_segments_rejected"
+      ],
+      "properties": {
+        "all_pt_load_rows_count_permissions_recorded": {"const": true},
+        "duplicate_entry_symbol_rejected": {"const": true},
+        "dynamic_dependencies_rejected": {"const": true},
+        "entry_must_equal_unique_defined_global_function": {"const": true},
+        "interpreter_rejected": {"const": true},
+        "relocations_in_final_elf_rejected": {"const": true},
+        "undefined_final_symbols_rejected": {"const": true},
+        "writable_executable_segments_rejected": {"const": true}
+      }
+    },
+    "inventory_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "aggregate_keys",
+        "decoder_authoritative_for_x86_semantics",
+        "direct_cfg_closure_complete_required",
+        "every_aggregate_form_has_gap_tags",
+        "every_instruction_has_gap_tags",
+        "exact_instruction_fields",
+        "reachability_classification",
+        "required_gap_tags",
+        "reject_conditions"
+      ],
+      "properties": {
+        "aggregate_keys": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/name"}
+        },
+        "decoder_authoritative_for_x86_semantics": {"const": false},
+        "direct_cfg_closure_complete_required": {"const": true},
+        "every_aggregate_form_has_gap_tags": {"const": true},
+        "every_instruction_has_gap_tags": {"const": true},
+        "exact_instruction_fields": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/name"}
+        },
+        "reachability_classification": {
+          "const": "objdump-derived-direct-cfg-closure-not-semantic-proof"
+        },
+        "required_gap_tags": {
+          "const": [
+            "operand-size-prefix-0x66",
+            "imul-two-or-three-operand",
+            "bswap",
+            "shld",
+            "sse-or-xmm",
+            "rol-or-ror",
+            "vex",
+            "evex",
+            "unknown-encoding-form"
+          ]
+        },
+        "reject_conditions": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/name"}
+        }
+      }
+    },
+    "kind": {
+      "const": "sparkinterval.sqrt218-compiler-discovery-lane.v1"
+    },
+    "manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commands", "ordered_steps"],
+      "properties": {
+        "commands": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["argv", "step"],
+            "properties": {
+              "argv": {"$ref": "#/$defs/argv"},
+              "step": {"$ref": "#/$defs/name"}
+            }
+          }
+        },
+        "ordered_steps": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/name"}
+        }
+      }
+    },
+    "retained_artifacts": {
+      "type": "array",
+      "minItems": 26,
+      "maxItems": 26,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/relativePath"}
+    },
+    "schema_version": {"const": 1},
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "downstream_unproved_obligation",
+        "entry_symbol",
+        "function_entry_elf_classification",
+        "linux_startup_wrapper_present",
+        "purpose",
+        "sysv_direct_call_initial_state_remains_unproved"
+      ],
+      "properties": {
+        "downstream_unproved_obligation": {
+          "const": "ArchitectureExecutionSuppliesSuccessfulPureEntry"
+        },
+        "entry_symbol": {"const": "tg_sq218_verify_snapshot_v2"},
+        "function_entry_elf_classification": {
+          "const": "function-entry-analysis-only-not-linux-process-start"
+        },
+        "linux_startup_wrapper_present": {"const": false},
+        "purpose": {
+          "const": "mm0-derived-lean4-x86-model-opcode-scoping-only"
+        },
+        "sysv_direct_call_initial_state_remains_unproved": {"const": true}
+      }
+    },
+    "source_inputs": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {"$ref": "#/$defs/filePin"}
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binutils", "compcert", "rocq_base_image"],
+      "properties": {
+        "binutils": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source_sha512", "source_url", "version"],
+          "properties": {
+            "source_sha512": {"$ref": "#/$defs/sha512"},
+            "source_url": {
+              "const": "https://sourceware.org/pub/binutils/releases/binutils-2.44.tar.xz"
+            },
+            "version": {"const": "2.44"}
+          }
+        },
+        "compcert": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "configuration",
+            "repository",
+            "revision",
+            "tag",
+            "version"
+          ],
+          "properties": {
+            "configuration": {"const": "x86_64-linux"},
+            "repository": {
+              "const": "https://github.com/AbsInt/CompCert.git"
+            },
+            "revision": {"$ref": "#/$defs/gitRevision"},
+            "tag": {"const": "v3.17"},
+            "version": {"const": "3.17"}
+          }
+        },
+        "rocq_base_image": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["image", "version"],
+          "properties": {
+            "image": {"$ref": "#/$defs/imageByDigest"},
+            "version": {"const": "9.1.1"}
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "argv": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024,
+        "pattern": "^[^\\u0000\\r\\n]+$"
+      }
+    },
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/relativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "gitRevision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "imageByDigest": {
+      "type": "string",
+      "pattern": "^[^@\\s]+@sha256:[0-9a-f]{64}$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!\\.\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9_.+-]+(?:/[A-Za-z0-9_.+-]+)*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "not": {
+        "const": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    "sha512": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{128}$"
+    }
+  }
+}

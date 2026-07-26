@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/measured-job.schema.json",
+  "title": "SparkInterval challenge-first measured job",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["algorithm", "artifact_closure", "backend", "command", "domain_coverage", "gpu_pre_run_gate", "input_artifact", "job_id", "kind", "output_contract", "parameters", "runner_policy", "schema_version", "target_profile", "tpm_policy", "trust_profile", "work_trace_contract"],
+  "properties": {
+    "kind": {"const": "sparkinterval_measured_job"},
+    "schema_version": {"const": 1},
+    "job_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "backend": {"enum": ["azure_sevsnp_cpu", "azure_ncc40ads_h100_v5"]},
+    "algorithm": {
+      "type": "object", "additionalProperties": false,
+      "required": ["algorithm_id", "canonical_definition", "definition_sha256"],
+      "properties": {"algorithm_id": {"type": "string"}, "canonical_definition": {"type": "string", "minLength": 1}, "definition_sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "artifact_closure": {
+      "type": "object", "additionalProperties": false,
+      "required": ["closure_kind", "files", "manifest_sha256"],
+      "properties": {
+        "closure_kind": {"enum": ["static_elf_source_reviewed_v1", "content_addressed_image_source_reviewed_v1"]},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "files": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/artifact"}}
+      }
+    },
+    "command": {
+      "type": "object", "additionalProperties": false,
+      "required": ["argv", "cwd", "environment", "timeout_seconds"],
+      "properties": {"argv": {"$ref": "#/$defs/argv"}, "cwd": {"const": "."}, "environment": {"type": "object", "additionalProperties": {"type": "string"}}, "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 604800}}
+    },
+    "parameters": {"$ref": "#/$defs/boundJson"},
+    "domain_coverage": {"$ref": "#/$defs/boundJson"},
+    "input_artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "release_argv", "release_mode", "sha256", "size_bytes"],
+      "properties": {"path": {"$ref": "#/$defs/path"}, "release_argv": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/argv"}]}, "release_mode": {"enum": ["prepositioned_public_after_start", "relying_party_after_h100_gate"]}, "sha256": {"$ref": "#/$defs/sha256"}, "size_bytes": {"type": "integer", "minimum": 0}}
+    },
+    "output_contract": {
+      "type": "object", "additionalProperties": false,
+      "required": ["expected_output_count", "format", "maximum_bytes", "path"],
+      "properties": {"expected_output_count": {"const": 1}, "format": {"enum": ["canonical_decimal_natural_no_newline_v1", "opaque_bytes_v1"]}, "maximum_bytes": {"type": "integer", "minimum": 1}, "path": {"$ref": "#/$defs/path"}}
+    },
+    "retained_artifact_contracts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {"$ref": "#/$defs/retainedArtifactContract"}
+    },
+    "work_trace_contract": {
+      "type": "object", "additionalProperties": false,
+      "required": ["expected_iterations", "format", "path", "required", "trace_algorithm_definition", "trace_algorithm_sha256", "verification_mode", "verifier_argv"],
+      "properties": {"expected_iterations": {"type": "integer", "minimum": 1}, "format": {"const": "challenge_sha256_chain_json_v1"}, "path": {"$ref": "#/$defs/path"}, "required": {"const": true}, "trace_algorithm_definition": {"type": "string", "minLength": 1}, "trace_algorithm_sha256": {"$ref": "#/$defs/sha256"}, "verification_mode": {"enum": ["builtin_cubic_sum_div_three_20000_v1", "pinned_external_trace_verifier_v1"]}, "verifier_argv": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/argv"}]}}
+    },
+    "target_profile": {"$ref": "#/$defs/profile"},
+    "trust_profile": {"$ref": "#/$defs/profile"},
+    "runner_policy": {"$ref": "#/$defs/policy"},
+    "tpm_policy": {"type": "object"},
+    "gpu_pre_run_gate": {"type": ["object", "null"]}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "path": {"type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$)).+$"},
+    "argv": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "boundJson": {"type": "object", "additionalProperties": false, "required": ["canonical_sha256", "value"], "properties": {"canonical_sha256": {"$ref": "#/$defs/sha256"}, "value": {"type": "object", "minProperties": 1}}},
+    "profile": {"type": "object", "additionalProperties": false, "required": ["path", "profile_id", "sha256"], "properties": {"path": {"$ref": "#/$defs/path"}, "profile_id": {"type": "string"}, "sha256": {"$ref": "#/$defs/sha256"}}},
+    "policy": {"type": "object", "additionalProperties": false, "required": ["path", "policy_id", "sha256"], "properties": {"path": {"$ref": "#/$defs/path"}, "policy_id": {"type": "string"}, "sha256": {"$ref": "#/$defs/sha256"}}},
+    "artifact": {"type": "object", "additionalProperties": false, "required": ["executable", "path", "role", "sha256", "size_bytes", "statement_role"], "properties": {"executable": {"type": "boolean"}, "path": {"$ref": "#/$defs/path"}, "role": {"type": "string"}, "sha256": {"$ref": "#/$defs/sha256"}, "size_bytes": {"type": "integer", "minimum": 0}, "statement_role": {"type": ["string", "null"]}}},
+    "retainedArtifactContract": {"type": "object", "additionalProperties": false, "required": ["maximum_bytes", "path", "trace_sha256_field"], "properties": {"maximum_bytes": {"type": "integer", "minimum": 1, "maximum": 2147483648}, "path": {"$ref": "#/$defs/path"}, "trace_sha256_field": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"}}}
+  }
+}

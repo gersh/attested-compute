@@ -1,0 +1,44 @@
+{
+  "kind": "sparkinterval.pinned_upstream_source.v1",
+  "name": "greg-hurst/mertens segmented Mobius sieve",
+  "repository": "https://github.com/greg-hurst/mertens.git",
+  "commit": "fb47790c876c92690fce62990199ce961c5bdd72",
+  "license": "MIT",
+  "files": [
+    {
+      "path": "LICENSE",
+      "sha256": "f4fa20cc8af2759a9bf488efa7317f4af79c7265ed5b1dff3737d04244688719",
+      "size_bytes": 1067
+    },
+    {
+      "path": "sieve/QuotientCache.h",
+      "sha256": "1011438eda4cb3caeff89ed6b44d509eba2b613833072d9bd5c6a41a682af15e",
+      "size_bytes": 5220
+    },
+    {
+      "path": "sieve/SegmentedMobiusSieve.cpp",
+      "sha256": "343ab36fa74fdd623e4e8ab9df141b667830305130cc32e93ed53849a4464789",
+      "size_bytes": 46350
+    },
+    {
+      "path": "sieve/SegmentedMobiusSieve.h",
+      "sha256": "160b9d4188681babe377c9a5edf5d1c417f6f997d66f45b6fa2df9e19aec2b22",
+      "size_bytes": 17225
+    },
+    {
+      "path": "sieve/simd_defs.h",
+      "sha256": "74ead28717acd8bfca314d154b3332d8a7fce71547334119ea05c9928eafa43c",
+      "size_bytes": 1934
+    },
+    {
+      "path": "sieve/stencil_data.h",
+      "sha256": "d343a89d3aa3ff82b62cd1a580ac4868a4cee1e99220599ccc9cb5a2c637d75d",
+      "size_bytes": 76429
+    },
+    {
+      "path": "sieve/types.h",
+      "sha256": "30dec6b5cb9719d3772d4677a942091eb840e0adfc1bd69f1d536e0d1f39feed",
+      "size_bytes": 690
+    }
+  ]
+}

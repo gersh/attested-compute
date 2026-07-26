@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/azure-tg-portfolio-plan.schema.json",
+  "title": "SparkInterval deterministic Azure TG portfolio plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "accepted",
+    "backend_assignments",
+    "challenge_ttl_seconds",
+    "classification",
+    "completion_profile",
+    "edges",
+    "gaps",
+    "groups",
+    "kind",
+    "portfolio_id",
+    "production_budget_gate",
+    "promotion_policy",
+    "readiness",
+    "ready_for_local_preparation",
+    "run_root",
+    "schema_version",
+    "source"
+  ],
+  "properties": {
+    "accepted": { "const": false },
+    "backend_assignments": { "type": "array", "minItems": 3 },
+    "challenge_ttl_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 604800
+    },
+    "classification": {
+      "const": "deterministic_local_plan_not_execution_evidence"
+    },
+    "completion_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "excluded_campaigns",
+        "profile_id",
+        "purpose",
+        "required_campaign_ids",
+        "required_logical_claim_ids",
+        "selection_authority"
+      ],
+      "properties": {
+        "excluded_campaigns": { "type": "array" },
+        "profile_id": {
+          "enum": [
+            "capability-inventory-v1",
+            "all-source-retirement-v1",
+            "lowered-10pow27-theorem-completion-v1"
+          ]
+        },
+        "purpose": { "type": "string", "minLength": 1 },
+        "required_campaign_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/name" }
+        },
+        "required_logical_claim_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/name" }
+        },
+        "selection_authority": {
+          "const": "source_owned_exact_profile_not_manifest_allow_list"
+        }
+      }
+    },
+    "edges": { "type": "array" },
+    "gaps": { "type": "array" },
+    "groups": { "type": "array", "minItems": 1 },
+    "kind": { "const": "sparkinterval.azure.tg.portfolio-plan.v1" },
+    "portfolio_id": { "$ref": "#/$defs/name" },
+    "production_budget_gate": { "type": "object" },
+    "promotion_policy": { "type": "object" },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "local_initialization_blocking_gap_codes",
+        "local_initialization_ready",
+        "operator_handoff_blocking_gap_codes",
+        "operator_handoff_ready",
+        "semantic_admission_complete",
+        "semantic_admission_policy"
+      ],
+      "properties": {
+        "local_initialization_blocking_gap_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/name" }
+        },
+        "local_initialization_ready": { "type": "boolean" },
+        "operator_handoff_blocking_gap_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/name" }
+        },
+        "operator_handoff_ready": { "type": "boolean" },
+        "semantic_admission_complete": { "const": false },
+        "semantic_admission_policy": {
+          "const": "reviewed_terminal_receipts_and_separate_source_admission_required"
+        }
+      }
+    },
+    "ready_for_local_preparation": { "type": "boolean" },
+    "run_root": { "$ref": "#/$defs/absolutePath" },
+    "schema_version": { "const": 1 },
+    "source": { "type": "object" }
+  },
+  "$defs": {
+    "absolutePath": {
+      "type": "string",
+      "pattern": "^/(?!\\.\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    }
+  }
+}

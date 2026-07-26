@@ -1,0 +1,84 @@
+{
+  "kind": "sparkinterval.tg.eq1315-coupled-cap.disabled-specification.v1",
+  "algorithm_id": "sparkinterval.ternary-goldbach.eq1315-coupled-cap.v1",
+  "status": "disabled_prototype",
+  "enabled": false,
+  "receipt_eligible": false,
+  "lean_boundary": {
+    "source_file": "Math/Problems/TernaryGoldbach/MinorArcs/Chapter14/PaperEq1315EndpointRepair.lean",
+    "lower_band_declaration": "Math.Problems.TernaryGoldbach.PaperEq1315DirectEndpointAwareLowerBandCoupledCap",
+    "per_n_declaration": "Math.Problems.TernaryGoldbach.PaperEq1315DirectEndpointAwareCoupledCap",
+    "n_domain": "10^27 <= n <= 8875694145621773516800000000000",
+    "definitions": [
+      "y = n / (98 + (9/4)/sqrt(2*pi))",
+      "K = log(y)/2",
+      "r0 = 150000",
+      "r1 = (3/8)*y^(4/15)"
+    ],
+    "quantified_guards": [
+      "q is an integer",
+      "q > 150000",
+      "q <= ((y/K)^(1/3))/6",
+      "abs(delta/y) <= 1/(q*(3/4)*y^(2/3))"
+    ],
+    "coupled_boundary": {
+      "q_le_r1": "min(G(y,K,r0), (26/25)*G(y,K,q))",
+      "q_gt_r1": "min(G(y,K,r0), (101/100)*G(y,K,r1))",
+      "final_factor": "sqrt(pi/2)"
+    }
+  },
+  "cell_coordinates": {
+    "u": "log(y)",
+    "v": "log(q)",
+    "t": "3*abs(delta)*q/(4*y^(1/3))",
+    "normalized_delta_guard": "0 <= t <= 1",
+    "fixed_fresh_selector": "t*w^(2/3) <= 1",
+    "endpoint_policy": "Each cell derives q<=r1, q>r1, or split from outward intervals; a caller cannot select the arm.",
+    "q_policy": "Each integer q block must lie wholly below the outward lower endpoint of ((y/K)^(1/3))/6; otherwise replay requires a split.",
+    "parity_policy": "Even and odd q are separate lanes. Each lane exactly recomputes max(q/phi(q)) over its integer roster.",
+    "global_q_enumeration_ceiling": 231861020
+  },
+  "finite_checker": {
+    "module": "tg_verifier.eq1315_coupled_cap",
+    "schema": "sparkinterval.tg.eq1315-coupled-cap.truncated-cell.v1",
+    "issuer": "issue_truncated_certificate",
+    "replayer": "verify_truncated_certificate",
+    "production_replayer": "verify_production_certificate",
+    "arithmetic": "exact rational interval arithmetic with dyadic outward rounding",
+    "elementary_functions": "atanh-series logarithm and Taylor exponential with directed remainder enclosures, reused from tg_verifier.prop1224_directed",
+    "integration": "upper Darboux sum of outward interval enclosures of the Gaussian-weighted integrand on contiguous w panels",
+    "natural_lower_endpoint": "w = 1/K = 2/u",
+    "prototype_finite_upper_endpoint": "w <= 32",
+    "claimed_scope": "bounded-w inequality only"
+  },
+  "source_model": {
+    "id": "eq1315-direct-piece-theorem-upper-model-v1",
+    "odd_parity_semantics": "the cancellation-preserving theorem-level upper model from the Chapter-14 audit, not a claim of literal equality",
+    "target_lower_semantics": "drops the nonnegative paperRPhi-paperR(y) interpolation correction",
+    "lean_realization_proved": false
+  },
+  "production_gate": {
+    "registered_invocation": null,
+    "deployment_pin": null,
+    "successful_receipt": null,
+    "full_domain_artifact": null,
+    "supported_tail_witness_schemas": [],
+    "acceptance": "always_refused",
+    "blocking_obligations": [
+      "Implement and review a quantitative infinite Gaussian-tail witness, preferably through paperEq1315DirectPieceEnvelope_le_base_add_scaledHigh so replay never evaluates the fresh-envelope remote logarithmic singularity.",
+      "Add the Lean adapter from lowCorrected_main_lines_le_radiusLog and its error bound to the exact odd-parity numerical upper model used by the cells.",
+      "Connect the target-lower evaluator to the existing paperGPhiCorrected_ge theorem.",
+      "Generate and replay a complete adaptive (u,v,t), parity, q-roster coverage artifact.",
+      "Connect the checked cell and tail semantics to the named Lean boundary."
+    ]
+  },
+  "commands": {
+    "tests": "python3 -m unittest -v tests.test_tg_eq1315_coupled_cap",
+    "benchmark": "python3 tools/benchmark_tg_eq1315_coupled_cap.py --pretty"
+  },
+  "non_claims": [
+    "A passing truncated certificate does not prove the improper integral.",
+    "This specification contains no successful result, deployment identity, realization, or receipt.",
+    "The Python benchmark is not an H100 or optimized-CPU throughput measurement."
+  ]
+}

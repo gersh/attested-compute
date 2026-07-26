@@ -21,6 +21,10 @@ from tg_verifier.prop1224_campaign import (  # noqa: E402
     run_campaign,
     verify_campaign,
 )
+from tg_verifier.campaign_io import (  # noqa: E402
+    CampaignIOError,
+    require_azure_measured_worker_for_workload,
+)
 
 
 def positive(value: str) -> int:
@@ -62,6 +66,17 @@ def main() -> int:
     args = build_parser().parse_args()
     try:
         if args.command == "run":
+            # This legacy driver has no bounded-domain mode: --max-chunks
+            # merely pauses the literal 3,389,047,618-row source campaign.
+            # Refuse it before creating or reading the campaign directory.
+            require_azure_measured_worker_for_workload(
+                exact_production=True,
+                work_bounds=(
+                    args.r_steps_per_chunk,
+                    args.q_rows_per_chunk,
+                    0 if args.max_chunks is None else args.max_chunks,
+                ),
+            )
             result = run_campaign(
                 args.output_dir,
                 precision_bits=args.precision_bits,
@@ -74,8 +89,17 @@ def main() -> int:
         elif args.command == "verify":
             result = verify_campaign(args.output_dir)
         else:
+            # Structural ``verify`` remains a local receipt inspection.
+            # ``replay`` regenerates source arithmetic even when asked to
+            # stop after one production-sized chunk.
+            require_azure_measured_worker_for_workload(
+                exact_production=True,
+                work_bounds=(
+                    0 if args.max_chunks is None else args.max_chunks,
+                ),
+            )
             result = replay_campaign(args.output_dir, max_chunks=args.max_chunks)
-    except Prop1224CampaignError as exc:
+    except (CampaignIOError, Prop1224CampaignError) as exc:
         print(f"Proposition 12.2.4 campaign error: {exc}", file=sys.stderr)
         return 2
     print(json.dumps(result.as_json(), sort_keys=True, indent=2))

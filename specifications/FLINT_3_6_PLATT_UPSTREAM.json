@@ -1,0 +1,54 @@
+{
+  "kind": "sparkinterval.pinned_upstream_source.v1",
+  "name": "FLINT 3.6.0 Platt zeta-zero implementation",
+  "repository": "https://github.com/flintlib/flint.git",
+  "tag": "v3.6.0",
+  "commit": "8d5454b96761fafe4d5a9da76a369a602f500f49",
+  "license": "LGPL-3.0-or-later",
+  "tracked_file_count": 10128,
+  "tracked_bytes": 47815270,
+  "tracked_tree_hash_domain": "sparkinterval/git-tracked-source-tree/v1",
+  "tracked_tree_sha256": "06b194b828a12c6b6c34d5c1653cadd7d9f3f3356d8f3257a293f9ccf1beade1",
+  "files": [
+    {
+      "path": "COPYING",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "size_bytes": 35149
+    },
+    {
+      "path": "COPYING.LESSER",
+      "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118",
+      "size_bytes": 7652
+    },
+    {
+      "path": "doc/source/acb_dirichlet.rst",
+      "sha256": "561d7f4720827136f75180d1c2e7b15f1e1e1ab5d32908a528ac41e18c732b57",
+      "size_bytes": 40755
+    },
+    {
+      "path": "examples/zeta_zeros.c",
+      "sha256": "312062864ae1eb7eba9d5af9e5792f71bd81490d4d118ad0dc02e25b1b22a9fc",
+      "size_bytes": 8211
+    },
+    {
+      "path": "src/acb_dirichlet.h",
+      "sha256": "8a55cb61366201df2796a85eacd69fe2e2bdd2d2ff60746b67ceb1b355c3df6d",
+      "size_bytes": 16359
+    },
+    {
+      "path": "src/acb_dirichlet/platt_hardy_z_zeros.c",
+      "sha256": "605fabbe60f2695663cd78fda579ba40ac08c727a06c77a19e0431aa5e9bf9c6",
+      "size_bytes": 1102
+    },
+    {
+      "path": "src/acb_dirichlet/platt_local_hardy_z_zeros.c",
+      "sha256": "b1c18e82e913f381b6e44aeab48fbb1c00b0625b6606844f4ddf1e2a10485c5e",
+      "size_bytes": 39569
+    },
+    {
+      "path": "src/acb_dirichlet/platt_zeta_zeros.c",
+      "sha256": "835c39d87362ecf3eba4f4899c5894d400aea9c143e1f09af80bb100aee701c9",
+      "size_bytes": 1105
+    }
+  ]
+}

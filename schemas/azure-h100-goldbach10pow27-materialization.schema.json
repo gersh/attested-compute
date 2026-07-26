@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.example/schemas/azure-h100-goldbach10pow27-materialization.schema.json",
+  "title": "Lowered finite-Goldbach Azure H100 materialization manifest",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "accepted",
+    "build_admission",
+    "build_identity_sha256",
+    "classification",
+    "execution_completed",
+    "execution_projection_sha256",
+    "factory_id",
+    "h100_operator_config",
+    "job_spec",
+    "kind",
+    "package",
+    "registered_invocation",
+    "retained_export_inside_certificate",
+    "runtime_image_closure_sha256",
+    "schema_version",
+    "shard_index",
+    "source_run_receipt_produced"
+  ],
+  "properties": {
+    "accepted": { "const": false },
+    "build_admission": { "$ref": "#/$defs/filePin" },
+    "build_identity_sha256": { "$ref": "#/$defs/sha256" },
+    "execution_completed": { "const": false },
+    "execution_projection_sha256": { "$ref": "#/$defs/sha256" },
+    "kind": { "const": "sparkinterval.azure.h100.goldbach10pow27-materialization.v1" },
+    "registered_invocation": { "type": "null" },
+    "runtime_image_closure_sha256": { "$ref": "#/$defs/sha256" },
+    "schema_version": { "const": 1 },
+    "shard_index": { "type": "integer", "minimum": 0, "maximum": 8191 },
+    "source_run_receipt_produced": { "const": false }
+  },
+  "$defs": {
+    "absolutePath": {
+      "type": "string",
+      "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"
+    },
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": { "$ref": "#/$defs/absolutePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^(?!0{64}$)[0-9a-f]{64}$"
+    }
+  }
+}

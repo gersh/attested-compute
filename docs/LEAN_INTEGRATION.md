@@ -1,8 +1,11 @@
 # Using computation certificates from Lean
 
 SparkInterval's full result certificates are usable as Lean theorems today.
-The unfinished part of the vision is production enclave-backed issuance and a
-shared public certificate registry, not the basic certificate-to-theorem path.
+The separate compact Azure path now has evidence collection, independent
+appraisal plumbing, signed receipt issuance, a source-pinned registry
+generator, and a generated Lean consumer. Its tracked receipt registry is
+empty: no production Azure run has been admitted. A public certificate service
+also remains future work.
 
 The central idea is to separate three costs:
 
@@ -131,6 +134,50 @@ the source of the model's build-time advantage: expensive discovery happens
 once, certificate verification happens once per invalidated certificate
 module, and theorem use can happen many times.
 
+### Cross-repository theorem handoff
+
+Lean theorem objects are not a version-neutral interchange format.  In
+particular, a downstream project must not copy an `.olean` built with a
+different Lean or Mathlib revision and treat that file as a certificate.  A
+clean public handoff uses source modules under one Lake dependency graph:
+
+1. pin the producer repository at an immutable reviewed commit and align its
+   Lean and Mathlib revisions with the consumer;
+2. build the receipt registry, generated receipt module, registered invocation
+   semantics, and application soundness theorem from source in that same Lake
+   environment;
+3. import the generated application theorem in a small downstream adapter;
+4. prove, definition by definition, that the producer's source-shaped result
+   is the consumer's live proposition; and
+5. audit the concrete capstone with both `#audit certificates` and
+   `#print axioms`.
+
+The generated receipt theorem, rather than a copied Boolean or a restated
+axiom, is the premise of the downstream adapter.  The adapter may repeat a
+small source-normal-form proposition temporarily when the repositories are on
+incompatible revisions, but that is only a conditional API: it does not retire
+the consumer's external atom until the compatible dependency and concrete
+receipt theorem are imported.  Once connected, the only project execution
+axiom reachable from the concrete theorem should remain
+`accepted_run_certificate_sound`; arithmetic reductions and identification of
+the consumer definitions are ordinary Lean theorems.
+
+The current Hurst V2 scaffold implements the conditional half of this split as
+`TGComputeContracts.HurstV2`.  `gpu_prover` and `claude_math` compile identical
+source bytes for that axiom-free contract under their respective pins, and the
+producer proves the shared `RealSourceClaims` type from its exact campaign
+certificate.  This is **not** the completed receipt handoff: it supplies a
+stable proposition, not evidence that a production run occurred.
+
+End-to-end retirement has two acceptable migration paths.  Either align the
+repository pins and import the actual `gpu_prover` generated receipt theorem
+from source, or extract the minimal receipt decoder/generator and **move**
+`accepted_run_certificate_sound` into the shared package.  The latter must
+remove the producer-local declaration rather than duplicate it.  In both
+cases, the concrete downstream theorem must audit to the same single execution
+axiom plus Lean/Mathlib's foundational axioms; adding a convenient second axiom
+to the contract package is forbidden.
+
 ## Kernel mode and `native_decide`
 
 Lean's standard `decide` reduces a `Decidable` proposition, while
@@ -163,8 +210,117 @@ The longer-term compact route is meant for computations where storing and
 checking every row locally is impractical: a secure measured run returns a
 small result for a closed registered checker, and the single execution axiom
 bridges accepted evidence to that invocation's proved semantics. The closed
-registry and composition theorems exist; the production attestation verifier
-and trusted positive-evidence importer do not.
+algorithm registry and composition theorems exist. The Azure collector,
+independent-appraisal adapter, signed receipt, source-registry generator, and
+Lean consumer also exist, but no production appraiser/key/run/receipt ships as
+accepted evidence. Attestation must be paired with a reviewed measured runner;
+it does not prove arbitrary user-space causality.
+
+## Compact trusted-compute import
+
+The compact route deliberately has no signature-verification oracle inside
+Lean. A relying party first runs the exact hash-pinned Azure/NVIDIA appraisers,
+then signs the normalized receipt with a production key. A maintainer adds that
+key, its public-key hash, and every approved exact
+`(backend, target profile SHA-256, trust profile SHA-256, verifier artifact
+SHA-256, appraisal policy SHA-256)` tuple to
+[`trusted_compute_keys.json`](../profiles/verifier_keys/trusted_compute_keys.json)
+as `production`, adds the identical classified tuples to the reviewed Lean
+allowlist, reviews its
+Managed HSM key-attestation record out of band according to the
+[Managed HSM signing guide](AZURE_MANAGED_HSM_SIGNING.md), and generates the
+source registry:
+
+```bash
+python3 tools/generate_trusted_compute_registry.py \
+  /path/to/receipt.json \
+  --out SparkInterval/Execution/TrustedComputeRegistry.lean
+git diff -- SparkInterval/Execution/TrustedComputeRegistry.lean
+
+mkdir -p build/trusted-compute
+python3 tools/generate_trusted_compute_lean.py \
+  /path/to/receipt.json \
+  --namespace ReviewedAzureRun \
+  --out build/trusted-compute/ReviewedAzureRun.lean
+./tools/safe_lean.sh build/trusted-compute/ReviewedAzureRun.lean
+```
+
+The generated module imports
+`SparkInterval.Audit.TrustedComputeCertificates` and finishes with:
+
+```lean
+#audit certificates producedOutcome
+```
+
+The generated `producedOutcome` calls
+`acceptedRunCertificateForReceipt` with a literal 64-character lowercase
+receipt digest. Its separate equality argument is checked by Lean's kernel and
+forces that literal to equal the hash selected by
+`certificate.attestation`. The wrapper then invokes the same sole
+`accepted_run_certificate_sound` axiom; there is still one project execution
+axiom, not one axiom per receipt.
+
+For interactive inspection, `#print certificates producedOutcome` emits the
+receipt SHA-256, the wrapper declaration, the transitive proof path, the full
+root-axiom set, and stable machine-readable records. It reports `COVERED` only
+when every path to the execution axiom has a closed canonical receipt wrapper.
+`AXIOM_FREE` means that axiom is unreachable. `FAIL_UNATTRIBUTED` means a path
+uses the generic boundary without a concrete valid wrapper, while
+`FAIL_UNEXPECTED_AXIOMS` means the theorem depends on an undisclosed axiom.
+The `#audit` form prints the report and then fails for either failure status.
+
+This distinction is intentional for reusable conditional APIs. For example,
+a theorem parameterized by a proof that `checkTrustedCompute ... = true` can
+legitimately be generic and therefore print `FAIL_UNATTRIBUTED`; it is not yet
+evidence of an accepted run. A receipt-specific generated theorem must cross
+the hash-binding wrapper and pass `#audit certificates` before being described
+as concrete. The live registry is currently empty, so this repository ships
+no `COVERED` production theorem.
+
+The registry generator verifies canonical JSON, the source-pinned RSA-3072
+signature, the key-specific exact backend/target-profile/trust-profile/
+verifier/policy tuple, current
+appraisal validity, exact backend/claim class, and duplicate
+receipt, run, challenge, statement, and result-binding identities. It refuses
+an empty registry unless `--allow-empty` is explicit and refuses the bundled
+development key unless `--allow-development-key` is explicit. That flag is for
+fixture parsing/source generation only: the Lean production checker
+unconditionally rejects every `development` issuer profile.
+
+There is no wildcard issuer profile. A synchronization regression test keeps
+the JSON manifest and Lean tuple list identical, and `checkTrustedCompute`
+rechecks the tuple so an accidental hand-edited registry entry cannot silently
+change the approved workload profiles, appraiser, or policy.
+
+The generated `accepted` theorem uses ordinary kernel reduction to check exact
+receipt lookup and complete structural binding. The Lean Boolean also
+recomputes the SHA-256 binding from result bytes to `outputHash` and the
+challenge/wire-statement binding to `resultBindingHash`; those two equations no
+longer rely only on the Python importer. Its `producedOutcome` theorem then
+crosses the one project execution axiom,
+`accepted_run_certificate_sound`. This yields an exact historical result and,
+only for a matching constructor of the closed `RegisteredInvocation` type, its
+fixed `Runs` semantics. An application theorem still follows from a separately
+proved Lean theorem about those semantics; neither the signature nor the axiom
+lets a receipt choose an arbitrary proposition.
+
+The certificate audit examines proof terms and root axioms; it does not verify
+the external signature or hardware evidence. Lean deliberately performs no
+RSA oracle call on this compact path. A hand edit that admits a registry entry
+therefore changes an external fact trusted by the sole execution axiom and is
+trust-equivalent at that boundary. The printed digest and path make the exact
+admission easy to locate and review, but do not reduce that trust. Separately,
+`#audit project axioms` fails unless the named run-certificate axiom is the
+only project axiom in the imported kernel environment; import the complete
+project surface when using it as a repository gate.
+
+For project-wide receipt discovery, `#print project certificates` lists every
+loaded concrete hash/anchor site and every direct caller of the sole axiom.
+`#audit project certificates` additionally fails for malformed sites,
+unreviewed direct callers, uncovered concrete anchors, or unexpected project
+axioms. The checked repository gate runs it from the aggregate Execution API
+environment via `SparkInterval/Tests/ProjectCertificateAudit.lean`; the
+machine-readable summary is `project-certificate-audit-v1`.
 
 ## Relationship to existing Lean approaches
 
@@ -177,7 +333,7 @@ SparkInterval is one point in a useful design space:
 | `native_decide` | Compiled native evaluation during elaboration | A theorem with a native-computation axiom dependency | Often much faster, but widens the explicit trust boundary and still runs when that theorem module is rebuilt |
 | Domain certificate, such as LRAT | External solver discovers; verified checker replays | A theorem tied to the checked formula/certificate | Excellent when the problem fits the certificate language; requires a sound encoding from the application problem |
 | SparkInterval full certificate | CPU/GPU produces interval rows; Lean checks exact interval containment | Reusable row and aggregate bound theorems | Works today and can avoid `native_decide` for direct typed data; complete witnesses can be large |
-| SparkInterval compact attested certificate | Measured external CPU/GPU execution | Historical result and registered `Runs` semantics through one axiom | Intended to minimize local checking, but production attestation/import is work in progress and application soundness still needs proof |
+| SparkInterval compact attested certificate | Measured external Azure SEV-SNP CPU or composite Azure NCC H100 execution | Source-admitted historical result and registered `Runs` semantics through one axiom | Tooling is implemented but the tracked registry is empty; production appraisers, key custody/attestation, measured-runner policy, a real run, registry review, and application soundness are still required |
 
 Lean's `bv_decide` ecosystem demonstrates the certificate pattern directly:
 an external SAT solver can produce an LRAT proof, and `bv_check` reads an
@@ -217,9 +373,9 @@ A well-designed certificate library could provide:
 - **independent reproduction:** another group can regenerate the result or
   check the same certificate with a different implementation; and
 - **precise trust choices:** consumers can select kernel-checked full
-  certificates, native reflection, or—when implemented—compact attested
+  certificates, native reflection, or source-admitted compact attested
   certificates according to their policy and scale.
 
-The shared public registry is future work. Today, a project can still vendor a
-generated certificate module and receipt in its own Lean package and consume
-the resulting theorem exactly as described above.
+A hosted shared public registry is future work. Today, a project can vendor a
+generated full-certificate module or review compact receipts into its own
+source registry and consume the resulting theorem exactly as described above.

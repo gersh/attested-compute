@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.example/schemas/azure-h100-r2star-materialization.schema.json",
+  "title": "Ramaré-Zúñiga Lemma 6.2 Azure H100 materialization manifest",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "accepted",
+    "classification",
+    "execution_completed",
+    "factory_id",
+    "fresh_workspace_required",
+    "h100_operator_config",
+    "job_spec",
+    "kind",
+    "lean_theorem_produced",
+    "package",
+    "registered_invocation",
+    "resume_policy",
+    "retained_export_inside_certificate",
+    "schema_version",
+    "semantic_binding_enabled",
+    "shard_index",
+    "source_run_receipt_produced"
+  ],
+  "properties": {
+    "accepted": { "const": false },
+    "execution_completed": { "const": false },
+    "fresh_workspace_required": { "const": true },
+    "kind": { "const": "sparkinterval.azure.h100.r2star-materialization.v1" },
+    "lean_theorem_produced": { "const": false },
+    "registered_invocation": { "const": "ramareZunigaLemma62ProductionV1" },
+    "resume_policy": { "const": "no_external_resume_or_prepopulated_campaign_state" },
+    "retained_export_inside_certificate": { "const": "bundle-root/work/r2star-source-scale/r2star-full-source.tar" },
+    "schema_version": { "const": 1 },
+    "semantic_binding_enabled": { "const": false },
+    "shard_index": { "const": 0 },
+    "source_run_receipt_produced": { "const": false }
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.example/schemas/azure-h100-goldbach-historical-materializer-site.schema.json",
+  "title": "Source-height historical Goldbach Azure H100 materializer site",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["base_campaign", "build", "kind", "output_root", "schema_version"],
+  "properties": {
+    "base_campaign": { "$ref": "#/$defs/filePin" },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "build_admission",
+        "hardened_goldbach_source_root",
+        "host_cxx",
+        "nvcc",
+        "plan_predecessor_export",
+        "python"
+      ],
+      "properties": {
+        "build_admission": { "$ref": "#/$defs/buildAdmission" },
+        "hardened_goldbach_source_root": { "$ref": "#/$defs/absolutePath" },
+        "host_cxx": { "$ref": "#/$defs/filePin" },
+        "nvcc": { "$ref": "#/$defs/filePin" },
+        "plan_predecessor_export": { "$ref": "#/$defs/filePin" },
+        "python": { "$ref": "#/$defs/filePin" }
+      }
+    },
+    "kind": {
+      "const": "sparkinterval.azure.h100.helfgott-platt-goldbach-materializer-site.v1"
+    },
+    "output_root": { "$ref": "#/$defs/absolutePath" },
+    "schema_version": { "const": 1 }
+  },
+  "$defs": {
+    "buildAdmission": {
+      "oneOf": [
+        { "$ref": "#/$defs/filePin" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reason", "status"],
+          "properties": {
+            "reason": { "type": "string", "minLength": 1 },
+            "status": { "const": "unconfigured" }
+          }
+        }
+      ]
+    },
+    "absolutePath": {
+      "type": "string",
+      "pattern": "^/(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$"
+    },
+    "filePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": { "$ref": "#/$defs/absolutePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

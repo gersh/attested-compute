@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/sqrt218-fixed-v2-reviewed-pins.schema.json",
+  "title": "Sqrt218 fixed-width V2 compact reviewed pins",
+  "description": "Small source-reviewed identities used by normal receipt-only verification. This record contains no production certificate bytes and does not authorize a receipt without generic signature verification and closed-registry admission.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "algorithm_hash",
+    "algorithm_id",
+    "certificate_sha256",
+    "certificate_size_bytes",
+    "checker_executable_sha256",
+    "device_cubin_sha256",
+    "domain_hash",
+    "execution_closure_sha256",
+    "kind",
+    "parameters_hash",
+    "receipt_sha256",
+    "schema_version",
+    "source_tree_hash",
+    "target_profile_hash",
+    "trust_profile_hash",
+    "verifier_artifact_sha256",
+    "verifier_key_id",
+    "verifier_policy_sha256",
+    "wire_statement_sha256"
+  ],
+  "properties": {
+    "algorithm_hash": {"$ref": "#/$defs/sha256"},
+    "algorithm_id": {
+      "const": "sparkinterval.ternary-goldbach.sqrt218-fixed-v2.v1"
+    },
+    "certificate_sha256": {"$ref": "#/$defs/sha256"},
+    "certificate_size_bytes": {
+      "type": "integer",
+      "minimum": 160
+    },
+    "checker_executable_sha256": {"$ref": "#/$defs/sha256"},
+    "device_cubin_sha256": {
+      "const": "b272852e69f12bacf5fbb095bc43233bfd184f238a86f5bb66d85772b849d02b"
+    },
+    "domain_hash": {"$ref": "#/$defs/sha256"},
+    "execution_closure_sha256": {"$ref": "#/$defs/sha256"},
+    "kind": {
+      "const": "sparkinterval.sqrt218-fixed-v2-reviewed-pins.v1"
+    },
+    "parameters_hash": {"$ref": "#/$defs/sha256"},
+    "receipt_sha256": {"$ref": "#/$defs/sha256"},
+    "schema_version": {"const": 1},
+    "source_tree_hash": {"$ref": "#/$defs/sha256"},
+    "target_profile_hash": {"$ref": "#/$defs/sha256"},
+    "trust_profile_hash": {"$ref": "#/$defs/sha256"},
+    "verifier_artifact_sha256": {"$ref": "#/$defs/sha256"},
+    "verifier_key_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "verifier_policy_sha256": {"$ref": "#/$defs/sha256"},
+    "wire_statement_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "not": {
+        "const": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  }
+}

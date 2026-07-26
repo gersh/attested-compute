@@ -36,8 +36,8 @@ TARGET_PROFILE_KEYS = {
     "profile_version",
     "profile_kind",
     "profile_id",
+    "backend_kind",
     "host_architecture",
-    "gpu_architecture",
     "device_family",
     "confidential_compute",
     "allowed_evidence_classes",
@@ -60,6 +60,7 @@ EVIDENCE_CLASSES = {
     "mock_attested",
     "hardware_attested",
 }
+BACKEND_KINDS = {"cpu", "gpu"}
 GPU_EXECUTION_ROLES = {"gpu_executable", "gpu_cubin", "gpu_fatbin", "gpu_ptx"}
 
 
@@ -215,7 +216,13 @@ def validate_profile(profile: Any, expected_kind: str | None = None) -> dict[str
     if expected_kind is not None and kind != expected_kind:
         raise BundleError(f"expected a {expected_kind} profile, got {kind!r}")
     if kind == "target":
-        result = _require_exact_keys(profile, TARGET_PROFILE_KEYS, "target profile")
+        backend_kind = profile.get("backend_kind")
+        if not isinstance(backend_kind, str) or backend_kind not in BACKEND_KINDS:
+            raise BundleError("target profile backend_kind must be cpu or gpu")
+        expected_keys = set(TARGET_PROFILE_KEYS)
+        if backend_kind == "gpu":
+            expected_keys.add("gpu_architecture")
+        result = _require_exact_keys(profile, expected_keys, "target profile")
         if result["profile_version"] != 1 or isinstance(
             result["profile_version"], bool
         ):
@@ -225,12 +232,17 @@ def validate_profile(profile: Any, expected_kind: str | None = None) -> dict[str
             raise BundleError("invalid target profile_id")
         for key in (
             "host_architecture",
-            "gpu_architecture",
             "device_family",
             "confidential_compute",
             "description",
         ):
             _require_nonempty_string(result[key], f"target profile {key}")
+        if backend_kind == "gpu":
+            gpu_architecture = _require_nonempty_string(
+                result["gpu_architecture"], "target profile gpu_architecture"
+            )
+            if re.fullmatch(r"sm_[0-9]+", gpu_architecture) is None:
+                raise BundleError("invalid target profile gpu_architecture")
         classes = _require_string_list(
             result["allowed_evidence_classes"],
             "target profile allowed_evidence_classes",
@@ -469,6 +481,19 @@ def _check_profile_compatibility(
         raise BundleError("DGX Spark bundles must use local_unattested evidence")
 
 
+def _check_build_artifact_roles(
+    target_profile: dict[str, Any], build_roles: set[str]
+) -> None:
+    if "host_executable" not in build_roles:
+        raise BundleError("build artifacts must bind the exact host_executable")
+    backend_kind = target_profile["backend_kind"]
+    has_gpu_image = bool(build_roles & GPU_EXECUTION_ROLES)
+    if backend_kind == "gpu" and not has_gpu_image:
+        raise BundleError("GPU target build artifacts must bind an exact GPU execution image")
+    if backend_kind == "cpu" and has_gpu_image:
+        raise BundleError("CPU target build artifacts cannot contain a GPU execution image")
+
+
 def create_bundle(
     *,
     root: str | os.PathLike[str],
@@ -510,10 +535,7 @@ def create_bundle(
     if len(set(identities)) != len(identities):
         raise BundleError("duplicate build artifact role/path pair")
     build_roles = {item["role"] for item in build_records}
-    if "host_executable" not in build_roles:
-        raise BundleError("build artifacts must bind the exact host_executable")
-    if not build_roles & GPU_EXECUTION_ROLES:
-        raise BundleError("build artifacts must bind an exact GPU execution image")
+    _check_build_artifact_roles(target_profile, build_roles)
 
     input_record = artifact_record(input_path, resolved_root)
     output_record = artifact_record(output_path, resolved_root)
@@ -523,6 +545,7 @@ def create_bundle(
     statement: dict[str, Any] = {
         "target_profile": profile_reference(target_profile),
         "trust_profile": profile_reference(trust_profile),
+        "backend_kind": target_profile["backend_kind"],
         "algorithm": {
             "algorithm_id": algorithm_id,
             "definition_sha256": algorithm_definition_sha256,

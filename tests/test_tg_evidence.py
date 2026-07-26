@@ -13,10 +13,14 @@ from unittest import mock
 
 from tg_verifier.evidence import (
     CDEM_REQUIRED_FIELDS,
+    CDEM_REGISTERED_RESULT,
+    CDEM_REGISTERED_RESULT_SHA256,
     CDEM_U_TARGET,
     CDEM_V_TARGET,
     EvidenceError,
     compare_claude_math_inventory,
+    cdem_abel_registered_result,
+    nat_pair,
     verify_cdem_abel_transcript,
     verify_cdem_abel_text,
     verify_ramare_zuniga_report,
@@ -35,6 +39,13 @@ class ImportedEvidenceTests(unittest.TestCase):
             checked = verify_cdem_abel_transcript(path)
             self.assertTrue(checked.accepted)
             self.assertFalse(checked.proves_lean_claim)
+            self.assertEqual(
+                checked.metrics["registered_result"], CDEM_REGISTERED_RESULT
+            )
+            self.assertEqual(
+                checked.metrics["registered_result_sha256"],
+                CDEM_REGISTERED_RESULT_SHA256,
+            )
             path.write_text(transcript.replace("FINAL_G=111", "FINAL_G=112"), encoding="utf-8")
             with self.assertRaisesRegex(EvidenceError, "FINAL_G"):
                 verify_cdem_abel_transcript(path)
@@ -48,6 +59,22 @@ class ImportedEvidenceTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(EvidenceError, "signed Abel output"):
                 verify_cdem_abel_transcript(path)
+
+    def test_cdem_registered_result_matches_mathlib_nat_pair(self) -> None:
+        self.assertEqual(
+            nat_pair(CDEM_U_TARGET, CDEM_V_TARGET),
+            CDEM_V_TARGET * CDEM_V_TARGET + CDEM_U_TARGET,
+        )
+        self.assertEqual(
+            cdem_abel_registered_result(CDEM_U_TARGET, CDEM_V_TARGET),
+            CDEM_REGISTERED_RESULT,
+        )
+        self.assertEqual(
+            hashlib.sha256(CDEM_REGISTERED_RESULT.encode("ascii")).hexdigest(),
+            CDEM_REGISTERED_RESULT_SHA256,
+        )
+        with self.assertRaisesRegex(EvidenceError, "must be a natural"):
+            nat_pair(-1, CDEM_V_TARGET)
 
     def test_ramare_exact_decimal_budget_and_raw_hash(self) -> None:
         raw = b"retained raw report fixture"

@@ -1,0 +1,147 @@
+{
+  "kind": "sparkinterval.platt-pt21.azure-execution-contracts.v1",
+  "schema_version": 1,
+  "mathematical_campaign": {
+    "atom_id": "platt-trudgian-rh-3e12",
+    "source_height": 3000175332800,
+    "multiplicity_count": 12363153437138,
+    "ordinary_prefix_last_index": 9999,
+    "platt_first_index": 10000,
+    "sentinel_index": 12363153437139,
+    "source_upper_exclusive": 12363153437140,
+    "shard_span": 10000000,
+    "shard_count": 1236316,
+    "phases": [
+      {
+        "phase_id": "initialize",
+        "shard_count": 1,
+        "depends_on": []
+      },
+      {
+        "phase_id": "exact-multiplicity-count",
+        "shard_count": 1,
+        "depends_on": [
+          "initialize"
+        ]
+      },
+      {
+        "phase_id": "ordinary-low-index-prefix",
+        "shard_count": 1,
+        "depends_on": [
+          "exact-multiplicity-count"
+        ]
+      },
+      {
+        "phase_id": "platt-turing-index-shards",
+        "shard_count": 1236316,
+        "depends_on": [
+          "ordinary-low-index-prefix"
+        ]
+      },
+      {
+        "phase_id": "finalize-merkle-certificate",
+        "shard_count": 1,
+        "depends_on": [
+          "platt-turing-index-shards"
+        ]
+      }
+    ],
+    "receipt_merkle_rule": "sha256(00||leaf-digest), sha256(01||left||right), duplicate odd right",
+    "zero_multiplicity_preserved": true,
+    "simplicity_assumed": false
+  },
+  "implementations": [
+    {
+      "contract_id": "reference-cpu-flint-3.6-v1",
+      "backend_class": "cpu_flint_sidecar",
+      "receipt_backend": "azure_sevsnp_cpu",
+      "worker_interface": {
+        "source": "reference/tg_platt_zeta_shard.cpp",
+        "supervisor": "tg_verifier/platt_zeta_campaign.py",
+        "engines": [
+          "count",
+          "ordinary-prefix",
+          "platt-isolate",
+          "platt-zeta-replay"
+        ],
+        "flint_commit": "8d5454b96761fafe4d5a9da76a369a602f500f49",
+        "flint_version": "3.6.0",
+        "precision_bits": 96,
+        "micro_batch": 4096,
+        "flint_threads": 1
+      },
+      "finalizer_interface": {
+        "supervisor": "tg_verifier/platt_zeta_campaign.py",
+        "plan_schema": "sparkinterval.tg.platt-zeta-campaign.plan.v1",
+        "receipt_schema": "sparkinterval.tg.platt-zeta-campaign.receipt.v1",
+        "final_schema": "sparkinterval.tg.platt-zeta-campaign.final.v1",
+        "requires_count": true,
+        "requires_prefix": true,
+        "requires_all_shards": true
+      },
+      "capability": {
+        "worker_complete": true,
+        "finalizer_complete": true,
+        "full_source_geometry_complete": true,
+        "retained_export_replay_complete": true,
+        "production_materializer_allowed": true,
+        "under_one_week_and_10000_usd": false
+      },
+      "blockers": [
+        "The exact reference computation is source-complete but economically unscaled.",
+        "No measured target-SKU benchmark supports a one-week or 10000 USD production claim.",
+        "The Lean endpoint, Hardy-Z, multiplicity, and Turing realization is not proved."
+      ]
+    },
+    {
+      "contract_id": "optimized-h100-windowed-v2",
+      "backend_class": "h100_cuda",
+      "receipt_backend": "azure_ncc40ads_h100_v5",
+      "worker_interface": {
+        "source": "gpu/platform/h100/h100_tg_platt_fused_source_worker_v2.cu",
+        "supervisor": "tg_verifier/platt_h100_campaign.py",
+        "engines": [
+          "authenticated-gamma-v2",
+          "dd-required-region-transform",
+          "three-stream-event-scan",
+          "stationary-refinement"
+        ],
+        "flint_commit": "8d5454b96761fafe4d5a9da76a369a602f500f49",
+        "flint_version": "3.6.0",
+        "precision_bits": 192,
+        "micro_batch": 64,
+        "flint_threads": 1
+      },
+      "finalizer_interface": {
+        "supervisor": "tg_verifier/platt_pt21_fused_artifact.py",
+        "native_record_adapter": "tg_verifier/platt_pt21_native_record_adapter.py",
+        "native_finalizer": "reference/tg_platt_pt21_native_finalizer.cpp",
+        "independent_retained_replay": "tg_verifier/platt_pt21_native_finalizer.py",
+        "native_record_wire": "PT21BLK1",
+        "native_shard_wire": "PT21SHD1/PT21SFT1",
+        "native_campaign_wire": "PT21CMP1/PT21CSR1/PT21CFT1",
+        "plan_schema": "sparkinterval.tg.platt-pt21-h100-plan.v1",
+        "receipt_schema": "sparkinterval.tg.platt-pt21-fused-shard.v1",
+        "final_schema": "sparkinterval.tg.platt-pt21-fused-final.v1",
+        "requires_count": true,
+        "requires_prefix": true,
+        "requires_all_shards": true
+      },
+      "capability": {
+        "worker_complete": false,
+        "finalizer_complete": true,
+        "full_source_geometry_complete": false,
+        "retained_export_replay_complete": true,
+        "production_materializer_allowed": false,
+        "under_one_week_and_10000_usd": false
+      },
+      "blockers": [
+        "The finite native-record adapter is implemented, but the measured all-window producer does not yet stream every required-sign packet, stationary trace, and Turing-input artifact into it.",
+        "Sparse high-precision stationary refinement is not wired into the measured worker.",
+        "The bounded-memory native finalizer, independent replay, and PT21BLK1 adapter are complete, but direct measured-worker record emission is not wired.",
+        "Hardy-Z endpoint, multiplicity, analytic Turing, and Lean source realizations remain false.",
+        "No complete target-SKU benchmark or source-height run exists."
+      ]
+    }
+  ]
+}

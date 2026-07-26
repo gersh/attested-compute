@@ -1,0 +1,457 @@
+{
+  "schema_version": 1,
+  "kind": "sparkinterval.ternary-goldbach.native-family-closure.v1",
+  "assessment_date": "2026-07-24",
+  "classification": "production-data-free-planning-and-trust-boundary-catalog-not-a-proof-or-current-axiom-print",
+  "scope": "the 15 native-generated families and 1371 generated native atoms in the last fresh claude_math ternary_goldbach trust-boundary manifest; the 13 named external/source atoms are cataloged separately",
+  "authority_order": [
+    "a fresh source build and #print axioms Math.Problems.TernaryGoldbach.ternary_goldbach",
+    "the retained last-fresh native_decide_manifest.json",
+    "a static source-selection and import-cone projection",
+    "source grep or planning documentation"
+  ],
+  "snapshots": {
+    "last_fresh_capstone": {
+      "authority": "fresh #print axioms plus Lean.collectAxioms and ConstantInfo",
+      "snapshot_label": "claude_math July-22 Statement.trace authority",
+      "raw_statement_trace_vendored_here": false,
+      "retained_manifest_path_in_claude_math": "problems/ternary-goldbach/native_decide_manifest.json",
+      "retained_manifest_sha256": "ea3e5c143feda890bdb877dd1b3e11fa6273df86e1c5158a0d5c3ad91b8e429c",
+      "root_declaration": "Math.Problems.TernaryGoldbach.ternary_goldbach",
+      "root_type_digest": "sha256:f3349972a5f2031bf4f56c7b20975dc7c1d3c2e7f3a45fe72c2b086acd0d59da",
+      "foundation_atoms": 3,
+      "named_external_or_source_atoms": 13,
+      "native_generated_atoms": 1371,
+      "native_family_count": 15,
+      "total_axioms": 1387
+    },
+    "recorded_static_projection_2026_07_23": {
+      "authority": "none; diagnostic source comparison only",
+      "status": "static_projection_not_authoritative",
+      "document_path_in_claude_math": "problems/ternary-goldbach/NATIVE_DECIDE_STATIC_PROJECTION.md",
+      "document_sha256": "453658b9845829400b18bfbfb94311d302738fc99efe5432516761625ba31898",
+      "baseline_native_atoms": 1371,
+      "source_selection_changed_or_removed": 1081,
+      "source_selection_unchanged_import_unreachable": 1,
+      "source_selection_unchanged_import_reachable": 289,
+      "warning": "289 is a carry-forward projection, not a current axiom count; changed or unreachable selections are not proved retired"
+    }
+  },
+  "policy": {
+    "ordinary_default": "replace native evaluation with a compact, proof-carrying kernel or LeanCert certificate and theorem-level source bridge",
+    "routine_local_build": "check only compact proof objects and ordinary Lean refinements; do not rerun the original production scan",
+    "compact_trusted_run_fallback": "allowed only for a documented prohibitive production computation, using verified code, a compact confidential-compute receipt, and the project's existing single trusted-compute axiom",
+    "new_per_family_axioms_allowed": false,
+    "production_literals_or_traces_in_this_catalog": false,
+    "retirement_rule": "no family is retired until its changed source, live consumer, and the capstone are rebuilt and a fresh #print axioms omits every old and newly generated native atom"
+  },
+  "summary": {
+    "family_count": 15,
+    "authoritative_native_atoms": 1371,
+    "authoritative_atoms_assigned_local_kernel_or_leancert": 1368,
+    "authoritative_atoms_assigned_compact_trusted_run_fallback": 3,
+    "recorded_projection_changed_or_removed": 1081,
+    "recorded_projection_unchanged_import_unreachable": 1,
+    "recorded_projection_unchanged_import_reachable": 289,
+    "families_authoritatively_retired_by_a_fresh_capstone_print": 0,
+    "contains_production_data": false
+  },
+  "families": [
+    {
+      "family_id": "analyticnt-chebyshev",
+      "lean_family": "AnalyticNT.Chebyshev",
+      "authoritative_snapshot": {
+        "native_atom_count": 3,
+        "module_count": 3,
+        "member_digest": "sha256:363ef35d8d453164c8d68f80246861e168b761053c8f9ccd620c273cf9d025f3",
+        "range": "psi through 1e7, psi-minus-theta through 1e6, and RR14 on [2e6,4e6]"
+      },
+      "recorded_static_projection": {
+        "source_selection_changed_or_removed": 0,
+        "source_selection_unchanged_import_unreachable": 0,
+        "source_selection_unchanged_import_reachable": 3,
+        "candidate_state": "the three production selections remain unchanged; exact event-only compact contracts and base-trio bridges to all three historical Boolean equations are staged, but their complete event artifacts are absent"
+      },
+      "preferred_discharge": {
+        "mode": "local_kernel_or_leancert_certificate",
+        "route": "instantiate PsiCompactCertificateContracts with complete linked prime-power/factor-gap/log rosters; its ordinary event-converse theorems reconstruct all three exact historical Boolean equations",
+        "routine_local_build_behavior": "kernel_checks_compact_certificate_only",
+        "compact_trusted_run_allowed": false,
+        "prohibitive_reason": null
+      },
+      "authoritative_retirement_proven": false
+    },
+    {
+      "family_id": "analyticnt-large-sieve",
+      "lean_family": "AnalyticNT.LargeSieve",
+      "authoritative_snapshot": {
+        "native_atom_count": 18,
+        "module_count": 4,
+        "member_digest": "sha256:762aaaeb07a1ec4328953e2224e1bd5c0a750f639bc3fe4bb53cc44fe0a430d6",
+        "range": "G and c_E folds through 1e5/1e7 plus the stated uIv checkpoint ranges"
+      },
+      "recorded_static_projection": {
+        "source_selection_changed_or_removed": 0,
+        "source_selection_unchanged_import_unreachable": 0,
+        "source_selection_unchanged_import_reachable": 18,
+        "candidate_state": "no production source selection changed at the recorded snapshot"
+      },
+      "preferred_discharge": {
+        "mode": "local_kernel_or_leancert_certificate",
+        "route": "shared certified sieve/event rows with linked G and c_E accumulator checkpoints",
+        "routine_local_build_behavior": "kernel_checks_compact_certificate_only",
+        "compact_trusted_run_allowed": false,
+        "prohibitive_reason": null
+      },
+      "authoritative_retirement_proven": false
+    },
+    {
+      "family_id": "helfgott-certificates",
+      "lean_family": "HelfgottCertificates",
+      "authoritative_snapshot": {
+        "native_atom_count": 4,
+        "module_count": 2,
+        "member_digest": "sha256:efeaf41ea2871a3d49f6c33367d3c058f7c2fd7405f2a6e7573c0cb01f663f4c",
+        "range": "three compact SII margin intervals and the 999-term zeta(3/2) head"
+      },
+      "recorded_static_projection": {
+        "source_selection_changed_or_removed": 4,
+        "source_selection_unchanged_import_unreachable": 0,
+        "source_selection_unchanged_import_reachable": 0,
+        "candidate_state": "all four baseline selections changed for staged ordinary replacements; retirement remains unverified"
+      },
+      "preferred_discharge": {
+        "mode": "local_kernel_or_leancert_certificate",
+        "route": "small fixed-width interval certificates and a linked 999-term rational enclosure",
+        "routine_local_build_behavior": "kernel_checks_compact_certificate_only",
+        "compact_trusted_run_allowed": false,
+        "prohibitive_reason": null
+      },
+      "authoritative_retirement_proven": false
+    },
+    {
+      "family_id": "ternary-goldbach-arithmetic-certs",
+      "lean_family": "Math.Problems.TernaryGoldbach.Certs",
+      "authoritative_snapshot": {
+        "native_atom_count": 7,
+        "module_count": 5,
+        "member_digest": "sha256:983d853a67f8d19c1ddc9c172a8cfa77ffa12c6836286e253078413e16255cc2",
+        "range": "odd-squarefree heads through 150,000 and deficit product through 2e6"
+      },
+      "recorded_static_projection": {
+        "source_selection_changed_or_removed": 0,
+        "source_selection_unchanged_import_unreachable": 0,
+        "source_selection_unchanged_import_reachable": 7,
+        "candidate_state": "no production source selection changed at the recorded snapshot"
+      },
+      "preferred_discharge": {
+        "mode": "local_kernel_or_leancert_certificate",
+        "route": "certified factor/squarefree rows and linked fixed-point accumulator checkpoints",
+        "routine_local_build_behavior": "kernel_checks_compact_certificate_only",
+        "compact_trusted_run_allowed": false,
+        "prohibitive_reason": null
+      },
+      "authoritative_retirement_proven": false
+    },
+    {
+      "family_id": "chapter14-minor-arcs",
+      "lean_family": "Math.Problems.TernaryGoldbach.MinorArcs.Chapter14",
+      "authoritative_snapshot": {
+        "native_atom_count": 34,
+        "module_count": 4,
+        "member_digest": "sha256:aeed756f1a3a314ed59211acebf6fe302c12b5973bd904c023ccb5fd80dd669d",
+        "range": "the production y/r/q regimes and finite crossover cells encoded by the 34 predicates"
+      },
+      "recorded_static_projection": {
+        "source_selection_changed_or_removed": 34,
+        "source_selection_unchanged_import_unreachable": 0,
+        "source_selection_unchanged_import_reachable": 0,
+        "candidate_state": "all baseline selections changed for staged kernel interval and finite-cell replacements; retirement remains unverified"
+      },
+      "preferred_discharge": {
+        "mode": "local_kernel_or_leancert_certificate",
+        "route": "proof-carrying rational interval cells with explicit coverage and theorem-level crossover aggregation",
+        "routine_local_build_behavior": "kernel_checks_compact_certificate_only",
+        "compact_trusted_run_allowed": false,
+        "prohibitive_reason": null
+      },
+      "authoritative_retirement_proven": false
+    },
+    {
+      "family_id": "mean-value-floor-grid",
+      "lean_family": "MathExtras.NumberTheory.Analysis",
+      "authoritative_snapshot": {
+        "native_atom_count": 3,
+        "module_count": 3,
+        "member_digest": "sha256:8043a796e08742785fc8ebbffb8f3b9fbd71533c253c8646a164a24622aa556f",
+        "range": "D-grid m=6..3600 and weighted-floor grids R=6..1000"
+      },
+      "recorded_static_projection": {
+        "source_selection_changed_or_removed": 3,
+        "source_selection_unchanged_import_unreachable": 0,
+        "source_selection_unchanged_import_reachable": 0,
+        "candidate_state": "all three baseline selections changed for staged ordinary Q48/grid replacements; retirement remains unverified"
+      },
+      "preferred_discharge": {
+        "mode": "local_kernel_or_leancert_certificate",
+        "route": "small table certificates with exact floor semantics and explicit grid coverage",
+        "routine_local_build_behavior": "kernel_checks_compact_certificate_only",
+        "compact_trusted_run_allowed": false,
+        "prohibitive_reason": null
+      },
+      "authoritative_retirement_proven": false
+    },
+    {
+      "family_id": "little-mertens-liouville",
+      "lean_family": "MathExtras.NumberTheory.Certs",
+      "authoritative_snapshot": {
+        "native_atom_count": 2,
+        "module_count": 2,
+        "member_digest": "sha256:3b32eb242fbc3fb0b6799944ae221f1ed094e14dfbab2e8fc9ca3a035354f746",
+        "range": "little-Mertens head 3..11817 and Liouville sweep 8918..4e6"
+      },
+      "recorded_static_projection": {
+        "source_selection_changed_or_removed": 0,
+        "source_selection_unchanged_import_unreachable": 0,
+        "source_selection_unchanged_import_reachable": 2,
+        "candidate_state": "a parallel ordinary shared-Mobius candidate was staged, but the production selections were unchanged"
+      },
+      "preferred_discharge": {
+        "mode": "local_kernel_or_leancert_certificate",
+        "route": "sharded Mobius/Liouville transition certificates with pinned endpoints and range-covering assembly",
+        "routine_local_build_behavior": "kernel_checks_compact_certificate_only",
+        "compact_trusted_run_allowed": false,
+        "prohibitive_reason": null
+      },
+      "authoritative_retirement_proven": false
+    },
+    {
+      "family_id": "helfgott-analytic-intervals",
+      "lean_family": "MathExtras.NumberTheory.Helfgott",
+      "authoritative_snapshot": {
+        "native_atom_count": 202,
+        "module_count": 31,
+        "member_digest": "sha256:87bbbea4e5e3ff937037b4a4aaa88721a82cb3fa7ecb1938d2794ecba4e9ccd7",
+        "range": "the explicit compact interval cells encoded by the 202 closed predicates"
+      },
+      "recorded_static_projection": {
+        "source_selection_changed_or_removed": 14,
+        "source_selection_unchanged_import_unreachable": 0,
+        "source_selection_unchanged_import_reachable": 188,
+        "candidate_state": "partial staged conversion: 14 baseline selections changed and proof-carrying interval pilots exist for part of the 188 projected residuals"
+      },
+      "preferred_discharge": {
+        "mode": "local_kernel_or_leancert_certificate",
+        "route": "sharded proof-carrying interval DAGs with rounded-node soundness, exact box coverage, and source-expression bridges",
+        "routine_local_build_behavior": "kernel_checks_compact_certificate_only",
+        "compact_trusted_run_allowed": false,
+        "prohibitive_reason": null
+      },
+      "authoritative_retirement_proven": false
+    },
+    {
+      "family_id": "helfgott-section24-head",
+      "lean_family": "MathExtras.NumberTheory.Helfgott.Certs",
+      "authoritative_snapshot": {
+        "native_atom_count": 1,
+        "module_count": 1,
+        "member_digest": "sha256:697866554af22bdcb1e4ab88949ed2852af3e31c1bfdca04c6f3c2865d096919",
+        "range": "q=1 finite head 1 <= x < 30000"
+      },
+      "recorded_static_projection": {
+        "source_selection_changed_or_removed": 0,
+        "source_selection_unchanged_import_unreachable": 1,
+        "source_selection_unchanged_import_reachable": 0,
+        "candidate_state": "consumer import was staged to an ordinary bridge, but import-unreachability does not prove retirement"
+      },
+      "preferred_discharge": {
+        "mode": "local_kernel_or_leancert_certificate",
+        "route": "linked 30000-term logarithmic-Mertens head certificate and exact source bridge",
+        "routine_local_build_behavior": "kernel_checks_compact_certificate_only",
+        "compact_trusted_run_allowed": false,
+        "prohibitive_reason": null
+      },
+      "authoritative_retirement_proven": false
+    },
+    {
+      "family_id": "chirre-helfgott-a6",
+      "lean_family": "MathExtras.NumberTheory.LSeries",
+      "authoritative_snapshot": {
+        "native_atom_count": 2,
+        "module_count": 2,
+        "member_digest": "sha256:60e9461809cb946544df5aac42c1d8f0dfec5a6ee23c30539bf3d9dd23253ef6",
+        "range": "von-Mangoldt head through 1e6 and interval [9/4,4]"
+      },
+      "recorded_static_projection": {
+        "source_selection_changed_or_removed": 0,
+        "source_selection_unchanged_import_unreachable": 0,
+        "source_selection_unchanged_import_reachable": 2,
+        "candidate_state": "ordinary anchor work existed, while both inherited baseline selections remained projected at the recorded snapshot"
+      },
+      "preferred_discharge": {
+        "mode": "local_kernel_or_leancert_certificate",
+        "route": "certified von-Mangoldt checkpoints plus a depth-10 rational interval trace for the middle interval",
+        "routine_local_build_behavior": "kernel_checks_compact_certificate_only",
+        "compact_trusted_run_allowed": false,
+        "prohibitive_reason": null
+      },
+      "authoritative_retirement_proven": false
+    },
+    {
+      "family_id": "ramare-little-mertens",
+      "lean_family": "MathExtras.NumberTheory.Mertens",
+      "authoritative_snapshot": {
+        "native_atom_count": 1,
+        "module_count": 1,
+        "member_digest": "sha256:81e289a2c4fd816931d06dca6feeb3ceb6e989d7fad2309159366d30b8d42c79",
+        "range": "11815 <= N < 32768"
+      },
+      "recorded_static_projection": {
+        "source_selection_changed_or_removed": 0,
+        "source_selection_unchanged_import_unreachable": 0,
+        "source_selection_unchanged_import_reachable": 1,
+        "candidate_state": "a 34-shard ordinary shared-Mobius candidate was staged in parallel, but the production selection was unchanged"
+      },
+      "preferred_discharge": {
+        "mode": "local_kernel_or_leancert_certificate",
+        "route": "the shared 32767-row Mobius transition certificate with exact bandRun and ladderRun reconstruction",
+        "routine_local_build_behavior": "kernel_checks_compact_certificate_only",
+        "compact_trusted_run_allowed": false,
+        "prohibitive_reason": null
+      },
+      "authoritative_retirement_proven": false
+    },
+    {
+      "family_id": "vinogradov-finite-intervals",
+      "lean_family": "MathExtras.NumberTheory.Vinogradov",
+      "authoritative_snapshot": {
+        "native_atom_count": 55,
+        "module_count": 3,
+        "member_digest": "sha256:67798f4cd03259d0563420af2800f6dc0bfc197291b4f4b8ea819522efededb3",
+        "range": "Corollary-C.1.3 cells on y in [1,2000] and C.17 mirror through 2,560,000"
+      },
+      "recorded_static_projection": {
+        "source_selection_changed_or_removed": 0,
+        "source_selection_unchanged_import_unreachable": 0,
+        "source_selection_unchanged_import_reachable": 55,
+        "candidate_state": "ordinary adaptive-interval pilots covered initial ranges, but no baseline production selection changed"
+      },
+      "preferred_discharge": {
+        "mode": "local_kernel_or_leancert_certificate",
+        "route": "proof-carrying adaptive interval transcripts plus a certified sieve mirror and explicit whole-range coverage",
+        "routine_local_build_behavior": "kernel_checks_compact_certificate_only",
+        "compact_trusted_run_allowed": false,
+        "prohibitive_reason": null
+      },
+      "authoritative_retirement_proven": false
+    },
+    {
+      "family_id": "rosser-schoenfeld",
+      "lean_family": "Rs62Certificates",
+      "authoritative_snapshot": {
+        "native_atom_count": 1025,
+        "module_count": 33,
+        "member_digest": "sha256:61008bf5a84dfb95f63be764e67e3fdb6b78dcbdeb13146b2341659dcbed6fee",
+        "range": "theta windows from 283, equation-(3.14) ladder through 14.5e6, and Mertens-product/anchor ladders through 1e8 and beyond"
+      },
+      "recorded_static_projection": {
+        "source_selection_changed_or_removed": 1025,
+        "source_selection_unchanged_import_unreachable": 0,
+        "source_selection_unchanged_import_reachable": 0,
+        "candidate_state": "all 1025 baseline leaf selections changed for compressed seeds, linked rows, and assembly replacements; retirement remains unverified"
+      },
+      "preferred_discharge": {
+        "mode": "local_kernel_or_leancert_certificate",
+        "route": "compressed seed/log tables, linked transition certificates, and theorem-level ladder and range assemblies",
+        "routine_local_build_behavior": "kernel_checks_compact_certificate_only",
+        "compact_trusted_run_allowed": false,
+        "prohibitive_reason": null
+      },
+      "authoritative_retirement_proven": false
+    },
+    {
+      "family_id": "standalone-tg-native",
+      "lean_family": "TGNativeCertificates",
+      "authoritative_snapshot": {
+        "native_atom_count": 11,
+        "module_count": 11,
+        "member_digest": "sha256:c06ceefba7086d9bf534a062c4c5b238e20094bf26bec6fb021031ca41a186df",
+        "range": "CDEM head through 6,155,336; (2.17) through 19e6; (2.19) through 1,517,397"
+      },
+      "recorded_static_projection": {
+        "source_selection_changed_or_removed": 1,
+        "source_selection_unchanged_import_unreachable": 0,
+        "source_selection_unchanged_import_reachable": 10,
+        "candidate_state": "the prime-log-square selection changed for a staged ordinary replacement; ten CDEM/weighted-fold selections remained projected"
+      },
+      "preferred_discharge": {
+        "mode": "local_kernel_or_leancert_certificate",
+        "route": "shared certified sieve/factor rows, linked fixed-point transitions, and the staged ordinary prime-log-square certificate",
+        "routine_local_build_behavior": "kernel_checks_compact_certificate_only",
+        "compact_trusted_run_allowed": false,
+        "prohibitive_reason": null
+      },
+      "authoritative_retirement_proven": false
+    },
+    {
+      "family_id": "ramare-production-folds",
+      "lean_family": "TGNativeCertificates.Ramare",
+      "authoritative_snapshot": {
+        "native_atom_count": 3,
+        "module_count": 3,
+        "member_digest": "sha256:ab5c96ca2f1c9fb8fc785e74bb0a64297652cdf29341974ef350519842301fae",
+        "range": "first-Mertens and Lemma-7.1 checks through 1e8; m-star through 1.4e8"
+      },
+      "recorded_static_projection": {
+        "source_selection_changed_or_removed": 0,
+        "source_selection_unchanged_import_unreachable": 0,
+        "source_selection_unchanged_import_reachable": 3,
+        "candidate_state": "no production source selection changed at the recorded snapshot"
+      },
+      "preferred_discharge": {
+        "mode": "compact_trusted_run",
+        "route": "prove the fixed CPU checker and source bridge once; run the 1e8/1.4e8 scans in confidential Azure compute and admit only a compact pinned result through the existing single trusted-compute axiom",
+        "routine_local_build_behavior": "checks_compact_receipt_and_ordinary_refinement_only",
+        "compact_trusted_run_allowed": true,
+        "prohibitive_reason": "the retained measurements are about 62 to 95 minutes per production fold, with the 1.4e8 m-star run reaching about 15.33 GiB; repeating those scans in routine Lean builds is not maintainable"
+      },
+      "compact_contract": {
+        "registry_invocation": "ramareProductionFoldsCompactV1",
+        "claim_kind": "native_family_fallback",
+        "external_atom_campaign": false,
+        "source_contract_module": "SparkInterval.TernaryGoldbach.RamareNativeFoldContracts",
+        "compact_checker_module": "SparkInterval.TernaryGoldbach.RamareNativeFoldsCompactChecker",
+        "acceptance_evidence": "SparkInterval.TernaryGoldbach.RamareNativeFoldContracts.FiniteFoldEvidence",
+        "evidence_to_claims_theorem": "SparkInterval.TernaryGoldbach.RamareNativeFoldContracts.sourceClaims_of_finiteFoldEvidence",
+        "compact_composition_theorem": "SparkInterval.TernaryGoldbach.RamareNativeFoldsCompactChecker.sourceClaims_of_compactRun",
+        "reviewed_run_installed": false,
+        "exact_executable_refinement_proved": false,
+        "exact_claude_math_provider_replacement_proved": false,
+        "historical_boolean_leaves": [
+          {
+            "declaration": "TGNativeCertificates.Ramare.Finite100M.check_first_mertens_100m_full",
+            "proposition_digest": "sha256:b37e6955b0a72dab27d1f1bef629d9e2f9dbcbc41bc4c768842f89d8bb82e001"
+          },
+          {
+            "declaration": "TGNativeCertificates.Ramare.Lemma71.check_lemma71_100m_full",
+            "proposition_digest": "sha256:7c221d68aa489c14c94cb2ce762410b4a8894f8d0c4c77bf5f2bfed325002f39"
+          },
+          {
+            "declaration": "TGNativeCertificates.Ramare.MStar140MCert.full_run",
+            "proposition_digest": "sha256:7e40b6de7113b12c788ddc30b3559743df47047808b8f93a21d75f7708a4b20b"
+          }
+        ]
+      },
+      "authoritative_retirement_proven": false
+    }
+  ],
+  "zero_native_completion_gate": [
+    "finish each local certificate's generic checker soundness and exact source-shaped theorem bridge",
+    "for the Ramaré fallback, prove fixed-binary or architecture execution refines the checker and bind a reviewed compact Azure receipt without a second axiom",
+    "swap every live claude_math provider from native-generated leaves to the corresponding ordinary theorem or compact receipt theorem",
+    "compile every changed source file and its live consumer from source",
+    "run lake build Math MathExtras in the isolated slow-build profile",
+    "run a fresh #print axioms on Math.Problems.TernaryGoldbach.ternary_goldbach",
+    "regenerate the native trust-surface manifest and require zero native-generated atoms while retaining only the foundational trio and accurately scoped external/trusted-compute boundary"
+  ]
+}

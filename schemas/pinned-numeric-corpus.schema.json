@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/pinned-numeric-corpus.schema.json",
+  "title": "SparkInterval immutable numeric-corpus reference",
+  "description": "A small reviewed pin for a corpus manifest stored at one exact Git commit. A local checkout is only a resolver for these pinned bytes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "expected",
+    "kind",
+    "pin_id",
+    "repository",
+    "schema_version"
+  ],
+  "properties": {
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "claim_version",
+        "corpus_id",
+        "corpus_version",
+        "payload_file_count",
+        "payload_root_sha256",
+        "payload_total_size_bytes",
+        "source_root_sha256",
+        "statement_sha256"
+      ],
+      "properties": {
+        "claim_id": { "$ref": "#/$defs/id" },
+        "claim_version": { "$ref": "#/$defs/version" },
+        "corpus_id": { "$ref": "#/$defs/id" },
+        "corpus_version": { "$ref": "#/$defs/version" },
+        "payload_file_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "payload_root_sha256": { "$ref": "#/$defs/sha256" },
+        "payload_total_size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1125899906842624
+        },
+        "source_root_sha256": { "$ref": "#/$defs/sha256" },
+        "statement_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "kind": {
+      "const": "sparkinterval.pinned_numeric_corpus.v1"
+    },
+    "pin_id": { "$ref": "#/$defs/id" },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit",
+        "manifest_path",
+        "manifest_sha256",
+        "manifest_size_bytes",
+        "url"
+      ],
+      "properties": {
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$(?![\\s\\S])",
+          "not": {
+            "const": "0000000000000000000000000000000000000000"
+          }
+        },
+        "manifest_path": { "$ref": "#/$defs/path" },
+        "manifest_sha256": { "$ref": "#/$defs/sha256" },
+        "manifest_size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16777216
+        },
+        "url": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 2048,
+          "pattern": "^https://(?![^/@]*@)(?=[^/?#]*\\.)[A-Za-z0-9.-]+(?::443)?/[^\\s?#]+$(?![\\s\\S])"
+        }
+      }
+    },
+    "schema_version": { "const": 1 }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$(?![\\s\\S])"
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$(?![\\s\\S])"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
+      "not": {
+        "const": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    }
+  }
+}

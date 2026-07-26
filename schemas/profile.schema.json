@@ -10,8 +10,8 @@
         "profile_version",
         "profile_kind",
         "profile_id",
+        "backend_kind",
         "host_architecture",
-        "gpu_architecture",
         "device_family",
         "confidential_compute",
         "allowed_evidence_classes",
@@ -21,6 +21,7 @@
         "profile_version": {"const": 1},
         "profile_kind": {"const": "target"},
         "profile_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"},
+        "backend_kind": {"enum": ["cpu", "gpu"]},
         "host_architecture": {"type": "string", "minLength": 1},
         "gpu_architecture": {"type": "string", "pattern": "^sm_[0-9]+$"},
         "device_family": {"type": "string", "minLength": 1},
@@ -32,7 +33,17 @@
           "items": {"enum": ["local_unattested", "mock_attested", "hardware_attested"]}
         },
         "description": {"type": "string", "minLength": 1}
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["backend_kind"],
+            "properties": {"backend_kind": {"const": "gpu"}}
+          },
+          "then": {"required": ["gpu_architecture"]},
+          "else": {"properties": {"gpu_architecture": false}}
+        }
+      ]
     },
     {
       "type": "object",
