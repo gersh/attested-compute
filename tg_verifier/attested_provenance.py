@@ -4,8 +4,22 @@
 """Attested-provenance N-way replication records.
 
 This module implements the *execution* layer of the attested-provenance trust
-model: the same campaign run k times on independent, non-confidential
-capacity, with every replica's Merkle root compared.
+model: the same campaign run k times on independent capacity, with every
+replica's Merkle root compared.
+
+The model is **additive**, not a substitution.  A campaign may carry build
+provenance from a neutral GitHub-hosted runner, a confidential-compute receipt
+from the Azure SEV-SNP/H100 path, and replication agreement, all at once; that
+combination is strictly stronger than any one of them.  Replication *instead
+of* confidential computing is the weaker special case, and this module reports
+enough detail for a reader to tell which case they are looking at.
+
+One asymmetry matters throughout: campaign execution belongs on owner-
+controlled confidential hardware, but *build provenance* does not.  Provenance
+signed on a self-hosted runner says only "built on a machine the repository
+owner controls", so ``require_github_hosted_build_provenance`` exists and the
+validator reports every self-hosted build replica even when the policy
+tolerates it.
 
 It is a deliberate sibling of the signed trusted-compute receipt used by the
 ``azure_sevsnp_cpu`` and ``azure_ncc40ads_h100_v5`` backends, not a
@@ -238,6 +252,7 @@ def _check_build_provenance(
     unverified: list[str] = []
     missing_log: list[str] = []
     self_hosted: list[str] = []
+    unknown_runner: list[str] = []
     claimed_l3: list[str] = []
 
     for replica in document["replicas"]:
@@ -249,10 +264,33 @@ def _check_build_provenance(
             unverified.append(replica["replica_id"])
         if "transparency_log" not in provenance:
             missing_log.append(replica["replica_id"])
-        if provenance.get("runner_environment") == "self-hosted":
+        runner = provenance.get("runner_environment")
+        if runner == "self-hosted":
             self_hosted.append(replica["replica_id"])
+        elif runner is None:
+            unknown_runner.append(replica["replica_id"])
         if provenance.get("slsa_build_level") == "L3":
             claimed_l3.append(replica["replica_id"])
+
+    if policy["require_github_hosted_build_provenance"]:
+        # Provenance signed on owner-controlled hardware says only "built on a
+        # machine the owner controls".  It is much weaker than provenance from
+        # neutral hosted capacity, so it cannot silently satisfy a policy that
+        # asked for the strong form.  Running the campaign itself on a
+        # self-hosted confidential machine is a different question and is not
+        # penalised here.
+        if self_hosted:
+            failures.append(
+                "build provenance was produced on a self-hosted runner for "
+                f"replicas {sorted(self_hosted)}; a third party should "
+                "discount owner-controlled build machines"
+            )
+        if unknown_runner:
+            failures.append(
+                "build provenance does not state a runner environment for "
+                f"replicas {sorted(unknown_runner)}, so it cannot be shown "
+                "to come from neutral hosted capacity"
+            )
 
     if policy["require_build_provenance_verified"] and unverified:
         failures.append(
@@ -276,7 +314,8 @@ def _check_build_provenance(
     return {
         "distinct_source_commits": sorted(commits),
         "repositories": sorted(repositories),
-        "self_hosted_replicas": sorted(self_hosted),
+        "self_hosted_build_replicas": sorted(self_hosted),
+        "undeclared_runner_replicas": sorted(unknown_runner),
         "workflow_refs": sorted(workflow_refs),
     }
 

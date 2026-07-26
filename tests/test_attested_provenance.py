@@ -141,6 +141,48 @@ class ReplicationRecordTest(unittest.TestCase):
             evaluation["failures"],
         )
 
+    def test_self_hosted_build_provenance_is_rejected(self) -> None:
+        record = _example()
+        record["replicas"][0]["build_provenance"][
+            "runner_environment"
+        ] = "self-hosted"
+        evaluation = validate_record(record)
+        self.assertFalse(evaluation["accepted"])
+        self.assertTrue(
+            any("self-hosted runner" in f for f in evaluation["failures"]),
+            evaluation["failures"],
+        )
+        self.assertEqual(
+            evaluation["build_provenance"]["self_hosted_build_replicas"],
+            ["replica-a-cuda"],
+        )
+
+    def test_undeclared_runner_environment_is_rejected(self) -> None:
+        record = _example()
+        del record["replicas"][2]["build_provenance"]["runner_environment"]
+        evaluation = validate_record(record)
+        self.assertFalse(evaluation["accepted"])
+        self.assertTrue(
+            any("runner environment" in f for f in evaluation["failures"]),
+            evaluation["failures"],
+        )
+
+    def test_self_hosted_build_is_allowed_when_policy_does_not_require_it(
+        self,
+    ) -> None:
+        record = _example()
+        record["policy"]["require_github_hosted_build_provenance"] = False
+        record["replicas"][0]["build_provenance"][
+            "runner_environment"
+        ] = "self-hosted"
+        evaluation = validate_record(record)
+        self.assertTrue(evaluation["accepted"], evaluation["failures"])
+        # The weakness is still reported even when it is tolerated.
+        self.assertEqual(
+            evaluation["build_provenance"]["self_hosted_build_replicas"],
+            ["replica-a-cuda"],
+        )
+
     def test_slsa_l3_claim_is_rejected(self) -> None:
         record = _example()
         record["replicas"][0]["build_provenance"]["slsa_build_level"] = "L3"
@@ -351,6 +393,28 @@ class ProvenanceWorkflowTest(unittest.TestCase):
 
     def test_reproducible_rebuild_job_exists(self) -> None:
         self.assertIn("independent-rebuild", self.document["jobs"])
+
+    def test_every_job_refuses_a_self_hosted_runner(self) -> None:
+        for name, job in self.document["jobs"].items():
+            first = job["steps"][0]
+            self.assertEqual(
+                first["name"],
+                "Require a GitHub-hosted runner",
+                f"job {name} must assert its runner class first",
+            )
+            self.assertIn("RUNNER_ENVIRONMENT", first["run"])
+            self.assertIn("github-hosted", first["run"])
+
+    def test_no_job_targets_a_self_hosted_runner_label(self) -> None:
+        for name, job in self.document["jobs"].items():
+            runs_on = job["runs-on"]
+            labels = runs_on if isinstance(runs_on, list) else [runs_on]
+            self.assertNotIn("self-hosted", labels, f"job {name}")
+            for label in labels:
+                self.assertTrue(
+                    str(label).startswith("ubuntu-"),
+                    f"job {name} must use a GitHub-hosted Ubuntu runner",
+                )
 
 
 if __name__ == "__main__":

@@ -1,9 +1,24 @@
 # Attested-provenance trust model (prototype, not adopted)
 
-This document describes a *prototype alternative* to the repository's
-confidential-computing execution boundary. It replaces TEE attestation with
-two cheaper, publicly checkable layers and leaves the result-checking layer
-untouched.
+This document describes a *prototype* set of trust layers that can either
+supplement or, if the owner chooses, replace the repository's
+confidential-computing execution boundary.
+
+**Read the composition first.** The three layers below are **additive**. The
+recommended arrangement is not "replication instead of confidential
+computing"; it is:
+
+- build provenance from a **neutral GitHub-hosted runner**;
+- **plus** the existing SEV-SNP/NVIDIA-CC receipt from the Azure confidential
+  H100 CVM, now registered as a **self-hosted runner** so the campaign is not
+  subject to the 6-hour hosted job limit;
+- **plus**, optionally, N-way replication.
+
+That combination is strictly stronger than the confidential path alone, and it
+costs one workflow file plus the runner registration. Dropping confidential
+computing and relying on replication alone is the weaker special case; section
+5 says exactly what it costs. This document describes both so the owner can
+choose, and it does not choose for them.
 
 **Status.** Nothing here is adopted. The confidential-computing path in
 [`AZURE_CONFIDENTIAL_COMPUTE.md`](AZURE_CONFIDENTIAL_COMPUTE.md) and
@@ -28,6 +43,17 @@ can be pre-made by tooling.
 Layers 1 and 2 answer different questions and neither substitutes for the
 other. That is the single most important sentence in this document, and
 section 2 restates it in the strongest available form.
+
+Layer 2 has two possible sources of execution evidence, and they compose:
+
+| Execution evidence | Where it runs | Strength |
+| --- | --- | --- |
+| Confidential-compute receipt (existing) | Azure SEV-SNP / NVIDIA-CC H100 CVM | Hardware-rooted; the author cannot forge it |
+| N-way replication agreement (new) | Any capacity, ideally several providers and one third-party operator | Operational, not cryptographic; addresses bugs and silent hardware error, which CC does not |
+
+Using both is the recommended arrangement. Section 2.1 explains why the
+*build* side must not move onto the confidential machine even though the
+*execution* side should.
 
 ## 2. What a build attestation does not do
 
@@ -56,6 +82,76 @@ widen the claim while parsing the record.
 This is the same discipline the repository already applies to an unsigned DGX
 bundle: hashes establish identity relative to an expected digest, not truth.
 
+### 2.1 The runner split: build hosted, execute self-hosted
+
+Two GitHub Actions facts drive the whole architecture, and they point in
+opposite directions.
+
+**Job time limits.** A job on a GitHub-hosted runner may run for at most
+**6 hours**. A job on a **self-hosted** runner may run for **5 days**. The
+35-day workflow-run limit applies in both cases. (Verified against GitHub's
+own limits reference on 2026-07-26.)
+
+**GitHub-hosted GPU capacity is useless for this workload.** The only
+GitHub-hosted GPU runner is a single **Tesla T4** (4 vCPU, 28 GB RAM, 16 GB
+VRAM), billed at **$0.052 per minute**, i.e. **$3.12 per hour**, for
+`linux_4_core_gpu`. This repository's arithmetic is double-double interval
+work, so it is pure FP64. A T4 delivers roughly 0.25 TFLOPS FP64, against
+roughly 0.49 TFLOPS for the GB10 development box this repository already uses
+and roughly two orders of magnitude more for an H100. The repository's own
+[GRH benchmark notes](algorithms/GRH_POC_BENCHMARKS.md) already record that the
+GB10 "has comparatively weak FP64" and that the same code on an FP64-strong
+part such as an H100 is expected to run 30-60x faster — so a T4 is slower than
+the machine that is already too slow. It also has no confidential-computing
+mode. GitHub-hosted GPU runners are therefore ruled out for campaign execution
+on three independent grounds: wrong GPU class, no confidential computing, and
+absurd price per unit of useful work. **Do not propose them for campaign
+execution.**
+
+So:
+
+| Stage | Runner | Why |
+| --- | --- | --- |
+| Build and attest binaries | **GitHub-hosted** (`ubuntu-24.04`) | GitHub is a neutral third party; that neutrality is exactly what makes the Sigstore/Fulcio/Rekor provenance worth anything. The repository's whole local qualification path is ~25 minutes, so the 6-hour cap is ~14x headroom. |
+| Execute a campaign | **Self-hosted**: the Azure `NCC40ads_H100_v5` confidential CVM, registered to the repository | Keeps the SEV-SNP/NVIDIA-CC evidence and the Managed HSM receipt signature, removes the 6-hour ceiling in favour of 5 days per job, and raises no Acceptable Use Policy question because it is the owner's own compute rather than free GitHub capacity. |
+
+**Provenance from a self-hosted runner is weaker than provenance from a
+GitHub-hosted one, and the difference is not small.** A hosted-runner
+attestation says "these bytes were produced by this workflow on infrastructure
+neither the author nor the reviewer controls". A self-hosted attestation says
+only "these bytes were produced by this workflow on a machine the repository
+owner controls" — which is close to what the author's own assertion already
+says. A sceptical third party should discount it heavily.
+
+That asymmetry is the whole reason the split matters. The confidential machine
+should *consume* already-attested binaries, never *produce* their provenance.
+This prototype enforces the rule in three places:
+
+- every job in `.github/workflows/build-provenance.yml` fails immediately
+  unless `RUNNER_ENVIRONMENT` is `github-hosted`, and no job names a
+  `self-hosted` label;
+- `tools/verify_build_provenance.py` passes `--deny-self-hosted-runners` by
+  default, reports `runner_environment` and `build_machine_neutral` per
+  artifact, and attaches an explicit `discount` string when the build machine
+  was owner-controlled; and
+- the replication record's policy has
+  `require_github_hosted_build_provenance`, and the validator rejects a record
+  whose replicas were built on self-hosted runners, or whose build provenance
+  does not say where it ran at all.
+
+The repository's timing evidence for the 6-hour claim is its own
+[local qualification benchmark](AZURE_PERFORMANCE_SIZING.md#local-repository-qualification-benchmark),
+measured on 2026-07-21: Lean axiom audit 21 min 59.53 s, full Python suite
+2 min 23.53 s, native configure/build/test 1.83 s + 14.15 s + 31.73 s, for a
+core total of 25 min 10.77 s. That was on a GB10 DGX Spark rather than a
+hosted runner, so treat it as an order-of-magnitude argument, not a hosted
+runtime prediction.
+
+No campaign-execution workflow file is included in this prototype. Writing one
+would mean guessing campaign command lines that other work is currently
+changing, and a wrong guess in a dispatchable workflow is worse than an honest
+gap. Section 11 records this as an open item.
+
 ## 3. Layer 1: build provenance
 
 ### 3.1 The workflow
@@ -79,9 +175,12 @@ repository.
 requires a byte-identical `build-manifest.json`. This is the in-CI rehearsal
 of what a third-party rebuilder does.
 
-Every action is pinned to a full commit SHA and every container to a digest.
-The workflow's only trigger is `workflow_dispatch`; merging it can never start
-a run. `tests/test_attested_provenance.py` enforces all of these properties.
+Every job's first step refuses to run unless `RUNNER_ENVIRONMENT` is
+`github-hosted`, for the reason given in section 2.1. Every action is pinned
+to a full commit SHA and every container to a digest. The workflow's only
+trigger is `workflow_dispatch`; merging it can never start a run.
+`tests/test_attested_provenance.py` enforces all of these properties,
+including that no job names a `self-hosted` label.
 
 ### 3.2 What is built
 
@@ -116,9 +215,12 @@ version can perturb the bytes.
 A third party checks the claim like this:
 
 ```bash
-git clone https://github.com/<owner>/gpu_prover.git
+OWNER="the-github-owner"
+ATTESTED_COMMIT="the-attested-commit-sha"
+
+git clone "https://github.com/${OWNER}/gpu_prover.git"
 cd gpu_prover
-git checkout <attested-commit>
+git checkout "${ATTESTED_COMMIT}"
 
 docker run --rm -v "$PWD:/src" -w /src \
   gcc@sha256:1d71f0f3450214bef38fe09e6f610fb6cca90cf97b43f4ce845bfc32a4168818 \
@@ -132,10 +234,10 @@ python3 tools/verify_build_provenance.py --pretty \
 # 2. do those exact bytes carry a signed attestation naming this commit?
 python3 tools/verify_build_provenance.py --pretty verify \
   --artifact rebuild/artifacts/sqrt218_cpu_checker_v2 \
-  --repo <owner>/gpu_prover \
-  --source-commit <attested-commit> \
+  --repo "${OWNER}/gpu_prover" \
+  --source-commit "${ATTESTED_COMMIT}" \
   --signer-workflow \
-    <owner>/gpu_prover/.github/workflows/build-provenance.yml
+    "${OWNER}/gpu_prover/.github/workflows/build-provenance.yml"
 ```
 
 Step 2 requires GitHub CLI 2.49.0 or newer, because the `gh attestation`
@@ -242,6 +344,11 @@ states explicitly that it is not interchangeable with
 - at least one replica is marked third-party, when the policy requires one;
 - every replica's build provenance was verified and has a transparency-log
   entry, when the policy requires them;
+- every replica's binaries were built on a GitHub-hosted runner, when
+  `require_github_hosted_build_provenance` is set. A replica whose provenance
+  was signed on a self-hosted runner, or that does not state where it was
+  built, is rejected. Even when the policy tolerates it, the evaluation still
+  lists `self_hosted_build_replicas` so the weakness is never invisible;
 - two replicas naming the same `implementation_id` ran the same artifact
   digests, so "same implementation" is a fact rather than a label;
 - replica identifiers are unique; and
@@ -270,6 +377,13 @@ Does not establish:
   as the repository already requires for DGX bundles.
 
 ## 5. What is lost versus confidential computing
+
+**This section applies only to the substitution case** — dropping the
+confidential path and relying on build provenance plus replication alone. In
+the additive arrangement recommended at the top of this document, nothing in
+this section is lost, because the SEV-SNP/NVIDIA-CC receipt is still there.
+The section exists because the owner asked what the substitution would cost,
+and the honest answer is: more than the cost argument alone would suggest.
 
 Two things are genuinely lost, and calling them anything less would be
 dishonest.
@@ -365,6 +479,17 @@ weight, in priority order:
    `independent-rebuild` job is the continuous check that this stays true.
 6. **Verifier-issued nonces**, if a freshness claim is ever wanted. This
    prototype does not implement them and does not claim freshness.
+7. **Keep build provenance on neutral hosted capacity.** Never move the
+   provenance lane onto the self-hosted confidential machine, however
+   convenient that would be. Doing so converts a statement by a neutral third
+   party into a statement by the author about their own machine, and it is the
+   easiest of these mitigations to lose by accident. Section 2.1 lists the
+   three places this prototype enforces it.
+8. **Best of all, do not substitute — compose.** Keep the confidential receipt
+   *and* add hosted build provenance *and*, where the budget allows, replicate.
+   Each layer covers a threat the others do not, and the marginal cost of
+   adding hosted build provenance to the existing confidential path is one
+   workflow file.
 
 ## 7. Re-examining the two premises behind the proposal
 
@@ -550,7 +675,27 @@ cannot satisfy the premise at all.
 **Refusal of L3 claims.** The premise should pin the reviewed SLSA level to
 what the lane actually produces.
 
-### 8.3 What this axiom would and would not be
+### 8.3 In the additive arrangement, no new axiom is needed
+
+If the owner keeps the confidential path and merely *adds* hosted build
+provenance and replication, then **none of section 8 applies**. The Lean
+boundary stays exactly as it is: `accepted_run_certificate_sound` with the
+`checkTrustedCompute` premise, one axiom, one evidence class.
+
+Build provenance and replication then function as *review inputs to the
+registry-admission decision* rather than as premises of a theorem. The
+reviewer admitting a receipt to `TrustedComputeRegistry.lean` would check, as
+part of that review, that the executable digest in the receipt matches a
+hosted-runner attestation and that any replication record agrees. That is
+strictly better than admitting the receipt with no such check, and it costs
+the repository nothing in axiom surface.
+
+The axiom below is only needed for the substitution case, where there is no
+confidential receipt to admit. Preferring the additive arrangement is
+therefore also the option that keeps the "sole execution axiom" property
+intact.
+
+### 8.4 What this axiom would and would not be
 
 It would be a **per-run** bridge, exactly like the existing one: it says
 nothing about future executions, nothing about universal backend refinement,
@@ -573,21 +718,26 @@ capacity-constrained part run on cheap capacity with replication.
 
 ## 9. Threat model comparison
 
-| Threat | Confidential path | Attested provenance + replication |
-| --- | --- | --- |
-| Bug in our own code | Not addressed | Partly addressed: two independent implementations disagree, unless the bug is in shared code |
-| Silent hardware error over ~10^16 operations | Not addressed | Addressed: independent hardware must produce the same root |
-| Malicious cloud host | Addressed by SEV-SNP/vTPM | **Not addressed.** Only made more expensive to exploit, by requiring k consistent compromises |
-| Author fabricates a run | Addressed, up to registry-admission review | Addressed only by the third-party replica |
-| Wrong binary executed | Measured runner plus artifact digests in the quote | Build attestation plus digest comparison; nothing binds the attested binary to the reported run |
-| Replay of an old result | Fresh challenge plus durable replay ledger | **Not addressed.** No challenge exists |
-| Result does not imply the theorem | Lean certificate layer | Lean certificate layer, unchanged |
+| Threat | Confidential path alone | Attested provenance + replication alone | Additive: all three layers |
+| --- | --- | --- | --- |
+| Bug in our own code | Not addressed | Partly addressed: two independent implementations disagree, unless the bug is in shared code | Partly addressed |
+| Silent hardware error over ~10^16 operations | Not addressed | Addressed: independent hardware must produce the same root | Addressed |
+| Malicious cloud host | Addressed by SEV-SNP/vTPM | **Not addressed.** Only made more expensive to exploit, by requiring k consistent compromises | Addressed |
+| Author fabricates a run | Addressed, up to registry-admission review | Addressed only by the third-party replica | Addressed twice over |
+| Wrong binary executed | Measured runner plus artifact digests in the quote | Build attestation plus digest comparison; nothing binds the attested binary to the reported run | Measured runner *and* neutral third-party provenance for the binary |
+| Substituted or backdoored build | Registry review of artifact digests only | Hosted-runner provenance plus reproducible rebuild by a third party | Both |
+| Replay of an old result | Fresh challenge plus durable replay ledger | **Not addressed.** No challenge exists | Addressed |
+| Result does not imply the theorem | Lean certificate layer | Lean certificate layer, unchanged | Lean certificate layer, unchanged |
 
 Note the first two rows. The owner's observation is correct and worth
 restating: confidential computing addresses neither the realistic failure mode
 for a mathematical proof (our own bugs) nor the second one (silent hardware
 error), while replication addresses both to a degree. That is the strongest
-argument for this model, and it is stronger than the cost argument.
+argument for adding these layers, and it is stronger than the cost argument.
+
+Note also that the last column dominates the first two in every row. That is
+the case for composing rather than substituting, and it is why this document
+leads with the additive arrangement.
 
 ## 10. Files added by this prototype
 
@@ -603,7 +753,7 @@ argument for this model, and it is stronger than the cost argument.
 | `profiles/targets/replicated_public_cloud_gpu.json` | Non-confidential H100 replica target |
 | `profiles/trust/attested_provenance_replicated.json` | Trust profile; `local_unattested`, no hardware evidence |
 | `examples/attested-provenance/replication_record.example.json` | Synthetic example; all digests are derived from labels |
-| `tests/test_attested_provenance.py` | 26 tests, including the confidential-path containment assertions |
+| `tests/test_attested_provenance.py` | 31 tests, including the confidential-path containment and hosted-runner assertions |
 
 Nothing under `SparkInterval/`, `specifications/`, `azure/`, or `attestation/`
 was modified, and no existing schema, profile, or tool was edited.
@@ -614,6 +764,14 @@ was modified, and no existing schema, profile, or tool was edited.
   (`actionlint` 1.7.7, clean) and structurally tested, but it has never
   executed. Whether `actions/attest-build-provenance` behaves as expected in
   this job layout is unverified.
+- **No campaign-execution workflow is provided.** The self-hosted confidential
+  CVM side of section 2.1 is documented but not implemented: there is no
+  workflow file that registers, targets, or dispatches work to it, and no
+  runner has been registered. Writing one requires campaign command lines that
+  other work is currently changing.
+- **The runner-class guard is untested in practice.** The
+  `RUNNER_ENVIRONMENT` check is asserted by unit tests against the workflow
+  text, but has never actually run on either a hosted or a self-hosted runner.
 - **`gh attestation verify` was never exercised against a real attestation.**
   The installed CLI is 2.45.0, which predates the command. The success path
   was exercised against a stub; the failure and unavailable paths were
@@ -633,3 +791,16 @@ was modified, and no existing schema, profile, or tool was edited.
   measured**, and it is the main thing that limits what replication buys.
 - **Azure prices were read once**, on 2026-07-26, in `eastus2`. Re-read them
   before relying on section 7.1.
+- **The T4 FP64 figures in section 2.1 are catalogue arithmetic, not
+  measurements.** GitHub's runner catalogue (Tesla T4, 1 GPU) and its
+  `linux_4_core_gpu` rate of $0.052/min, and the 6-hour hosted / 5-day
+  self-hosted / 35-day workflow limits, were each read from GitHub's own
+  documentation on 2026-07-26. The FP64 rates — roughly 0.25 TFLOPS for a T4
+  and roughly 0.49 TFLOPS for the GB10 — are vendor specifications, **not**
+  numbers this repository measured; a search of `docs/` found no recorded
+  TFLOPS measurement for any of these parts. The in-repository evidence is
+  qualitative: `docs/algorithms/GRH_POC_BENCHMARKS.md` states that the GB10 has
+  comparatively weak FP64 and that an H100 is expected to be 30-60x faster on
+  the same code. The conclusion — that a T4 is the wrong class of device for
+  this workload — does not depend on the exact ratio, but do not quote the
+  TFLOPS figures as measurements.

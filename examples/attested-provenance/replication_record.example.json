@@ -25,6 +25,7 @@
     "minimum_distinct_providers": 2,
     "minimum_replicas": 3,
     "require_build_provenance_verified": true,
+    "require_github_hosted_build_provenance": true,
     "require_third_party_replica": true,
     "require_transparency_log_entry": true
   },

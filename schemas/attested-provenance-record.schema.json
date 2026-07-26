@@ -69,7 +69,8 @@
         "minimum_distinct_providers",
         "require_third_party_replica",
         "require_build_provenance_verified",
-        "require_transparency_log_entry"
+        "require_transparency_log_entry",
+        "require_github_hosted_build_provenance"
       ],
       "properties": {
         "minimum_replicas": {"type": "integer", "minimum": 2},
@@ -78,7 +79,11 @@
         "minimum_distinct_providers": {"type": "integer", "minimum": 1},
         "require_third_party_replica": {"type": "boolean"},
         "require_build_provenance_verified": {"type": "boolean"},
-        "require_transparency_log_entry": {"type": "boolean"}
+        "require_transparency_log_entry": {"type": "boolean"},
+        "require_github_hosted_build_provenance": {
+          "type": "boolean",
+          "description": "Require every replica's binaries to have been built and attested on a GitHub-hosted runner. Provenance signed on a self-hosted runner only says the binary was built on a machine the repository owner controls, which a sceptical third party should discount; it is much weaker than provenance from neutral hosted capacity. Executing a campaign on a self-hosted confidential machine is fine and expected; producing the binaries' provenance there is not."
+        }
       }
     },
     "replicas": {
@@ -173,7 +178,8 @@
         "predicate_type": {"const": "https://slsa.dev/provenance/v1"},
         "slsa_build_level": {"enum": ["L1", "L2", "L3"]},
         "runner_environment": {
-          "enum": ["github-hosted", "self-hosted"]
+          "enum": ["github-hosted", "self-hosted"],
+          "description": "Where the BUILD ran, not where the campaign ran. `self-hosted` means the provenance was signed on hardware the repository owner controls and must be discounted accordingly."
         },
         "transparency_log": {
           "type": "object",

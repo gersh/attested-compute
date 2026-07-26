@@ -171,6 +171,19 @@ def _verify_one(
         row["error"] = (completed.stderr.strip() or stdout)[:4000]
     else:
         row.update(_summarise_gh_result(row.get("gh_result")))
+        runner = (row.get("signer") or {}).get("runnerEnvironment")
+        row["runner_environment"] = runner
+        # Provenance signed on a self-hosted runner says only "built on a
+        # machine the repository owner controls".  A sceptical third party
+        # should discount it heavily, so say so in the record rather than
+        # letting a bare `verified: true` imply neutral capacity.
+        row["build_machine_neutral"] = runner == "github-hosted"
+        if runner is not None and runner != "github-hosted":
+            row["discount"] = (
+                "the build machine is controlled by the repository owner; "
+                "this provenance is materially weaker than provenance from "
+                "GitHub-hosted capacity"
+            )
     return row
 
 
@@ -288,9 +301,11 @@ def command_verify(arguments: argparse.Namespace) -> int:
         for path in artifacts
     ]
     accepted = bool(rows) and all(row["verified"] for row in rows)
+    neutral = all(row.get("build_machine_neutral") is True for row in rows)
     return _emit(
         {
             "accepted": accepted,
+            "all_build_machines_neutral": neutral if accepted else None,
             "artifacts": rows,
             "gh_binary": gh_binary,
             "gh_version": (
