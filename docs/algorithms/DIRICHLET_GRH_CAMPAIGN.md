@@ -375,7 +375,13 @@ atom.  It still needs:
    remain useful for zero isolation is also still required;
 3. a uniform proof of the accepted manuscript's interpolation error over every
    source case, including an explicit replacement for its printed "large
-   enough" condition;
+   enough" condition.
+   [DIRICHLET_INTERPOLATION_UNIFORM_BOUND.md](DIRICHLET_INTERPOLATION_UNIFORM_BOUND.md)
+   now carries a paper derivation of the truncation term with an explicit
+   threshold and an explicit uniform fallback constant, and reports two
+   implementation discrepancies and one unrelated failure of the printed
+   aliasing budget for large even moduli.  It is prose only: nothing there is
+   formalized, replayed, or accepted, and it does not close this item;
 4. a source-wide exception and window-shift policy;
 5. theorem-level review of the corrected reflected Turing upper bound.  The
    executable path now uses Booker upper-at-`+t0` minus lower-at-`-t0`, reflects
