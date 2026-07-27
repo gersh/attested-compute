@@ -80,9 +80,23 @@ the surrounding trust boundary, not for this primitive.
 
 One verification is two 256-bit scalar multiplications, roughly a thousand
 times the modular-multiplication work of the RSA-3072 public-exponent check in
-`RSA.lean`.  Compiled evaluation is fast (single-digit milliseconds).  Kernel
-reduction (`decide` / `decide +kernel`) is far slower but was measured as
-feasible; see the module's test harness for the measured numbers.
+`RSA.lean`.  Measured on a 20-core x86-64 host with `lean -j1 -M8192`, against
+a baseline of 2.14 s and 6.41 GB resident for importing this module and its
+Mathlib dependency and doing no work:
+
+* compiled/interpreted evaluation, as used by `#eval` and `native_decide`:
+  about **9 ms** per verification (100 `native_decide` verifications in one
+  file added 0.9 s over the baseline), with negligible extra memory;
+* kernel reduction with `decide +kernel`: about **3.9 s** per verification
+  (five in one file took 21.5 s), with about 1.1 GB of resident memory above
+  the baseline, which does not grow with the number of checks;
+* plain `decide`, which reduces once in the elaborator and again in the
+  kernel: about 6.6 s per verification.
+
+Kernel checking is therefore feasible, not merely theoretical, at roughly
+430 times the cost of native evaluation.  Whether a verification belongs in a
+kernel-checked path is a budget decision, not a feasibility one; the trade is
+those seconds against adding `Lean.ofReduceBool` to the trust surface.
 -/
 
 set_option autoImplicit false
