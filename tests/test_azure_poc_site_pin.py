@@ -135,31 +135,72 @@ class PocSitePinInventoryTest(unittest.TestCase):
             self.assertIn(row["campaign_id"], POC_CAMPAIGNS)
             self.assertIn(row["owner"], {"operator_action", "repository_work"})
 
-    def test_the_missing_production_policy_artifacts_really_are_missing(self) -> None:
-        # If any of these ever appears, the classification below must change.
-        self.assertFalse(
-            (REPOSITORY_ROOT / "profiles/measured_runner/production.json").exists()
+    def test_the_runner_policy_really_is_image_bound(self) -> None:
+        # The reclassification of $.policies.runner.sha256 from "repository
+        # work" to "chained after the image" rests on this assertion in the
+        # orchestrator.  If it ever goes away, the classification must change.
+        source = (
+            REPOSITORY_ROOT / "azure/cpu_production_orchestrator.py"
+        ).read_text()
+        self.assertIn('policy.get("immutable_image_reference") != image', source)
+        self.assertIn('policy.get("classification") != "production"', source)
+        pin = next(
+            row
+            for row in REVIEWED_PINS
+            if row["location"] == "$.policies.runner.sha256"
         )
-        candidates = list(
-            (REPOSITORY_ROOT / "profiles").rglob("*azure-cpu-composite*")
-        )
-        self.assertEqual(candidates, [])
-        self.assertEqual(
-            list(REPOSITORY_ROOT.rglob("verify-azure-cpu-evidence")), []
-        )
-        missing = {
+        self.assertEqual(pin["pin_class"], "chained_after")
+        self.assertEqual(pin["depends_on"], "$.azure.image")
+
+    def test_the_evidence_verifier_already_exists(self) -> None:
+        # The reclassification of $.policies.evidence_verifier.sha256 rests on
+        # this program existing and speaking the orchestrator's argument list.
+        verifier = REPOSITORY_ROOT / "attestation/verify_azure_ncc_evidence.py"
+        self.assertTrue(verifier.is_file())
+        source = verifier.read_text()
+        for flag in (
+            "--evidence-pack",
+            "--policy",
+            "--backend",
+            "--expected-challenge-file",
+            "--expected-start-challenge-sha256",
+            "--expected-result-binding-sha256",
+        ):
+            self.assertIn(flag, source)
+        self.assertIn('backend == "azure_sevsnp_cpu"', source)
+        reference = self.report["repository_derivable_values"][
+            "evidence_verifier_reference"
+        ]
+        self.assertRegex(reference["sha256"], r"\A[0-9a-f]{64}\Z")
+        self.assertIn("azure_sevsnp_cpu", reference["supported_backends"])
+
+    def test_the_stale_verifier_source_pin_is_reported(self) -> None:
+        # A stale self-pin makes the verifier refuse to import, which blocks
+        # the CPU appraisal step.  Whatever its current state, the inventory
+        # must report it rather than assume it.
+        reference = self.report["repository_derivable_values"][
+            "evidence_verifier_reference"
+        ]
+        self.assertIn("imports_cleanly", reference)
+        self.assertIsInstance(reference["imports_cleanly"]["ok"], bool)
+        if not reference["imports_cleanly"]["ok"]:
+            self.assertTrue(
+                any(
+                    row["location"] == "$.policies.evidence_verifier"
+                    for row in SILENT_REQUIREMENTS
+                )
+            )
+
+    def test_operator_key_material_is_never_produced_here(self) -> None:
+        secrets = {
             pin["location"]
             for pin in REVIEWED_PINS
-            if pin["pin_class"] == "repository_work_missing_artifact"
+            if pin["pin_class"] == "operator_local_secret"
         }
-        self.assertEqual(
-            missing,
-            {
-                "$.policies.composite_appraisal.sha256",
-                "$.policies.evidence_verifier.sha256",
-                "$.policies.runner.sha256",
-            },
-        )
+        self.assertEqual(secrets, {"$.azure.ssh_public_key.sha256"})
+        for pin in REVIEWED_PINS:
+            if pin["pin_class"] == "operator_local_secret":
+                self.assertEqual(pin["owner"], "operator_action")
 
 
 if __name__ == "__main__":

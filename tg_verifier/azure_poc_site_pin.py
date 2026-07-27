@@ -7,9 +7,17 @@ The Azure launch preflight reports every campaign as ``site-pin-needed``
 because each checked-in site example still carries redacted or placeholder
 deployment identities.  That single Boolean is not actionable: it does not say
 which placeholders are Azure identities that cannot exist before a
-subscription does, which are ordinary local file digests, which name an
-artifact that has never been written in this repository at all, and which
-become mechanically derivable the moment an earlier pin is settled.
+subscription does, which are ordinary local file digests, which are key
+material only the operator may produce, and which become mechanically
+derivable the moment an earlier pin is settled.
+
+Two of those distinctions only became visible by reading the consumers rather
+than the examples, and both cut against the optimistic reading.  The
+production measured-runner policy looks like pure repository work and is not:
+the orchestrator requires it to carry the exact Compute Gallery image
+reference, so it is image-bound.  The evidence verifier looks like a program
+that must be written and is not: it already exists, already speaks the exact
+argument list the orchestrator invokes, and already supports the CPU backend.
 
 This module answers that question for exactly the two proof-of-concept
 campaigns:
@@ -32,8 +40,9 @@ is unchanged by this module's existence.
 
 from __future__ import annotations
 
-import json
+import os
 from pathlib import Path
+import sys
 from typing import Any, Iterable, Mapping
 
 from tg_verifier import azure_launch_preflight
@@ -85,13 +94,15 @@ PIN_CLASSES: dict[str, dict[str, Any]] = {
             "Azure account, though it does need the named toolchain installed"
         ),
     },
-    "repository_work_missing_artifact": {
+    "operator_local_secret": {
         "obtainable_before_subscription": True,
-        "owner": "repository_work",
+        "owner": "operator_action",
         "definition": (
-            "the pin names an artifact that does not exist anywhere in this "
-            "repository yet; the artifact must be written and reviewed before "
-            "its digest can be taken"
+            "the value is a digest of key material the operator generates and "
+            "holds. No Azure account is needed to produce it and it is not "
+            "blocked on anything, but this repository must not produce it: "
+            "committing a key an operator did not choose would be worse than "
+            "leaving the pin empty"
         ),
     },
     "operator_identity_requires_subscription": {
@@ -196,11 +207,14 @@ REVIEWED_PINS: tuple[dict[str, Any], ...] = (
     _pin(
         "$.azure.ssh_public_key.sha256",
         site=_CPU_SITE,
-        pin_class="build_host_derivable",
+        pin_class="operator_local_secret",
         value_kind="sha256 of the operator SSH public key file",
         note=(
             "generating the key pair is a local ssh-keygen and needs no Azure "
-            "account; only its use needs one"
+            "account, so this pin is not on the subscription critical path. "
+            "It is nonetheless the operator's action and not this "
+            "repository's: the private half is a credential the operator must "
+            "choose and hold."
         ),
     ),
     _pin(
@@ -254,52 +268,67 @@ REVIEWED_PINS: tuple[dict[str, Any], ...] = (
     _pin(
         "$.policies.runner.sha256",
         site=_CPU_SITE,
-        pin_class="repository_work_missing_artifact",
+        pin_class="chained_after",
+        depends_on="$.azure.image",
         value_kind=(
             "sha256 of a measured-runner policy whose classification is "
-            "'production' and whose policy_id is "
-            "sparkinterval.runner.azure-cpu.production.v1"
+            "'production', whose production_ready is true, whose policy_id is "
+            "sparkinterval.runner.azure-cpu.production.v1, and whose "
+            "required_claims cover the seven production claims"
         ),
         note=(
-            "no such file exists in this repository. The only checked-in "
-            "runner policy is profiles/measured_runner/"
-            "development_challenge_first_v1.json, and the CPU materializer "
-            "rejects any policy pin whose classification is not exactly "
-            "'production'. This is repository work and it does not need a "
-            "subscription, but it does need review before it is written."
+            "this looks like pure repository work and is not. The orchestrator "
+            "requires the policy to carry immutable_image_reference equal to "
+            "the exact $.azure.image value, and "
+            "immutable_image_reference_sha256 equal to the SHA-256 of that "
+            "string, so the file is bound to an image that does not exist "
+            "before the subscription does. Its full required shape and the "
+            "seven required claims are reported under "
+            "repository_derivable_values.operator_policy_templates, which is "
+            "everything this repository can honestly supply."
         ),
         repository_source="profiles/measured_runner/development_challenge_first_v1.json",
     ),
     _pin(
         "$.policies.composite_appraisal.sha256",
         site=_CPU_SITE,
-        pin_class="repository_work_missing_artifact",
+        pin_class="chained_after",
+        depends_on="$.worker.maa_attestation_url",
         value_kind=(
-            "sha256 of a composite appraisal policy whose classification is "
-            "'production' and whose policy_id is "
-            "sparkinterval.composite.azure-cpu.production.v1"
+            "sha256 of a canonical appraisal policy of kind "
+            "sparkinterval_azure_evidence_appraisal_policy"
         ),
         note=(
-            "no such file exists in this repository. The policy states which "
-            "SEV-SNP measurements, launch endorsements, and MAA issuers are "
-            "accepted; it necessarily references the private image measurement "
-            "and therefore cannot be finalized before the image exists, even "
-            "though its structure can be written now."
+            "the policy's maa_accepted_issuer must equal the issuer derived "
+            "from its own maa_attestation_url, so it cannot be finalized "
+            "before that endpoint is chosen. It additionally pins an external "
+            "Azure appraiser executable and its policy by path and digest, "
+            "neither of which is vendored here. For the CPU backend "
+            "nvidia_appraiser must be exactly null. Required key sets are "
+            "reported under repository_derivable_values."
         ),
     ),
     _pin(
         "$.policies.evidence_verifier.sha256",
         site=_CPU_SITE,
-        pin_class="repository_work_missing_artifact",
+        pin_class="build_host_derivable",
         value_kind=(
-            "sha256 of an executable program named verify-azure-cpu-evidence"
+            "sha256 of the installed, executable evidence verifier at the "
+            "pinned operator path"
         ),
         note=(
-            "no such program exists in this repository. Both orchestrators "
-            "pin it as an executable file and invoke it during appraisal "
-            "(azure/cpu_production_orchestrator.py:870 requires the "
-            "executable bit). This is squarely repository work."
+            "this is not a program that has to be written. "
+            "attestation/verify_azure_ncc_evidence.py already implements "
+            "exactly the argument list the orchestrator invokes "
+            "(--evidence-pack, --policy, --backend, --expected-challenge-file, "
+            "--expected-start-challenge-sha256, "
+            "--expected-result-binding-sha256) and already handles the "
+            "azure_sevsnp_cpu backend. The pin is the digest of the operator's "
+            "installed copy; if it is installed verbatim, the value is the "
+            "repository digest reported under repository_derivable_values. "
+            "See the silent requirement about that file's stale source pin."
         ),
+        repository_source="attestation/verify_azure_ncc_evidence.py",
     ),
     _pin(
         "$.worker.maa_attestation_url",
@@ -394,6 +423,25 @@ REVIEWED_PINS: tuple[dict[str, Any], ...] = (
 #: unreviewed for a production run.  These are the traps: an operator who
 #: cleared all eighteen markers above would still not be able to launch.
 SILENT_REQUIREMENTS: tuple[dict[str, Any], ...] = (
+    {
+        "campaign_id": "cdem-table-abel",
+        "location": "$.policies.evidence_verifier",
+        "owner": "repository_work",
+        "requirement": (
+            "attestation/verify_azure_ncc_evidence.py must import; on this "
+            "branch it does not, because its pinned digest for "
+            "tg_verifier/goldbach_gpu_campaign.py is stale"
+        ),
+        "why_invisible": (
+            "no gate in this repository executes the evidence verifier. It "
+            "self-pins the digests of eight measured modules and raises at "
+            "import time if any differs; seven currently match and one does "
+            "not, so the CPU appraisal step of the proof of concept would fail "
+            "on first contact. Re-pinning is a review decision about the "
+            "attestation trust surface and is deliberately not done here."
+        ),
+        "source": "attestation/verify_azure_ncc_evidence.py:43-81",
+    },
     {
         "campaign_id": "ramare-zuniga-lemma-6-2",
         "location": "$.build.boost_include_root",
@@ -492,8 +540,68 @@ SILENT_REQUIREMENTS: tuple[dict[str, Any], ...] = (
 )
 
 
+#: Mirrored from attestation/verify_azure_ncc_evidence.py and
+#: azure/cpu_production_orchestrator.py so the inventory can report the exact
+#: required shape of the two operator policy files without importing a module
+#: that self-pins its dependencies and may refuse to load.
+_COMPOSITE_POLICY_KEYS = frozenset(
+    {"allowed_backends", "azure_appraiser", "kind", "nvidia_appraiser", "schema_version"}
+)
+_AZURE_APPRAISER_POLICY_KEYS = frozenset(
+    {
+        "executable_path",
+        "executable_sha256",
+        "maa_accepted_audience",
+        "maa_accepted_issuer",
+        "maa_accepted_provider",
+        "maa_attestation_url",
+        "policy_path",
+        "policy_sha256",
+        "timeout_seconds",
+    }
+)
+_PRODUCTION_RUNNER_CLAIMS = frozenset(
+    {
+        "challenge_dependent_work_trace",
+        "challenge_received_before_pcr_start",
+        "exact_argv_without_shell",
+        "fresh_exclusive_output",
+        "immutable_image_and_runtime_closure",
+        "ordered_pcr23_start_and_result_extensions",
+        "retained_off_vm_challenge_match",
+    }
+)
+
+
 class PocSitePinError(RuntimeError):
     """The PoC site-pin inventory could not be built exactly."""
+
+
+def _verifier_imports_cleanly() -> dict[str, Any]:
+    """Report whether the evidence verifier's self-pins currently hold.
+
+    The verifier raises at import time if any pinned measured module differs.
+    That check is correct and must not be relaxed here, so this only observes
+    it: the inventory reports the blocker rather than working around it.
+    """
+
+    import subprocess
+
+    try:
+        completed = subprocess.run(
+            [sys.executable, "attestation/verify_azure_ncc_evidence.py", "--help"],
+            cwd=REPOSITORY_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        return {"ok": False, "detail": str(error)}
+    if completed.returncode == 0:
+        return {"ok": True, "detail": None}
+    tail = (completed.stderr.strip() or completed.stdout.strip()).splitlines()
+    return {"ok": False, "detail": tail[-1] if tail else "nonzero --help exit"}
 
 
 def _site_example_paths(campaign_id: str) -> list[str]:
@@ -556,7 +664,85 @@ def _repository_derivable_values() -> dict[str, Any]:
     )
     runner_digest, runner_size = hash_file_once(runner_profile)
 
+    verifier = REPOSITORY_ROOT / "attestation/verify_azure_ncc_evidence.py"
+    verifier_digest, verifier_size = hash_file_once(verifier)
+    target_profile = REPOSITORY_ROOT / "profiles/targets/azure_sevsnp_cpu.json"
+    trust_profile = (
+        REPOSITORY_ROOT / "profiles/trust/azure_sevsnp_hardware_attested.json"
+    )
+    target_digest, target_size = hash_file_once(target_profile)
+    trust_digest, trust_size = hash_file_once(trust_profile)
+
     return {
+        "evidence_verifier_reference": {
+            "argument_list": [
+                "--evidence-pack",
+                "--policy",
+                "--backend",
+                "--expected-challenge-file",
+                "--expected-start-challenge-sha256",
+                "--expected-result-binding-sha256",
+            ],
+            "executable_in_repository": os.access(verifier, os.X_OK),
+            "imports_cleanly": _verifier_imports_cleanly(),
+            "path": "attestation/verify_azure_ncc_evidence.py",
+            "sha256": verifier_digest,
+            "size_bytes": verifier_size,
+            "supported_backends": ["azure_sevsnp_cpu", "azure_ncc40ads_h100_v5"],
+            "what": (
+                "the value $.policies.evidence_verifier.sha256 must carry if "
+                "the operator installs this repository program verbatim at "
+                "the pinned path"
+            ),
+        },
+        "operator_policy_templates": {
+            "composite_appraisal": {
+                "azure_appraiser_required_keys": sorted(
+                    _AZURE_APPRAISER_POLICY_KEYS
+                ),
+                "cpu_backend_constraint": (
+                    "nvidia_appraiser must be exactly null for "
+                    "azure_sevsnp_cpu"
+                ),
+                "kind": "sparkinterval_azure_evidence_appraisal_policy",
+                "required_keys": sorted(_COMPOSITE_POLICY_KEYS),
+                "schema_version": 1,
+            },
+            "measured_runner": {
+                "image_bound_keys": [
+                    "immutable_image_reference",
+                    "immutable_image_reference_sha256",
+                ],
+                "kind": "sparkinterval_measured_runner_policy",
+                "required_claims": sorted(_PRODUCTION_RUNNER_CLAIMS),
+                "required_classification": "production",
+                "required_policy_id": "sparkinterval.runner.azure-cpu.production.v1",
+                "schema_version": 1,
+            },
+            "what": (
+                "the exact shapes the two policy files must have. This "
+                "repository can supply the shapes and cannot supply the "
+                "values, because both files are bound to identities that do "
+                "not exist before the subscription does."
+            ),
+        },
+        "sevsnp_cpu_profiles": {
+            "target": {
+                "path": "profiles/targets/azure_sevsnp_cpu.json",
+                "sha256": target_digest,
+                "size_bytes": target_size,
+            },
+            "trust": {
+                "path": "profiles/trust/azure_sevsnp_hardware_attested.json",
+                "sha256": trust_digest,
+                "size_bytes": trust_size,
+            },
+            "what": (
+                "the target and trust profile digests the materializer places "
+                "in the transcript appraisal policy's allowlists; they are "
+                "repository content and are settled now"
+            ),
+        },
         "cdem_table_abel_reviewed_source_closure": {
             "file_count": len(cdem_rows),
             "files": cdem_rows,
