@@ -62,6 +62,9 @@ COPY tools/tg_a7_phala_tdx_workload.py /opt/sparkinterval/tools/
 COPY tg_verifier/ /opt/sparkinterval/tg_verifier/
 COPY specifications/PYTHON_FLINT_0_9_UPSTREAM.json \
     /opt/sparkinterval/specifications/PYTHON_FLINT_0_9_UPSTREAM.json
+# `tg_verifier/__init__.py` loads the thirteen-atom catalog at import time.
+COPY specifications/TERNARY_GOLDBACH_EXTERNAL_ATOMS.json \
+    /opt/sparkinterval/specifications/TERNARY_GOLDBACH_EXTERNAL_ATOMS.json
 COPY proof_build/ch25_a7_phala_tdx/run_phala_tdx_campaign.sh \
     /opt/sparkinterval/run_phala_tdx_campaign.sh
 RUN chmod 0555 /opt/sparkinterval/run_phala_tdx_campaign.sh \

@@ -123,17 +123,23 @@ def pin : PhalaTdxEnclave → PhalaTdxEnclavePin
         quoteAppraisalArtifactHash := ""
         attestationAuthority := true }
   | .ch25A7BoundaryLocalDryRunV1 =>
+      -- Every literal below is a documented local-dry-run sentinel produced
+      -- by `tests/data/phala_tdx_dry_run/`.  The signing key is committed in
+      -- that directory in the clear: it is a stand-in, not a secret, and
+      -- `attestationAuthority := false` is what stops it mattering.
       { pinId := "sparkinterval.phala-tdx.ch25-a7-boundary.local-dry-run.v1"
-        appId := "00112233445566778899aabbccddeeff00112233"
+        appId := "327d84eaf0cfb23bfc4260453516a9afc0287705"
         composeHash :=
-          "6a0aa5bcbf5cbe2b1e0f6ab52e6a4b32aef6ab97b1c0f5f6d3a2f4c76a6bd0be"
+          "44c2baa7f7fbf92c08d9800071ec0d3d21404c07af1db8254ebd77c717b8e35c"
         imageDigest :=
-          "sha256:0000000000000000000000000000000000000000000000000000000000000000"
-        enclavePublicKeyHex := ""
+          "sha256:43233eef77b7ad2463aa6b352a7459ffd42b0d1f8b9373858889d8f1bc0c073c"
+        enclavePublicKeyHex :=
+          "04f13d15d34f4c77b7482a2deab601e317c284631899a83b15985d5f9c831bc6" ++
+          "be15fade17cf66c016ec35c28adf8c79bb5320400c88f6c979e00ebc85ee13f902"
         quoteAppraisalPolicyHash :=
-          "0000000000000000000000000000000000000000000000000000000000000000"
+          "62e29a716d65e330fcce6a137c1eed7e6db903740f490ccd2697c8b668710808"
         quoteAppraisalArtifactHash :=
-          "0000000000000000000000000000000000000000000000000000000000000000"
+          "4f5ef2ba3f386e03f21f750f76057f807cf20376d727f4013b052f5c0ab3c171"
         attestationAuthority := false }
 
 /-- No production pin is installed, so every production signature check fails
