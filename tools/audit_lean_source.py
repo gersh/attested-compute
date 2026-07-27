@@ -11,7 +11,15 @@ from pathlib import Path
 ALLOWED_AXIOMS = {
     Path("SparkInterval/Execution/Trusted/RunCertificate.lean"): {
         "accepted_run_certificate_sound"
-    }
+    },
+    # The Phala/dstack Intel TDX execution boundary.  This is a SECOND named
+    # trust declaration, deliberately separate from the Azure one above so
+    # that `#print axioms` distinguishes the two roots of trust.  It is not
+    # reachable from any capstone; `tests/test_phala_tdx_axiom_off_cone.py`
+    # asserts that, and must be edited consciously if that ever changes.
+    Path("SparkInterval/Execution/PhalaTdxCampaignCertificate.lean"): {
+        "phalaTdxAttestedRun_sound"
+    },
 }
 FORBIDDEN = re.compile(r"\b(sorry|admit|unsafe)\b")
 NATIVE_DECIDE = re.compile(r"\bnative_decide\b")
