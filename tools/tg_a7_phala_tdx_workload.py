@@ -28,7 +28,6 @@ bindings.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 from pathlib import Path, PurePosixPath
 import shutil
@@ -49,6 +48,7 @@ from tg_verifier.campaign_io import (  # noqa: E402
 )
 from tg_verifier.phala_tdx_receipt import (  # noqa: E402
     PhalaTdxReceiptError,
+    public_key_hex,
     report_data_hash,
     sign_receipt,
 )
@@ -90,7 +90,6 @@ RETAINED_ARTIFACT_SHA256 = (
 )
 REPORT_PATH = Path("a7-replay.json")
 MAX_REPORT_BYTES = 64 * 1024
-MAX_QUOTE_BYTES = 1024 * 1024
 
 # Named, explicitly non-production mode.  It is refused unless the caller
 # both passes `--local-dry-run` and sets the environment marker, and the
@@ -296,8 +295,6 @@ def run(args: argparse.Namespace) -> None:
         )
         _write_exclusive(args.work / REPORT_PATH, canonical_json_bytes(report))
         _write_exclusive(args.output, REGISTERED_RESULT)
-
-        from tg_verifier.phala_tdx_receipt import public_key_hex
 
         enclave_public_key = public_key_hex(private_key)
         fields = {
