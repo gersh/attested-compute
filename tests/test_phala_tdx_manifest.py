@@ -50,6 +50,19 @@ def load_yaml():
     return yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))
 
 
+def entrypoint_script(compose, service: str) -> str:
+    """The entry point script as the *container* receives it.
+
+    Every ``$`` in the embedded scripts is written ``$$`` so that Compose's
+    own interpolation pass leaves it alone -- without that, the first real run
+    of this manifest aborted with ``required variable TG_PYTHON_FLINT_WHEEL is
+    missing a value`` before any container started.  Compose collapses ``$$``
+    back to ``$``, so these tests assert against the collapsed form: that is
+    the text the shell actually runs.
+    """
+    return compose["services"][service]["entrypoint"][2].replace("$$", "$")
+
+
 class ManifestGenerationTests(unittest.TestCase):
     def test_committed_manifest_matches_the_generator(self) -> None:
         with tempfile.TemporaryDirectory() as scratch:
@@ -104,7 +117,7 @@ class ManifestGenerationTests(unittest.TestCase):
         compose = load_yaml()
         if compose is None:  # pragma: no cover
             self.skipTest("PyYAML is unavailable")
-        embedded = compose["services"]["campaign"]["entrypoint"][2]
+        embedded = entrypoint_script(compose, "campaign")
         for source in (PRELUDE, CAMPAIGN_ENTRY, EVIDENCE_EMITTER):
             self.assertIn(
                 source.read_text(encoding="utf-8"),
@@ -224,7 +237,7 @@ class ManifestContentTests(unittest.TestCase):
             )
 
     def test_the_campaign_derives_the_key_and_reads_no_key_file(self) -> None:
-        entrypoint = self.compose["services"]["campaign"]["entrypoint"][2]
+        entrypoint = entrypoint_script(self.compose, "campaign")
         self.assertIn("--derive-key-only", entrypoint)
         script = CAMPAIGN_ENTRY.read_text(encoding="utf-8")
         self.assertIn("--derive-key-only", script)
@@ -241,7 +254,7 @@ class ManifestContentTests(unittest.TestCase):
         """`phala cvms logs` is the only channel out of the CVM."""
 
         campaign = self.compose["services"]["campaign"]
-        entrypoint = campaign["entrypoint"][2]
+        entrypoint = entrypoint_script(self.compose, "campaign")
         self.assertIn("emit_phala_tdx_evidence.py", entrypoint)
         self.assertIn("--refuse-if-contains", entrypoint)
         self.assertIn('sleep "${TG_EVIDENCE_HOLD_SECONDS}"', entrypoint)
@@ -252,7 +265,7 @@ class ManifestContentTests(unittest.TestCase):
         self.assertGreaterEqual(int(hold), 3600)
 
     def test_a_failed_prelude_holds_open_but_still_fails(self) -> None:
-        entrypoint = self.compose["services"]["prelude"]["entrypoint"][2]
+        entrypoint = entrypoint_script(self.compose, "prelude")
         self.assertIn('sleep "${TG_PRELUDE_FAILURE_HOLD_SECONDS}"', entrypoint)
         self.assertIn('exit "$status"', entrypoint)
         # The hold is on the failure branch only, so a successful prelude

@@ -125,6 +125,22 @@ HEX64 = re.compile(r"\A[0-9a-f]{64}\Z")
 RFC3339 = re.compile(r"\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\Z")
 
 
+def compose_escape(text: str) -> str:
+    """Protect an embedded shell script from Compose's own interpolation.
+
+    Compose expands ``$VAR`` in the compose file *before* the container sees
+    it, and aborts on ``${VAR:?message}`` when VAR is unset in the deploying
+    shell.  The first real run of the restructured manifest died exactly
+    there: ``required variable TG_PYTHON_FLINT_WHEEL is missing a value``,
+    because the campaign entry point's own shell variables were read as
+    compose variables.  Nothing in these blocks is ever meant to be
+    interpolated by Compose -- the environment arrives via ``environment:``
+    and everything else is resolved by the shell at run time -- so every ``$``
+    is escaped, and ``$$`` reaches the container as a literal ``$``.
+    """
+    return text.replace("$", "$$")
+
+
 def indent(text: str, spaces: int) -> str:
     pad = " " * spaces
     return "".join(pad + line if line.strip() else line for line in text.splitlines(True))
@@ -314,7 +330,7 @@ services:
       - /bin/bash
       - -ec
       - |
-{indent(entrypoint, 8)}
+{indent(compose_escape(entrypoint), 8)}
   campaign:
     image: {IMAGE}
     restart: "no"
@@ -355,7 +371,7 @@ services:
       - /bin/bash
       - -ec
       - |
-{indent(campaign_entrypoint, 8)}
+{indent(compose_escape(campaign_entrypoint), 8)}
 volumes:
   # ORDINARY on purpose.  Never give this driver_opts type tmpfs: that makes
   # it per-container and empty, which is the bug this layout exists to fix.

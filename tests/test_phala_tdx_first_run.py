@@ -792,7 +792,10 @@ class ContainerDryRunTests(unittest.TestCase):
                             + DRY_RUN_JOB_BINDING,
                             "-e", "SPARKINTERVAL_PHALA_TDX_LOCAL_DRY_RUN=1",
                             IMAGE_TAG,
-                            "-ec", entrypoint[2],
+                            # Compose collapses the doubled ``$`` that keeps
+                            # the script safe from its interpolation pass, so
+                            # run what the container would actually receive.
+                            "-ec", entrypoint[2].replace("$$", "$"),
                         ],
                         capture_output=True,
                         text=True,
