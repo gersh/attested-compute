@@ -112,4 +112,64 @@ def negativeCount : Nat := vectors.length - positiveCount
 -- Every vector agrees with its expected result.
 #guard failures.isEmpty
 
+/-! ## Exceptional branches of the point arithmetic
+
+Signature vectors exercise the generic addition and doubling paths heavily but
+almost never reach the exceptional branches, so those are checked directly.
+Re-affinizing a point (`reAffine`) gives a second representative of the same
+curve point with a different `Z`, which is what forces `add` to take its
+`u1 = u2` branches with genuinely distinct Jacobian coordinates. -/
+
+/-- The canonical `Z = 1` representative of a point, or infinity. -/
+def reAffine (point : Jacobian) : Jacobian :=
+  match point.toAffine with
+  | none => Jacobian.infinity
+  | some (x, y) => Jacobian.ofAffine x y
+
+/-- `-G`, as an affine point. -/
+def negatedBase : Jacobian := Jacobian.ofAffine baseX (fieldSub 0 baseY)
+
+-- Identity element, in both argument positions, and doubling of infinity.
+#guard (Jacobian.infinity.add basePoint).toAffine == some (baseX, baseY)
+#guard (basePoint.add Jacobian.infinity).toAffine == some (baseX, baseY)
+#guard Jacobian.infinity.double.isInfinity
+#guard Jacobian.infinity.add Jacobian.infinity |>.isInfinity
+#guard (Jacobian.scalarMul 0 basePoint).isInfinity
+
+-- Opposite points sum to infinity, with matching and with differing `Z`.
+#guard (basePoint.add negatedBase).isInfinity
+#guard ((Jacobian.scalarMul 2 basePoint).add
+  (reAffine (Jacobian.scalarMul 2 negatedBase))).isInfinity
+
+-- Equal points take the doubling fallback, with matching and differing `Z`.
+#guard (basePoint.add basePoint).toAffine ==
+  (Jacobian.scalarMul 2 basePoint).toAffine
+#guard ((Jacobian.scalarMul 2 basePoint).add
+  (reAffine (Jacobian.scalarMul 2 basePoint))).toAffine ==
+    (Jacobian.scalarMul 4 basePoint).toAffine
+
+-- The generic addition agrees with the ladder on mixed representations.
+#guard ((Jacobian.scalarMul 2 basePoint).add
+  (Jacobian.scalarMul 3 basePoint)).toAffine ==
+    (Jacobian.scalarMul 5 basePoint).toAffine
+#guard ((basePoint.double.double).add basePoint).toAffine ==
+  (Jacobian.scalarMul 5 basePoint).toAffine
+#guard (Jacobian.scalarMul (groupOrder + 1) basePoint).isInfinity == false
+
+-- Every point produced by the ladder is on the curve.
+#guard (List.range 12).all fun index =>
+  match (Jacobian.scalarMul (index + 1) basePoint).toAffine with
+  | none => false
+  | some (x, y) => isOnCurve x y
+
+-- Fermat inversion in both fields.
+#guard fieldMul 7 (fieldInverse 7) == 1
+#guard fieldMul (fieldPrime - 1) (fieldInverse (fieldPrime - 1)) == 1
+#guard 5 * scalarInverse 5 % groupOrder == 1
+#guard (groupOrder - 1) * scalarInverse (groupOrder - 1) % groupOrder == 1
+
+-- The low-`s` predicate, which this module defines but does not enforce.
+#guard isLowS 1
+#guard isLowS (groupOrder - 1) == false
+
 end SparkInterval.Tests.P256
