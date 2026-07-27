@@ -9,6 +9,17 @@ Phala account. The local dry run is
 `tests/test_phala_tdx_first_run.py`; if it passes, the only missing
 ingredients are the ones marked **NEEDS PHALA** below.
 
+**Be clear about what "exercised locally" means for the in-CVM prelude.** No
+Intel TDX hardware was available when it was written. Its dstack guest-agent
+interaction is exercised only against an in-process mock
+(`tests/test_phala_tdx_prelude.py`) built from dstack v0.5.3's source and
+its own SDKs, and its `dcap-qvl` interaction only against a stand-in that
+prints the schema dcap-qvl v0.6.1 was observed to emit. **The real path has
+never been executed.** Expect the first attempt to surface at least one
+mismatch between the source-derived wire contract and what a running guest
+agent actually does; the prelude is written to fail loudly rather than to
+paper over it, and the first run is a discovery run by design (section 4b).
+
 Read `SparkInterval/Execution/PhalaTdxCampaignCertificate.lean` first: the
 docstring on `phalaTdxAttestedRun_sound` states precisely what this path
 trusts.
@@ -75,15 +86,32 @@ outside `/workspace`. Required files:
 | `dcap-qvl-policy.json` | the reviewed appraisal policy |
 | `dcap-qvl-artifact.sha256` | the digest of the `dcap-qvl` binary that produced the appraisal |
 
+None of these files is created by the entry point: it requires all seven to
+already exist. They are produced inside the CVM by
+`proof_build/ch25_a7_phala_tdx/prelude_phala_tdx_inputs.py`, which runs as a
+separate one-shot compose service before the campaign service starts. Section
+4 describes it.
+
 **NEEDS THE RETAINED ARTIFACT.** `a7_boundary.json` is not in this
-repository. A production run must supply the retained artifact whose SHA-256
-is `ccc11cecdc398c9d0a9bcf2b1bd4994399557985fe17bc216f0a40eb8eb49f29`; the
-producer refuses anything else unless `--local-dry-run` is passed, and
+repository and is **not baked into the image** — the published image contains
+no `COPY` of it. A production run must supply the retained artifact whose
+SHA-256 is `ccc11cecdc398c9d0a9bcf2b1bd4994399557985fe17bc216f0a40eb8eb49f29`;
+the producer refuses anything else unless `--local-dry-run` is passed, and
 `--local-dry-run` additionally requires the environment marker
 `SPARKINTERVAL_PHALA_TDX_LOCAL_DRY_RUN=1`. The fixture generator
 `tools/tg_a7_generate_fixture_artifact.py` exists only to make the local dry
 run exercise the real replay code; it must never be used for a production
 claim.
+
+**How the artifact reaches the CVM.** The prelude fetches it over HTTPS from
+`TG_A7_ARTIFACT_URL` and refuses to continue unless the bytes hash to
+`ccc11cec…9f29` and are exactly 1,494,999 bytes long. The expected digest is a
+constant in the prelude source, which is measured into the compose hash, so
+the delivery host is **not trusted**: it can withhold the artifact, but it
+cannot substitute one. (The producer then re-checks the same digest, and the
+Lean-side registered input commits to it a third time.) A local path may be
+given instead with `TG_A7_ARTIFACT_PATH`, under the identical digest check;
+that is the hook a future sidecar image referenced by digest would use.
 
 Note the ordering problem the quote creates: the quote's report data commits
 to the public key and the challenge, and the signature commits to the quote's
@@ -110,6 +138,20 @@ launcher (the dstack `app-compose` entry point, not the job) sets:
 plus `TG_FINAL_IMAGE_REFERENCE=sha256:<image digest>` and an RFC 3339 UTC
 `TG_ISSUED_AT`.
 
+The first four, plus the two `TG_` variables, are literals in
+`docker-compose.yaml`, so they are inside the compose hash and inside RTMR3 —
+the quote covers this run's challenge.
+
+The last two **cannot** be literals there, and the reason is worth stating
+because it looks like an omission: `compose_hash` is the SHA-256 of the
+document that would have to contain it. Instead the prelude reads them from
+the guest agent's `/Info`, checks them against the `app-id` and `compose-hash`
+events the quote actually attests in RTMR3 (see section 4), and writes them to
+`job-scope.env`, which the campaign service's shell sources before `exec`ing
+the entry point. `require_phala_tdx_worker` therefore sees exactly the six
+variables above, unchanged, and the two it could not be handed as literals
+came from the attested event log rather than from anyone's assertion.
+
 These are consumed by
 `tg_verifier.campaign_io.require_phala_tdx_worker`, a route that is entirely
 separate from `require_azure_measured_worker*`: different scope string,
@@ -122,13 +164,38 @@ both directions.
 
 ## 4. Run the campaign
 
-**NEEDS PHALA.** Deploy the image as a dstack app on Phala Cloud (CVM with
-Intel TDX). Inside the CVM, in this order:
+**NEEDS PHALA.** Deploy the manifest as a dstack app on Phala Cloud (CVM with
+Intel TDX). The compose file defines two one-shot services. The second has
 
-1. **Derive the signing key.** Ask the dstack guest agent for the app's
-   derived ECDSA P-256 key. Write the scalar to
-   `/workspace/input/enclave-signing-key.hex`. It must never leave the TD.
-2. **Compute the report-data commitment.**
+```yaml
+depends_on:
+  prelude:
+    condition: service_completed_successfully
+```
+
+so a failed appraisal is not followed by a receipt: the campaign container is
+never started at all.
+
+### 4a. What the prelude does, in order
+
+`proof_build/ch25_a7_phala_tdx/prelude_phala_tdx_inputs.py`, embedded verbatim
+in the compose document and therefore measured into RTMR3:
+
+1. **Ask `/Info`** for the dstack app id and app-compose hash.
+2. **Derive the signing key.** `POST /GetKey` with the domain-separated path
+   `sparkinterval/ch25-a7-boundary/enclave-signing-key/v1`. dstack returns the
+   32 raw bytes of `HKDF-SHA256(salt="RATLS", ikm=app key, info=path)` — the
+   same bytes its own `derive_ecdsa_key_pair_from_bytes` feeds to
+   `p256::SecretKey`, so reading them as a P-256 scalar is dstack's own use of
+   that KDF output, and it is **deterministic** in the app key and the path.
+   (`GetTlsKey` is *not* usable here: it seeds from `SystemRandom` and so
+   returns a different key on every call.) The scalar is validated to lie in
+   `[1, n)` for the P-256 group, written to `enclave-signing-key.hex` mode
+   `0400` on a **tmpfs** volume, and never printed, logged, or copied.
+   About one derivation path in 2^32 yields a value at or above the P-256
+   group order; the prelude refuses it and tells you to bump the path suffix
+   rather than reducing modulo the order.
+3. **Compute the report-data commitment.**
 
    ```
    sha256( "sparkinterval.phala-tdx-report-data.v1\n"
@@ -137,26 +204,139 @@ Intel TDX). Inside the CVM, in this order:
            + "job_binding_sha256=" + sha256(<job binding>)                  + "\n" )
    ```
 
-   `tg_verifier.phala_tdx_receipt.report_data_hash` computes exactly this.
+   `tg_verifier.phala_tdx_receipt.report_data_hash` computes exactly this, and
+   the prelude **calls that function** rather than re-deriving the formula; it
+   additionally asserts at run time that the imported module still produces
+   the preimage written above, so a shadowed or stale module fails closed.
    This is the only thing tying the quote to the signing key; without it a
    genuine quote and a genuine signature from unrelated parties would both
    verify while proving nothing jointly.
-3. **Fetch the TDX quote** with that 32-byte value as the report data, and
-   save it as `/workspace/input/tdx-quote.bin`.
-4. **Appraise the quote** with `dcap-qvl` against the reviewed policy, saving
-   the output as `/workspace/input/dcap-qvl-appraisal.json`. If the appraisal
-   fails, stop — nothing downstream is meaningful.
-5. **Run the entry point**, `proof_build/ch25_a7_phala_tdx/run_phala_tdx_campaign.sh`
-   (the image's `ENTRYPOINT`), with no `--local-dry-run`.
+4. **Fetch the TDX quote.** `POST /GetQuote` with the 32-byte commitment
+   right-padded to 64 bytes, saved as `tdx-quote.bin`. dstack's JSON layer has
+   no `deny_unknown_fields` and defaults every absent field, so a misspelled
+   request key would silently yield a quote over 64 zero bytes; the prelude
+   therefore checks the **echoed** `report_data` and, later, the `report_data`
+   the appraiser reads out of the quote itself.
+5. **Appraise the quote.** `dcap-qvl v0.6.1` (pinned by SHA-256; see
+   `specifications/DCAP_QVL_0_6_1_UPSTREAM.json`) is fetched, digest-checked,
+   and run twice: plain `verify`, whose JSON becomes
+   `dcap-qvl-appraisal.json` and whose non-zero exit is fatal, and
+   `verify --strict`, whose verdict is retained as evidence. Strict is
+   evidence rather than a gate because dcap-qvl's built-in strict policy
+   rejects any DYNAMIC_PLATFORM / CACHED_KEYS / SMT platform — running it
+   against upstream's own sample TDX quote on 2026-07-27 failed with *"Dynamic
+   platform is not allowed by policy"*. Set `require_dcap_qvl_strict` in the
+   policy to make it a gate.
+6. **Replay the event log against the quote.** Every RTMR3 entry is re-hashed
+   with dstack's `sha384(event_type_le || ":" || event || ":" || payload)` so
+   the name/payload columns cannot be relabelled, all four IMRs are replayed
+   and must equal the RTMRs the quote attests, and the `app-id` and
+   `compose-hash` events in the boot chain — everything up to `system-ready`,
+   so a post-boot `EmitEvent` cannot spoof them — must equal what `/Info`
+   reported. **This is what binds the quote to these compose bytes.**
+7. **Apply the reviewed policy** (section 4b).
+8. **Stage the retained A.7 artifact** under its pinned digest, write
+   `registered-input.json`, and hand over.
 
-Outputs, under `/workspace/output`:
+Anything unexpected is a hard failure: the prelude exits non-zero, writes no
+`job-scope.env`, and the campaign never runs.
+
+### 4b. The appraisal policy, and why the first run fails on purpose
+
+`proof_build/ch25_a7_phala_tdx/dcap-qvl-policy.json` is delivered as
+base64 in `TG_DCAP_QVL_POLICY_B64` (a dstack encrypted env listed in
+`allowed_envs`), **not** inside the compose document. That placement is
+forced: the policy pins RTMR3, and RTMR3 is a function of the compose bytes,
+so a policy embedded in the compose could never be filled in.
+
+Because the policy is therefore unmeasured, the prelude is built so that the
+policy can only ever **tighten**. The floor is hardcoded in the measured
+prelude and no policy value removes any of it: TDX TEE type, an accepted
+report kind, non-debuggable TD, the report-data binding, the event-log replay,
+and the RTMR3 app-id / compose-hash bindings. The policy adds pinned
+measurements, TCB-status whitelists, an exhaustive advisory whitelist, and the
+quoting-enclave identity. Its SHA-256 enters the signed receipt and is pinned
+in Lean as `quoteAppraisalPolicyHash`, so substitution is detectable at the
+promotion review.
+
+Every measurement in the shipped template is an explicit `TODO:` — no
+wildcards, no fabricated values, and deliberately no example values, because
+an example in a measurement field is a paste hazard. So:
+
+* **Run 1 (discovery).** With `first_run_measurement_discovery: false` — the
+  shipped setting — the prelude performs the whole cryptographic appraisal,
+  **prints every observed measurement and the quoting-enclave identity**, and
+  then exits non-zero. Nothing is produced. Fill the pins from that output,
+  cross-checking MRTD and RTMR0–2 against the measurements Phala publishes for
+  the dstack OS image the CVM booted.
+* Setting `first_run_measurement_discovery: true` lets a run proceed with
+  unpinned measurements, but it is not silent: a banner is printed,
+  `/workspace/retained/evidence/MEASUREMENTS-NOT-PINNED` is written, and the
+  flag is inside the policy bytes whose SHA-256 the receipt signs — so the
+  receipt itself proves the measurements were unpinned. **A receipt produced
+  in discovery mode must never be promoted to the Lean production pin.**
+* **Run 2 (attested).** Pins filled, discovery false. Editing the policy does
+  not change the compose hash, so RTMR3 is unchanged and the pin from run 1
+  still holds. That is the whole reason the policy lives outside the compose.
+
+### 4c. Outputs
+
+Under `/workspace/out/output`:
 
 * `registered-result.txt` — the registered result bytes, `true`;
 * `enclave-receipt.json` — the signed statement;
 * `work/a7-replay.json` — the normalized FLINT/Arb replay report.
 
-Retrieve all three, plus `tdx-quote.bin`, `dcap-qvl-appraisal.json`,
-`dcap-qvl-policy.json`, and the `dcap-qvl` binary digest.
+Under `/workspace/retained/evidence` (an ordinary volume, so it survives the
+containers): `dstack-info.json`, `dstack-event-log.json`,
+`dcap-qvl-decode.json`, `dcap-qvl-verify.stderr`, `dcap-qvl-strict.json`,
+`rtmr-replay.json`, `prelude-summary.json`, and the `dcap-qvl` binary itself.
+
+Retrieve all of it, plus `tdx-quote.bin`, `dcap-qvl-appraisal.json`,
+`dcap-qvl-policy.json`, and `dcap-qvl-artifact.sha256` from
+`/workspace/staging/input`, **before destroying the CVM** — the staging volume
+is a tmpfs and the evidence volume dies with the VM.
+
+---
+
+## 4d. Deploying: the manifest, and the registry
+
+`proof_build/ch25_a7_phala_tdx/docker-compose.yaml` and `app-compose.json` are
+generated by `tools/tg_phala_tdx_compose.py`; the committed pair is a template
+whose challenge and job binding are refusal sentinels, so it cannot be
+deployed by accident. `tests/test_phala_tdx_manifest.py` fails if the
+committed files drift from the generator or from the prelude source.
+
+`app-compose.json` sets `no_instance_id: true` on purpose: it removes the
+per-instance random value from the RTMR3 chain, which is what makes RTMR3 a
+function of the app id and compose hash alone, and therefore pinnable at all.
+
+**The registry.** As of 2026-07-27 an anonymous pull of
+`ghcr.io/gersh/sparkinterval-ch25-a7-phala-tdx@sha256:4e6029a3…` returns
+`403 DENIED` — the package is **private**, so a CVM cannot pull it as things
+stand. Two options:
+
+1. **Make the GHCR package public. This is the recommendation.**
+   Confidentiality is not a goal of this path — the axiom's docstring says so
+   — and integrity does not come from registry access control: it comes from
+   the digest, which is pinned in the compose (measured into RTMR3), in the
+   receipt, and in the Lean enclave identity. A public image cannot be
+   substituted.
+2. Supply registry credentials. Note that dstack v0.5.3's built-in
+   `docker_config` path does **not** work for GHCR: `setup_docker_account`
+   runs `docker login -u <user> -p <token>` with no server argument, which
+   authenticates to Docker Hub, and `docker_config.registry` only configures a
+   registry *mirror*. The working route is a `pre_launch_script` in
+   `app-compose.json` (it is sourced by `app-compose.sh` before
+   `docker compose up`, and it *is* inside the compose hash):
+
+   ```json
+   "pre_launch_script": "echo \"$GHCR_TOKEN\" | docker login ghcr.io -u <user> --password-stdin\n"
+   ```
+
+   with `GHCR_TOKEN` added to `allowed_envs` and supplied as encrypted env.
+   This puts a GitHub token inside the CVM and adds an unmeasured moving part
+   for no integrity gain, which is why option 1 is preferred.
 
 ---
 
@@ -200,6 +380,22 @@ unsupported.
 `attestationAuthority` is already `true` for this constructor; today the empty
 `enclavePublicKeyHex` is what makes every check fail closed
 (`phalaTdxOutcomeCheck_ch25A7BoundaryProductionV1_eq_false` proves it).
+
+**Preconditions for promoting a receipt to this pin.** Do not fill any field
+above unless all of the following hold, and record that you checked them:
+
+* the retained `dcap-qvl-policy.json` has `first_run_measurement_discovery`
+  set to `false` and **no** remaining `TODO:` value;
+* `/workspace/retained/evidence/MEASUREMENTS-NOT-PINNED` is absent from the
+  retained evidence, and `prelude-summary.json` reports
+  `"measurements_pinned": true`;
+* the retained `rtmr-replay.json` shows the replayed RTMRs equal to the ones
+  the quote attests, and the RTMR3 boot chain's `app-id` and `compose-hash`
+  equal the receipt's `app_id` and `compose_hash`;
+* the policy's `mr_td` and `rt_mr0..2` were cross-checked against the
+  measurements Phala publishes for the dstack OS image version that booted —
+  the prelude cannot do this for you, since it only ever sees one machine;
+* `dcap-qvl-strict.json` was read and its verdict consciously accepted.
 
 Do **not** touch `ch25A7BoundaryLocalDryRunV1`. Its
 `attestationAuthority := false` is what stops a laptop-generated key from ever
@@ -287,11 +483,76 @@ consequence of a successful run.
 ## Checklist before the first run
 
 - [ ] Phala Cloud account and a CVM with Intel TDX — **NEEDS PHALA**
-- [ ] A container registry the CVM can pull from, and the pushed image digest
-- [ ] The retained production `a7_boundary.json` (`ccc11cec…9f29`)
-- [ ] A reviewed `dcap-qvl` policy pinning the expected measurement set, TCB
-      level, and QE identity, plus the `dcap-qvl` binary and its digest
-- [ ] An unpredictable challenge nonce chosen and recorded before the run
+- [ ] The GHCR package made public, or a `pre_launch_script` login in place
+      (section 4d) — **the package is private today and the CVM cannot pull it**
+- [ ] The retained production `a7_boundary.json` (`ccc11cec…9f29`) published at
+      an HTTPS URL the CVM can reach — **NEEDS THE OPERATOR**
+- [ ] An unpredictable challenge nonce and a job binding chosen and recorded
+      before the run
 - [ ] `python3 -m unittest tests.test_phala_tdx_first_run` passing locally
 - [ ] `python3 -m unittest tests.test_phala_tdx_axiom_off_cone` passing
+- [ ] `python3 -m unittest tests.test_phala_tdx_prelude` passing
+- [ ] `python3 -m unittest tests.test_phala_tdx_manifest` passing
 - [ ] `python3 tools/audit_lean_source.py` passing
+
+The `dcap-qvl` policy is **not** on this list as something to have ready: its
+measurement pins cannot be known before the first run. Discovering them is
+what run 1 is for (section 4b).
+
+---
+
+## The exact command sequence
+
+```bash
+# 0. Local gates.
+python3 -m unittest tests.test_phala_tdx_first_run \
+                    tests.test_phala_tdx_axiom_off_cone \
+                    tests.test_phala_tdx_prelude \
+                    tests.test_phala_tdx_manifest
+python3 tools/audit_lean_source.py
+
+# 1. Choose the campaign scope and generate the manifest.
+CHALLENGE=$(openssl rand -hex 32)
+JOB_BINDING=$(openssl rand -hex 32)
+ISSUED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+printf 'challenge=%s\njob_binding=%s\nissued_at=%s\n' \
+    "$CHALLENGE" "$JOB_BINDING" "$ISSUED_AT" > run-scope.txt   # retain this
+
+python3 tools/tg_phala_tdx_compose.py \
+    --challenge "$CHALLENGE" \
+    --job-binding "$JOB_BINDING" \
+    --issued-at "$ISSUED_AT" \
+    --out-dir ./deploy
+# prints the compose hash and the app id; retain both.
+
+# 2. Publish the retained artifact and make the image pullable.
+sha256sum /path/to/a7_boundary.json     # must be ccc11cec…9f29
+#   upload it somewhere HTTPS; export the URL as ARTIFACT_URL
+#   make ghcr.io/gersh/sparkinterval-ch25-a7-phala-tdx public (section 4d)
+
+# 3. Discovery run.  The policy still has every measurement as TODO.
+POLICY_B64=$(base64 -w0 proof_build/ch25_a7_phala_tdx/dcap-qvl-policy.json)
+#   deploy ./deploy/app-compose.json to Phala Cloud with encrypted env
+#     TG_DCAP_QVL_POLICY_B64=$POLICY_B64
+#     TG_A7_ARTIFACT_URL=$ARTIFACT_URL
+#   the prelude will FAIL after printing the observed measurements.
+#   Copy them out of the prelude container's log.
+
+# 4. Fill the policy and re-run.
+#   paste the observed values into dcap-qvl-policy.json,
+#   leave first_run_measurement_discovery false,
+#   re-base64 it, redeploy the SAME app-compose.json (unchanged: the policy is
+#   not part of it, so the compose hash and RTMR3 do not move).
+
+# 5. Retrieve everything BEFORE destroying the CVM.
+#   /workspace/out/output/{registered-result.txt,enclave-receipt.json,work/a7-replay.json}
+#   /workspace/staging/input/{tdx-quote.bin,dcap-qvl-appraisal.json,
+#                             dcap-qvl-policy.json,dcap-qvl-artifact.sha256}
+#   /workspace/retained/evidence/*        (NOT enclave-signing-key.hex)
+
+# 6. Pin the enclave identity in Lean (section 6) and close the theorem
+#    (section 7).  This is the trust-boundary review event.
+```
+
+**Never retrieve `enclave-signing-key.hex`.** It is the one file that must die
+with the CVM.
