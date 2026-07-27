@@ -3566,9 +3566,17 @@ services:
             ("evidence", "dcap-qvl-verify.stderr", False),
             ("input", "dcap-qvl-policy.json", True),
             ("output", "work/a7-replay.json", True),
-            ("evidence", "dcap-qvl-decode.json", True),
             ("evidence", "dstack-event-log.json", True),
         )
+
+        # Staged in the CVM and committed to by digest in the receipt, but NOT printed:
+        # `dcap-qvl-decode.json` is 18,770 bytes of the ~64 KiB budget and is the
+        # appraiser's rendering of a quote that is itself emitted in full, so it adds
+        # no fact that `tdx-quote.bin` plus `dcap-qvl-appraisal.json` do not already
+        # carry.  `dstack-info.json` is 263,652 bytes and cost us the receipt on the
+        # first end-to-end run.  Anything re-added here comes out of the same budget
+        # and pushes the trailing blocks off the end of the retrievable log.
+        WITHHELD_FROM_LOG = ("dcap-qvl-decode.json", "dstack-info.json")
 
         # Substrings that must never appear in an emitted file name.  This is a
         # belt-and-braces check on the allowlist above, evaluated at start-up.

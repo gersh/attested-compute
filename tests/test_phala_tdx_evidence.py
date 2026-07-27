@@ -59,7 +59,7 @@ EVIDENCE_FILES = {
     # emitted, because its 263 KB exhausted the ~64 KiB `phala cvms logs`
     # budget on the first real run and cost us the receipt.
     "dstack-event-log.json": b"[]",
-    "dcap-qvl-decode.json": b'{"header":{}}',
+    # dcap-qvl-decode.json is staged but withheld from the log (see emitter).
     "dcap-qvl-verify.stderr": b"",
     "dcap-qvl-strict.json": b'{"passed":false}',
     "rtmr-replay.json": b'{"replayed_rtmrs":{}}',
