@@ -14,12 +14,37 @@ Two files come out:
   the ``compose_hash`` dstack measures into RTMR3, and its first twenty bytes
   are the ``app_id``.
 
-The prelude's Python source is embedded verbatim inside
-``docker-compose.yaml``, and therefore inside ``app-compose.json``, and
-therefore inside the compose hash and RTMR3.  That is the point: the code that
-derives the key, computes the report-data commitment and gates on the
-appraisal is measured by the same quote it requests.  It is not fetched at run
-time and it is not baked into the image (the published image predates it).
+Three source files are embedded verbatim inside ``docker-compose.yaml``, and
+therefore inside ``app-compose.json``, and therefore inside the compose hash
+and RTMR3:
+
+* ``prelude_phala_tdx_inputs.py`` -- run by the prelude service to stage the
+  inputs, and run again by the campaign service, in ``--derive-key-only``
+  mode, to re-derive the signing key;
+* ``run_phala_tdx_campaign.sh`` -- the campaign entry point;
+* ``emit_phala_tdx_evidence.py`` -- prints the evidence to stdout at the end.
+
+That is the point: everything that derives the key, computes the report-data
+commitment, gates on the appraisal, signs, and decides what leaves the CVM is
+measured by the same quote it requests.  None of it is fetched at run time.
+The published image contributes the workload, ``tg_verifier`` and the pinned
+python-flint wheel, and is itself pinned by registry digest here; the entry
+scripts deliberately come from this document rather than from the image, so
+that a change to them is visible in the compose hash without a republished
+image.
+
+Volumes, and the mistake this encodes
+-------------------------------------
+
+``campaign-shared`` is an ORDINARY named volume.  It must never be given
+``driver_opts: {type: tmpfs}``: a tmpfs-backed named volume is **not** shared
+between containers -- each mounting container gets its own fresh, empty
+tmpfs.  The first real Phala TDX run failed exactly there, with the campaign
+container reporting ``/workspace/staging/input/job-scope.env: No such file or
+directory`` after a fully successful attestation.  Secrets stay off that
+volume by not being written at all: the key is re-derived in the campaign
+container onto a container-local tmpfs (a service-level ``tmpfs:`` entry,
+which *is* private per container and is the right tool for that job).
 
 ``tests/test_phala_tdx_manifest.py`` re-runs this generator and requires the
 committed files to match byte for byte, so the embedded copy cannot drift from
@@ -52,8 +77,31 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PRELUDE = ROOT / "proof_build/ch25_a7_phala_tdx/prelude_phala_tdx_inputs.py"
-DEFAULT_OUT_DIR = ROOT / "proof_build/ch25_a7_phala_tdx"
+BUILD = ROOT / "proof_build/ch25_a7_phala_tdx"
+PRELUDE = BUILD / "prelude_phala_tdx_inputs.py"
+CAMPAIGN_ENTRY = BUILD / "run_phala_tdx_campaign.sh"
+EVIDENCE_EMITTER = BUILD / "emit_phala_tdx_evidence.py"
+DEFAULT_OUT_DIR = BUILD
+
+# Paths the compose entry points write the measured sources to, inside the
+# containers.  ``/tmp`` is a container-local tmpfs in both services.
+PRELUDE_IN_CVM = "/tmp/prelude_phala_tdx_inputs.py"
+CAMPAIGN_ENTRY_IN_CVM = "/tmp/run_phala_tdx_campaign.sh"
+EVIDENCE_EMITTER_IN_CVM = "/tmp/emit_phala_tdx_evidence.py"
+
+SHARED_ROOT = "/workspace/shared"
+INPUT_ROOT = SHARED_ROOT + "/input"
+EVIDENCE_ROOT = SHARED_ROOT + "/evidence"
+OUTPUT_ROOT = "/workspace/out/output"
+KEY_ROOT = "/workspace/keys"
+
+# How long each container stays alive after it has said everything it has to
+# say.  `phala cvms logs` cannot read the logs of a container that has exited,
+# so a container that exits immediately takes its output with it.  These are
+# literals here, hence measured, and they are the only reason the evidence is
+# retrievable at all.
+EVIDENCE_HOLD_SECONDS = 86400
+PRELUDE_FAILURE_HOLD_SECONDS = 86400
 
 IMAGE_DIGEST = (
     "sha256:4e6029a39771bd18f9e0b9bc64017393700ce47c17a678dd93cbf0ddc17c774f"
@@ -64,6 +112,8 @@ IMAGE = (
 
 APP_NAME = "sparkinterval-ch25-a7-boundary"
 HEREDOC = "SPARKINTERVAL_PRELUDE_SOURCE_EOF"
+CAMPAIGN_HEREDOC = "SPARKINTERVAL_CAMPAIGN_ENTRY_EOF"
+EVIDENCE_HEREDOC = "SPARKINTERVAL_EVIDENCE_EMITTER_EOF"
 
 # Deliberately not 64 hex digits: `require_phala_tdx_worker` rejects these, so
 # the committed template cannot be deployed by accident.
@@ -90,33 +140,98 @@ def compose_yaml(*, challenge: str, job_binding: str, issued_at: str,
         raise SystemExit(
             f"image reference must be pinned to {IMAGE_DIGEST}; got {IMAGE}"
         )
-    prelude_source = PRELUDE.read_text(encoding="utf-8")
-    if HEREDOC in prelude_source:
-        raise SystemExit("the prelude source contains the heredoc sentinel")
-    if "\t" in prelude_source:
-        raise SystemExit("the prelude source contains a tab; YAML block scalars "
-                         "and tabs do not mix")
-    for number, line in enumerate(prelude_source.splitlines(), start=1):
-        if line != line.rstrip():
+    sources = {}
+    for label, path, sentinel in (
+        ("prelude", PRELUDE, HEREDOC),
+        ("campaign entry point", CAMPAIGN_ENTRY, CAMPAIGN_HEREDOC),
+        ("evidence emitter", EVIDENCE_EMITTER, EVIDENCE_HEREDOC),
+    ):
+        text = path.read_text(encoding="utf-8")
+        for other in (HEREDOC, CAMPAIGN_HEREDOC, EVIDENCE_HEREDOC):
+            if other in text:
+                raise SystemExit(f"the {label} source contains a heredoc sentinel")
+        if "\t" in text:
             raise SystemExit(
-                f"the prelude source has trailing whitespace on line {number}; "
-                "a YAML block scalar would not round-trip it"
+                f"the {label} source contains a tab; YAML block scalars and "
+                "tabs do not mix"
             )
+        for number, line in enumerate(text.splitlines(), start=1):
+            if line != line.rstrip():
+                raise SystemExit(
+                    f"the {label} source has trailing whitespace on line "
+                    f"{number}; a YAML block scalar would not round-trip it"
+                )
+        sources[label] = text
 
-    entrypoint = (
-        f"cat >/tmp/prelude.py <<'{HEREDOC}'\n"
-        + prelude_source
+    write_prelude = (
+        f"cat >{PRELUDE_IN_CVM} <<'{HEREDOC}'\n"
+        + sources["prelude"]
         + f"{HEREDOC}\n"
-        "exec python3 /tmp/prelude.py \\\n"
-        "  --input-root /workspace/staging/input \\\n"
-        "  --evidence-root /workspace/retained/evidence\n"
+    )
+
+    # The prelude holds the container open when it FAILS, and only then.  A
+    # failed prelude is the run whose log matters most -- the discovery run
+    # prints the measurements to paste into the policy there -- and an exited
+    # container's log is unreadable.  It still exits non-zero afterwards, so
+    # `service_completed_successfully` is not satisfied and the campaign
+    # service is never started.
+    entrypoint = (
+        write_prelude
+        + "status=0\n"
+        f"python3 {PRELUDE_IN_CVM} \\\n"
+        f"  --input-root {INPUT_ROOT} \\\n"
+        f"  --evidence-root {EVIDENCE_ROOT} || status=$?\n"
+        'if [ "$status" -ne 0 ]; then\n'
+        '  echo "prelude FAILED with status $status; holding this container '
+        'open so its log can be retrieved with \'phala cvms logs\'."\n'
+        '  sleep "${TG_PRELUDE_FAILURE_HOLD_SECONDS}" || true\n'
+        "fi\n"
+        'exit "$status"\n'
     )
 
     campaign_entrypoint = (
+        write_prelude
+        + f"cat >{CAMPAIGN_ENTRY_IN_CVM} <<'{CAMPAIGN_HEREDOC}'\n"
+        + sources["campaign entry point"]
+        + f"{CAMPAIGN_HEREDOC}\n"
+        + f"cat >{EVIDENCE_EMITTER_IN_CVM} <<'{EVIDENCE_HEREDOC}'\n"
+        + sources["evidence emitter"]
+        + f"{EVIDENCE_HEREDOC}\n"
+        # Read-only, and invoked as `bash <file>` rather than executed: /tmp is
+        # a tmpfs and Docker mounts tmpfs `noexec` unless told otherwise, so an
+        # exec of it would fail with "Permission denied".  Keeping /tmp noexec
+        # is worth more than the convenience.
+        f"chmod 0400 {CAMPAIGN_ENTRY_IN_CVM}\n"
+        # The app id and the app-compose hash cannot be literals in this
+        # document (its own SHA-256 is the compose hash), so the prelude took
+        # them from the guest agent, checked them against what RTMR3 attests,
+        # and wrote them here.  A missing job scope is fatal to the campaign
+        # but must not be fatal to the evidence: without it the entry point is
+        # not run at all, and the evidence below is still printed.
+        "status=0\n"
         "set -a\n"
-        ". /workspace/staging/input/job-scope.env\n"
+        f". {INPUT_ROOT}/job-scope.env || status=$?\n"
         "set +a\n"
-        "exec /opt/sparkinterval/run_phala_tdx_campaign.sh\n"
+        'if [ "$status" -eq 0 ]; then\n'
+        f"  bash {CAMPAIGN_ENTRY_IN_CVM} || status=$?\n"
+        "else\n"
+        f'  echo "no job scope at {INPUT_ROOT}/job-scope.env; the campaign was '
+        'NOT run." >&2\n'
+        "fi\n"
+        # The evidence is printed whether or not the campaign succeeded: a
+        # failed campaign still has a quote, an appraisal and a replay report
+        # worth reading, and they are unreachable any other way.
+        f"python3 {EVIDENCE_EMITTER_IN_CVM} \\\n"
+        f"  --input-root {INPUT_ROOT} \\\n"
+        f"  --evidence-root {EVIDENCE_ROOT} \\\n"
+        f"  --output-root {OUTPUT_ROOT} \\\n"
+        f"  --refuse-if-contains {KEY_ROOT}/enclave-signing-key.hex \\\n"
+        '  --campaign-status "$status" || true\n'
+        'echo "holding this container open so the evidence above can be '
+        "retrieved with 'phala cvms logs'; extract it with "
+        'tools/tg_phala_tdx_extract_evidence.py."\n'
+        'sleep "${TG_EVIDENCE_HOLD_SECONDS}" || true\n'
+        'exit "$status"\n'
     )
 
     return f"""# Copyright (c) 2026 Gershon Bialer. All rights reserved.
@@ -129,23 +244,50 @@ def compose_yaml(*, challenge: str, job_binding: str, issued_at: str,
 # dstack application for the CH25 Lemma A.7 boundary campaign in an Intel TDX
 # confidential VM.  Two one-shot services:
 #
-#   prelude   derives the P-256 signing key from the dstack guest agent,
-#             commits to its public key in the TDX quote's report data,
-#             fetches the quote, appraises it with the pinned dcap-qvl against
-#             the reviewed policy, stages the retained A.7 artifact, and
-#             writes the seven files the campaign entry point requires.  It is
-#             the only service that can reach the network or the dstack
-#             socket.
-#   campaign  the published image's own entry point.  It starts ONLY on
-#             `service_completed_successfully`, so a failed appraisal is not
-#             followed by a receipt.  No network, read-only root filesystem.
+#   prelude   asks the dstack guest agent for the application identity,
+#             derives the P-256 signing key, commits to its public key in the
+#             TDX quote's report data, fetches the quote, appraises it with
+#             the pinned dcap-qvl against the reviewed policy, replays the
+#             event log against the quote, stages the retained A.7 artifact,
+#             and writes the six non-secret files the campaign entry point
+#             requires.  It is the only service with network access.  It does
+#             NOT write the signing key anywhere.
+#   campaign  re-derives the same signing key from the same dstack socket,
+#             refusing unless it reproduces the report-data commitment the
+#             quote attests; runs the replay; signs the receipt; prints all
+#             the evidence to stdout; and stays alive so the log can be
+#             fetched.  It starts ONLY on `service_completed_successfully`, so
+#             a failed appraisal is not followed by a receipt.  No network,
+#             read-only root filesystem.
 #
 # The image is referenced by registry digest, never by a tag.
 #
-# The staging volume is a tmpfs: the derived signing key is written there and
-# must never touch the CVM's disk.  The retained and output volumes are
-# ordinary volumes so the evidence survives the containers and can be copied
-# out before the CVM is destroyed.
+# WHY THE SHARED VOLUME IS ORDINARY, AND MUST STAY ORDINARY
+#
+# A tmpfs-backed *named* volume is not shared between containers: each
+# container that mounts it gets its own fresh, empty tmpfs.  The first real
+# run on Phala TDX hardware passed the whole attestation and then died with
+# `/workspace/staging/input/job-scope.env: No such file or directory` for
+# exactly that reason.  `campaign-shared` is therefore an ordinary volume,
+# and nothing secret is ever written to it.  Container-local secrets go on
+# service-level `tmpfs:` entries, which really are private per container:
+# that is where the re-derived signing key is written, and it dies with the
+# container.
+#
+# WHY BOTH SERVICES MOUNT THE DSTACK SOCKET
+#
+# The key cannot travel between containers without touching disk, so it does
+# not travel: each container derives it.  `GetKey` is a deterministic
+# HKDF-SHA256 of the app key and the derivation path, and the campaign refuses
+# to proceed unless what it derives reproduces the public key and report-data
+# commitment the prelude put inside the quote.  The socket is not network
+# access: the campaign service still has `network_mode: none`.
+#
+# WHY THE CAMPAIGN PRINTS ITS EVIDENCE AND THEN SLEEPS
+#
+# There is no other way to get bytes out of a dstack CVM.  Volumes are not
+# reachable, and `phala cvms logs` returns nothing for a container that has
+# exited.  A container that prints and then stays alive can be read.
 
 services:
   prelude:
@@ -153,8 +295,7 @@ services:
     restart: "no"
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
-      - campaign-staging:/workspace/staging
-      - campaign-retained:/workspace/retained
+      - campaign-shared:{SHARED_ROOT}
     environment:
       - SPARKINTERVAL_PHALA_TDX_WORKER_SCOPE=sparkinterval.phala-tdx-measured-worker.v1
       - SPARKINTERVAL_PHALA_TDX_WORKER_BACKEND=phala_dstack_tdx_cpu
@@ -162,6 +303,7 @@ services:
       - SPARKINTERVAL_PHALA_TDX_WORKER_JOB_BINDING_SHA256={job_binding}
       - TG_FINAL_IMAGE_REFERENCE={IMAGE_DIGEST}
       - TG_ISSUED_AT={issued_at}
+      - TG_PRELUDE_FAILURE_HOLD_SECONDS={PRELUDE_FAILURE_HOLD_SECONDS}
       # Supplied as dstack encrypted environment, listed in allowed_envs.
       # They are deliberately NOT literals here: the appraisal policy pins
       # RTMR3, and RTMR3 is a function of these compose bytes, so a policy
@@ -182,9 +324,18 @@ services:
       prelude:
         condition: service_completed_successfully
     volumes:
-      - campaign-staging:/workspace/staging:ro
+      # Read-only, and it carries nothing secret: the prelude writes no key.
+      - campaign-shared:{SHARED_ROOT}:ro
+      # Not network access.  The key is re-derived here rather than handed
+      # over, because handing it over would mean writing it to a disk-backed
+      # volume.
+      - /var/run/dstack.sock:/var/run/dstack.sock
       - campaign-output:/workspace/out
     tmpfs:
+      # Service-level tmpfs entries ARE private per container, which is the
+      # whole point: the re-derived signing key lives here and nowhere else,
+      # and the deriver refuses to write it to any non-tmpfs filesystem.
+      - {KEY_ROOT}:size=1m,mode=0700
       - /workspace/runtime:exec,size=64m
       - /tmp:size=16m
     environment:
@@ -194,21 +345,21 @@ services:
       - SPARKINTERVAL_PHALA_TDX_WORKER_JOB_BINDING_SHA256={job_binding}
       - TG_FINAL_IMAGE_REFERENCE={IMAGE_DIGEST}
       - TG_ISSUED_AT={issued_at}
-      - TG_INPUT_ROOT=/workspace/staging/input
-      - TG_OUTPUT_ROOT=/workspace/out/output
+      - TG_INPUT_ROOT={INPUT_ROOT}
+      - TG_OUTPUT_ROOT={OUTPUT_ROOT}
+      - TG_ENCLAVE_KEY_ROOT={KEY_ROOT}
+      - TG_PHALA_TDX_KEY_DERIVER={PRELUDE_IN_CVM}
+      - TG_PRELUDE_SUMMARY={EVIDENCE_ROOT}/prelude-summary.json
+      - TG_EVIDENCE_HOLD_SECONDS={EVIDENCE_HOLD_SECONDS}
     entrypoint:
       - /bin/bash
       - -ec
       - |
 {indent(campaign_entrypoint, 8)}
 volumes:
-  campaign-staging:
-    driver: local
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
-      o: size=512m,mode=0700
-  campaign-retained: {{}}
+  # ORDINARY on purpose.  Never give this driver_opts type tmpfs: that makes
+  # it per-container and empty, which is the bug this layout exists to fix.
+  campaign-shared: {{}}
   campaign-output: {{}}
 """
 

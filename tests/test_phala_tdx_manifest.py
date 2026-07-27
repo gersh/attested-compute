@@ -29,6 +29,8 @@ ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / "proof_build/ch25_a7_phala_tdx"
 GENERATOR = ROOT / "tools/tg_phala_tdx_compose.py"
 PRELUDE = BUILD / "prelude_phala_tdx_inputs.py"
+CAMPAIGN_ENTRY = BUILD / "run_phala_tdx_campaign.sh"
+EVIDENCE_EMITTER = BUILD / "emit_phala_tdx_evidence.py"
 COMPOSE = BUILD / "docker-compose.yaml"
 APP_COMPOSE = BUILD / "app-compose.json"
 POLICY = BUILD / "dcap-qvl-policy.json"
@@ -89,6 +91,30 @@ class ManifestGenerationTests(unittest.TestCase):
         embedded = compose["services"]["prelude"]["entrypoint"][2]
         self.assertIn(PRELUDE.read_text(encoding="utf-8"), embedded)
 
+    def test_the_compose_embeds_everything_the_campaign_runs(self) -> None:
+        """Whatever touches the key or the receipt must be inside RTMR3.
+
+        The campaign container derives the signing key and decides what leaves
+        the CVM, so its entry point, the deriver and the evidence emitter are
+        embedded here rather than taken from the image -- the image is pinned
+        by digest, but a change to these files would otherwise not move the
+        compose hash without a republished image.
+        """
+
+        compose = load_yaml()
+        if compose is None:  # pragma: no cover
+            self.skipTest("PyYAML is unavailable")
+        embedded = compose["services"]["campaign"]["entrypoint"][2]
+        for source in (PRELUDE, CAMPAIGN_ENTRY, EVIDENCE_EMITTER):
+            self.assertIn(
+                source.read_text(encoding="utf-8"),
+                embedded,
+                f"{source.name} is not embedded verbatim in the campaign "
+                "entry point",
+            )
+        # And it runs the embedded copies, not the ones baked into the image.
+        self.assertNotIn("/opt/sparkinterval/run_phala_tdx_campaign.sh", embedded)
+
     def test_the_app_compose_embeds_the_compose_verbatim(self) -> None:
         document = json.loads(APP_COMPOSE.read_text(encoding="utf-8"))
         self.assertEqual(
@@ -133,22 +159,105 @@ class ManifestContentTests(unittest.TestCase):
             depends["prelude"]["condition"], "service_completed_successfully"
         )
 
-    def test_only_the_prelude_sees_the_dstack_socket(self) -> None:
-        prelude = self.compose["services"]["prelude"]["volumes"]
-        campaign = self.compose["services"]["campaign"]["volumes"]
-        self.assertIn("/var/run/dstack.sock:/var/run/dstack.sock", prelude)
-        self.assertFalse([v for v in campaign if "dstack.sock" in v])
+    def test_both_services_see_the_dstack_socket(self) -> None:
+        """Deliberate, and not a relaxation of the network posture.
+
+        The campaign container must derive the signing key itself: the key
+        cannot be handed over on the shared volume, because that volume is
+        disk-backed, and it cannot be handed over on a tmpfs-backed named
+        volume, because such a volume is private to each container and arrives
+        empty.  The socket is not network access -- `network_mode: none` still
+        holds, and the next test asserts it.
+        """
+
+        for service in ("prelude", "campaign"):
+            volumes = self.compose["services"][service]["volumes"]
+            self.assertTrue(
+                [v for v in volumes if v.startswith("/var/run/dstack.sock:")],
+                f"{service} cannot reach the dstack guest agent",
+            )
 
     def test_the_campaign_has_no_network_and_a_read_only_root(self) -> None:
         campaign = self.compose["services"]["campaign"]
         self.assertEqual(campaign["network_mode"], "none")
         self.assertIs(campaign["read_only"], True)
 
-    def test_the_staging_volume_is_a_tmpfs(self) -> None:
-        """The derived signing key must never reach the CVM's disk."""
+    def test_no_named_volume_is_tmpfs_backed(self) -> None:
+        """The regression guard for the failure the first real run hit.
 
-        staging = self.compose["volumes"]["campaign-staging"]
-        self.assertEqual(staging["driver_opts"]["type"], "tmpfs")
+        A tmpfs-backed *named* volume is not shared between containers: every
+        container that mounts it gets its own fresh, empty tmpfs.  The first
+        run passed the whole attestation and then died with
+        `job-scope.env: No such file or directory` because of it.  Cross-
+        container data therefore travels on an ordinary volume, and secrets
+        travel not at all.
+        """
+
+        for name, definition in (self.compose["volumes"] or {}).items():
+            options = (definition or {}).get("driver_opts") or {}
+            self.assertNotEqual(
+                options.get("type"),
+                "tmpfs",
+                f"named volume {name} is tmpfs-backed, so it is NOT shared "
+                "between containers and will arrive empty",
+            )
+            self.assertNotIn("tmpfs", str(options.get("device", "")))
+
+    def test_the_derived_key_lives_only_on_a_container_local_tmpfs(self) -> None:
+        """Service-level `tmpfs:` really is per-container; that is the point."""
+
+        campaign = self.compose["services"]["campaign"]
+        key_root = next(
+            entry for entry in campaign["environment"]
+            if entry.startswith("TG_ENCLAVE_KEY_ROOT=")
+        ).split("=", 1)[1]
+        self.assertTrue(
+            [entry for entry in campaign["tmpfs"] if entry.startswith(key_root + ":")],
+            f"{key_root} is not a container-local tmpfs",
+        )
+        # And it is not inside anything that is shared or written to disk.
+        for volume in campaign["volumes"]:
+            mounted = volume.split(":")[1]
+            self.assertFalse(
+                key_root == mounted or key_root.startswith(mounted.rstrip("/") + "/"),
+                f"the key root {key_root} is inside the mounted volume {mounted}",
+            )
+
+    def test_the_campaign_derives_the_key_and_reads_no_key_file(self) -> None:
+        entrypoint = self.compose["services"]["campaign"]["entrypoint"][2]
+        self.assertIn("--derive-key-only", entrypoint)
+        script = CAMPAIGN_ENTRY.read_text(encoding="utf-8")
+        self.assertIn("--derive-key-only", script)
+        self.assertIn("--enclave-key \"${ENCLAVE_KEY#/workspace/}\"", script)
+        # The old contract was `require_input <input root>/enclave-signing-key.hex`.
+        self.assertNotIn(
+            'require_input "${INPUT_ROOT}/enclave-signing-key.hex"', script
+        )
+        # The prelude must not write one either.
+        prelude = PRELUDE.read_text(encoding="utf-8")
+        self.assertNotIn('input_root / "enclave-signing-key.hex"', prelude)
+
+    def test_the_campaign_prints_the_evidence_and_stays_alive(self) -> None:
+        """`phala cvms logs` is the only channel out of the CVM."""
+
+        campaign = self.compose["services"]["campaign"]
+        entrypoint = campaign["entrypoint"][2]
+        self.assertIn("emit_phala_tdx_evidence.py", entrypoint)
+        self.assertIn("--refuse-if-contains", entrypoint)
+        self.assertIn('sleep "${TG_EVIDENCE_HOLD_SECONDS}"', entrypoint)
+        hold = next(
+            entry for entry in campaign["environment"]
+            if entry.startswith("TG_EVIDENCE_HOLD_SECONDS=")
+        ).split("=", 1)[1]
+        self.assertGreaterEqual(int(hold), 3600)
+
+    def test_a_failed_prelude_holds_open_but_still_fails(self) -> None:
+        entrypoint = self.compose["services"]["prelude"]["entrypoint"][2]
+        self.assertIn('sleep "${TG_PRELUDE_FAILURE_HOLD_SECONDS}"', entrypoint)
+        self.assertIn('exit "$status"', entrypoint)
+        # The hold is on the failure branch only, so a successful prelude
+        # still exits promptly and the campaign still starts.
+        self.assertIn('if [ "$status" -ne 0 ]; then', entrypoint)
 
     def test_the_six_worker_variables_are_set(self) -> None:
         for service in ("prelude", "campaign"):
@@ -197,9 +306,23 @@ class ManifestContentTests(unittest.TestCase):
                 environment={},
             )
 
-    def test_no_local_dry_run_marker_anywhere_in_the_manifest(self) -> None:
+    def test_the_manifest_never_enables_the_local_dry_run(self) -> None:
+        """The entry point reads that marker; the manifest must never set it.
+
+        The embedded entry point mentions the variable, because it is the
+        thing that refuses to honour `--local-dry-run` without it.  What must
+        not appear anywhere is an assignment of it, or the flag itself.
+        """
+
         text = COMPOSE.read_text(encoding="utf-8")
-        self.assertNotIn("SPARKINTERVAL_PHALA_TDX_LOCAL_DRY_RUN", text)
+        self.assertNotIn("SPARKINTERVAL_PHALA_TDX_LOCAL_DRY_RUN=", text)
+        self.assertNotIn("--local-dry-run\n", text)
+        for service in self.compose["services"].values():
+            for entry in service["environment"]:
+                self.assertFalse(
+                    entry.startswith("SPARKINTERVAL_PHALA_TDX_LOCAL_DRY_RUN"),
+                    "the manifest declares the dry-run marker",
+                )
 
     def test_the_app_compose_declares_the_unmeasured_inputs(self) -> None:
         document = json.loads(APP_COMPOSE.read_text(encoding="utf-8"))
@@ -233,19 +356,77 @@ class AppraiserPinTests(unittest.TestCase):
         policy = json.loads(POLICY.read_text(encoding="utf-8"))
         self.assertIs(policy["first_run_measurement_discovery"], False)
 
-    def test_every_measurement_in_the_template_is_an_explicit_todo(self) -> None:
-        """No measurement may be a wildcard, a null, or a fabricated value."""
+    def test_every_measurement_is_a_todo_or_a_well_formed_reviewed_pin(
+        self,
+    ) -> None:
+        """No measurement may be a wildcard, a null, or a malformed value.
+
+        The template shipped with every pin as `TODO:` until the 2026-07-27
+        discovery run on Phala's prod5 host supplied the platform
+        measurements.  A pin may therefore now be a real value, but only one
+        of the exact shape the prelude requires: there is no wildcard, no
+        null, and no short or upper-case digest.  `rt_mr3` may additionally be
+        the one named sentinel, and only it -- the prelude refuses that
+        sentinel for any other measurement.
+        """
+
+        digits = {
+            "tee_tcb_svn": 32,
+            "mr_seam": 96,
+            "mr_signer_seam": 96,
+            "td_attributes": 16,
+            "xfam": 16,
+            "mr_td": 96,
+            "rt_mr0": 96,
+            "rt_mr1": 96,
+            "rt_mr2": 96,
+            "rt_mr3": 96,
+        }
+        replay_sentinel = "verified-by-event-log-replay"
+        policy = json.loads(POLICY.read_text(encoding="utf-8"))
+        self.assertEqual(
+            sorted(k for k in policy["measurements"] if not k.startswith("_")),
+            sorted(digits),
+        )
+        for name, width in digits.items():
+            value = policy["measurements"][name]
+            self.assertIsInstance(value, str, f"measurements.{name}")
+            if value.startswith("TODO:"):
+                continue
+            if name == "rt_mr3" and value == replay_sentinel:
+                continue
+            self.assertRegex(
+                value,
+                rf"\A[0-9a-f]{{{width}}}\Z",
+                f"measurements.{name} is neither a TODO, nor the replay "
+                f"sentinel, nor {width} lowercase hex digits: {value!r}",
+            )
+        self.assertIn(replay_sentinel, PRELUDE.read_text(encoding="utf-8"))
+
+        qe = policy["qe_identity"]
+        for name, width in (("qe_vendor_id", 32), ("mr_signer", 64)):
+            value = qe[name]
+            self.assertIsInstance(value, str, f"qe_identity.{name}")
+            if not value.startswith("TODO:"):
+                self.assertRegex(value, rf"\A[0-9a-f]{{{width}}}\Z")
+        for name in ("isv_prod_id", "min_isv_svn"):
+            value = qe[name]
+            if isinstance(value, str):
+                self.assertTrue(value.startswith("TODO:"), f"qe_identity.{name}")
+            else:
+                self.assertIsInstance(value, int, f"qe_identity.{name}")
+                self.assertNotIsInstance(value, bool)
+                self.assertGreaterEqual(value, 0)
+
+    def test_rt_mr3_is_never_pinned_to_one_observed_boot(self) -> None:
+        """It is a function of the compose bytes, so a literal is a trap."""
 
         policy = json.loads(POLICY.read_text(encoding="utf-8"))
-        for section in ("measurements", "qe_identity"):
-            for name, value in policy[section].items():
-                if name.startswith("_"):
-                    continue
-                self.assertIsInstance(value, str, f"{section}.{name}")
-                self.assertTrue(
-                    value.startswith("TODO:"),
-                    f"{section}.{name} is neither a TODO nor reviewed: {value!r}",
-                )
+        value = policy["measurements"]["rt_mr3"]
+        self.assertTrue(
+            value.startswith("TODO:") or value == "verified-by-event-log-replay",
+            f"rt_mr3 is pinned to a literal boot value: {value!r}",
+        )
 
     def test_the_template_accepts_no_advisory_and_only_uptodate(self) -> None:
         policy = json.loads(POLICY.read_text(encoding="utf-8"))

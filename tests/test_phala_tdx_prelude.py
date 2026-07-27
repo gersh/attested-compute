@@ -15,7 +15,8 @@ What that does and does not establish is worth being blunt about.  It
 establishes that the prelude speaks the documented wire format, computes the
 report-data commitment with ``tg_verifier.phala_tdx_receipt`` rather than a
 private copy, refuses every failure mode it is supposed to refuse, and
-produces exactly the seven files ``run_phala_tdx_campaign.sh`` requires.  It
+produces exactly the six non-secret files ``run_phala_tdx_campaign.sh``
+requires -- and, deliberately, no key file at all.  It
 establishes **nothing** about a real TD: the quote here is arbitrary bytes, the
 appraisal is a fixture, and the real path has never run.
 
@@ -333,6 +334,12 @@ class MockGuestAgent:
                 self.end_headers()
                 self.wfile.write(encoded)
 
+        # AF_UNIX binds fail on a leftover path, and a single harness now
+        # starts the agent more than once (full run, then --derive-key-only).
+        try:
+            Path(socket_path).unlink()
+        except FileNotFoundError:
+            pass
         self._server = _UnixHTTPServer(str(socket_path), Handler)
         self._thread = threading.Thread(
             target=self._server.serve_forever, daemon=True
@@ -516,8 +523,7 @@ class PreludeHarness:
 
     # -- run --------------------------------------------------------------
 
-    def run(self, *, env_overrides: dict | None = None) -> subprocess.CompletedProcess:
-        self._write_fixtures()
+    def _environment(self, env_overrides: dict | None = None) -> dict:
         environment = {
             "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
             "PYTHONPATH": str(ROOT),
@@ -539,9 +545,12 @@ class PreludeHarness:
         }
         environment.update(self.extra_env)
         environment.update(env_overrides or {})
+        return environment
+
+    def _invoke(self, arguments: list[str], environment: dict):
         with MockGuestAgent(self.socket_path, self._responses()) as agent:
             self.agent = agent
-            completed = subprocess.run(
+            return subprocess.run(
                 [
                     sys.executable,
                     "-c",
@@ -550,17 +559,41 @@ class PreludeHarness:
                     self.dcap_sha256,
                     self.artifact_sha256,
                     str(self.artifact_bytes),
-                    "--input-root",
-                    str(self.workspace / "staging" / "input"),
-                    "--evidence-root",
-                    str(self.workspace / "retained" / "evidence"),
+                    *arguments,
                 ],
                 capture_output=True,
                 text=True,
                 timeout=300,
                 env=environment,
             )
-        return completed
+
+    def run(self, *, env_overrides: dict | None = None) -> subprocess.CompletedProcess:
+        self._write_fixtures()
+        return self._invoke(
+            [
+                "--input-root",
+                str(self.workspace / "staging" / "input"),
+                "--evidence-root",
+                str(self.workspace / "retained" / "evidence"),
+            ],
+            self._environment(env_overrides),
+        )
+
+    def derive_key(
+        self,
+        *,
+        key_out: Path,
+        summary: Path | None = None,
+        env_overrides: dict | None = None,
+        extra_arguments: list[str] | None = None,
+    ) -> subprocess.CompletedProcess:
+        """The second mode: what the campaign container runs."""
+
+        arguments = ["--derive-key-only", "--key-out", str(key_out)]
+        if summary is not None:
+            arguments += ["--prelude-summary", str(summary)]
+        arguments += extra_arguments or []
+        return self._invoke(arguments, self._environment(env_overrides))
 
     # -- accessors --------------------------------------------------------
 
@@ -576,7 +609,6 @@ class PreludeHarness:
 REQUIRED_INPUTS = (
     "registered-input.json",
     "a7_boundary.json",
-    "enclave-signing-key.hex",
     "tdx-quote.bin",
     "dcap-qvl-appraisal.json",
     "dcap-qvl-policy.json",
@@ -608,14 +640,34 @@ class PreludeHappyPathTests(unittest.TestCase):
             self.assertFalse(path.is_symlink())
             self.assertGreater(path.stat().st_size, 0)
 
-    def test_the_signing_key_is_the_derived_scalar_and_is_not_world_readable(
-        self,
-    ) -> None:
-        path = self.harness.input_root / "enclave-signing-key.hex"
-        self.assertEqual(
-            path.read_text(encoding="ascii").strip(), self.harness.key_hex
+    def test_no_key_material_reaches_the_shared_hand_over_tree(self) -> None:
+        """The hand-over volume is disk-backed, so nothing secret may be on it.
+
+        This is the structural half of the fix for the first real run.  A
+        tmpfs-backed *named* volume is not shared between containers, so the
+        inputs had to move to an ordinary volume; the key therefore stops
+        being handed over at all and is re-derived instead.
+        """
+
+        self.assertFalse(
+            (self.harness.input_root / "enclave-signing-key.hex").exists()
         )
-        self.assertEqual(path.stat().st_mode & 0o777, 0o400)
+        for entry in self.harness.input_root.rglob("*"):
+            self.assertNotIn("key", entry.name, f"{entry} looks like key material")
+        for entry in self.harness.input_root.rglob("*"):
+            if entry.is_file():
+                self.assertNotIn(
+                    self.harness.key_hex,
+                    entry.read_bytes().decode("latin-1"),
+                    f"{entry} contains the signing scalar",
+                )
+        for entry in self.harness.evidence_root.rglob("*"):
+            if entry.is_file():
+                self.assertNotIn(
+                    self.harness.key_hex,
+                    entry.read_bytes().decode("latin-1"),
+                    f"{entry} contains the signing scalar",
+                )
 
     def test_the_signing_key_is_never_printed(self) -> None:
         combined = self.result.stdout + self.result.stderr
@@ -722,6 +774,126 @@ class PreludeHappyPathTests(unittest.TestCase):
         self.assertIs(summary["measurements_pinned"], True)
         self.assertEqual(summary["unpinned"], [])
         self.assertFalse((self.harness.evidence_root / "MEASUREMENTS-NOT-PINNED").exists())
+
+
+class DeriveKeyOnlyTests(unittest.TestCase):
+    """The mode the campaign container runs instead of reading a key file.
+
+    The signing key never crosses the container boundary as a file, because
+    the only volume that can carry a file across it is disk-backed.  The
+    campaign asks dstack for the key itself and refuses unless what it gets
+    reproduces the commitment the prelude put inside the quote.
+    """
+
+    def setUp(self) -> None:
+        self.harness = PreludeHarness()
+        first = self.harness.run()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.summary = self.harness.evidence_root / "prelude-summary.json"
+        # /dev/shm is the only tmpfs a test can rely on, and the deriver
+        # refuses to write the key anywhere else.
+        if mount_type(Path("/dev/shm")) != "tmpfs":  # pragma: no cover
+            self.skipTest("/dev/shm is not a tmpfs here")
+        self.tmpfs = Path(tempfile.mkdtemp(prefix="phkey-", dir="/dev/shm"))
+        self.key_out = self.tmpfs / "enclave-signing-key.hex"
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmpfs, ignore_errors=True)
+        self.harness.close()
+
+    def test_the_campaign_re_derives_exactly_the_prelude_key(self) -> None:
+        result = self.harness.derive_key(
+            key_out=self.key_out, summary=self.summary
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            self.key_out.read_text(encoding="ascii").strip(),
+            self.harness.key_hex,
+        )
+        self.assertEqual(self.key_out.stat().st_mode & 0o777, 0o400)
+        # It really asked the guest agent; it did not read a file.
+        self.assertIn("GetKey", dict(self.harness.agent.seen))
+
+    def test_the_re_derived_key_is_never_printed(self) -> None:
+        result = self.harness.derive_key(
+            key_out=self.key_out, summary=self.summary
+        )
+        combined = result.stdout + result.stderr
+        self.assertNotIn(self.harness.key_hex, combined)
+        self.assertIn(self.harness.public_key, combined)
+
+    def test_a_non_tmpfs_destination_is_refused(self) -> None:
+        """The key may not be written where the CVM's disk can see it."""
+
+        elsewhere = self.harness.tmp / "on-disk-key.hex"
+        result = self.harness.derive_key(key_out=elsewhere, summary=self.summary)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("may be written only to a tmpfs", result.stderr)
+        self.assertFalse(elsewhere.exists())
+
+    def test_a_key_that_is_not_the_attested_one_is_refused(self) -> None:
+        """The determinism of GetKey is checked, not assumed."""
+
+        other = f"{(MOCK_SCALAR + 1):064x}"
+        self.harness.key_hex = other
+        result = self.harness.derive_key(
+            key_out=self.key_out, summary=self.summary
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("NOT the key the prelude committed", result.stderr)
+        self.assertFalse(self.key_out.exists())
+
+    def test_a_summary_from_a_different_challenge_is_refused(self) -> None:
+        tampered = self.harness.tmp / "tampered-summary.json"
+        summary = json.loads(self.summary.read_text("utf-8"))
+        summary["challenge_nonce"] = "0f" * 32
+        tampered.write_text(json.dumps(summary), encoding="utf-8")
+        result = self.harness.derive_key(key_out=self.key_out, summary=tampered)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("different challenge nonce", result.stderr)
+        self.assertFalse(self.key_out.exists())
+
+    def test_a_summary_is_mandatory(self) -> None:
+        result = self.harness.derive_key(key_out=self.key_out, summary=None)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--prelude-summary", result.stderr)
+        self.assertFalse(self.key_out.exists())
+
+    def test_an_azure_measured_runner_variable_is_still_fatal(self) -> None:
+        self.harness.extra_env = {
+            "SPARKINTERVAL_MEASURED_WORKER_SCOPE": "anything"
+        }
+        result = self.harness.derive_key(
+            key_out=self.key_out, summary=self.summary
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("mixed-scope job", result.stderr)
+        self.assertFalse(self.key_out.exists())
+
+    def test_an_existing_key_file_is_never_overwritten(self) -> None:
+        self.key_out.write_text("00" * 32 + "\n", encoding="ascii")
+        result = self.harness.derive_key(
+            key_out=self.key_out, summary=self.summary
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("already exists", result.stderr)
+
+
+def mount_type(path: Path) -> str:
+    """Filesystem type carrying ``path``, read independently of the prelude."""
+
+    target = str(path.resolve())
+    best, best_length = "", -1
+    for line in Path("/proc/self/mountinfo").read_text("utf-8").splitlines():
+        fields = line.split(" ")
+        if "-" not in fields:
+            continue
+        separator = fields.index("-")
+        point = fields[4]
+        if target == point or target.startswith(point.rstrip("/") + "/"):
+            if len(point) > best_length:
+                best, best_length = fields[separator + 1], len(point)
+    return best
 
 
 class PreludeRefusalTests(unittest.TestCase):

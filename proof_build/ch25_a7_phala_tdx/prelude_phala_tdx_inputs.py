@@ -6,9 +6,9 @@
 
 This runs INSIDE the confidential VM, BEFORE
 ``proof_build/ch25_a7_phala_tdx/run_phala_tdx_campaign.sh``.  That entry point
-deliberately creates none of its own inputs: it requires all seven of them to
-already exist and refuses to run otherwise.  This script is what creates them,
-in the only order the quote permits:
+deliberately creates none of its own non-secret inputs: it requires all six of
+them to already exist and refuses to run otherwise.  This script is what
+creates them, in the only order the quote permits:
 
     derive key -> commit to the public key in report data -> fetch the quote
     -> appraise the quote -> stage the artifact -> hand over
@@ -17,6 +17,31 @@ If any step fails this script exits non-zero and writes no job-scope file, and
 the campaign service -- which waits on
 ``depends_on: condition: service_completed_successfully`` -- never starts.  A
 failed appraisal therefore cannot be followed by a receipt.
+
+Two modes
+---------
+
+``--derive-key-only`` is the second mode, and it exists because a tmpfs-backed
+*named* Docker volume is not shared between containers: each mounting
+container gets its own empty tmpfs.  The first real Phala TDX run proved that
+the hard way -- the campaign container found an empty staging directory.  The
+inputs must therefore travel on an ordinary (disk-backed) shared volume, and
+the signing key must never be written to it.
+
+So the key is not handed over at all.  The prelude derives it, uses it only to
+compute the public key that goes into the quote's report data, and lets it
+fall out of scope; nothing is written.  The campaign container then re-derives
+the *same* key from the same dstack socket, because ``GetKey`` is a
+deterministic HKDF of the app key and the derivation path.  That determinism
+is not assumed: ``--derive-key-only`` refuses unless the key it derives
+reproduces both the public key and the report-data commitment the prelude
+recorded in ``prelude-summary.json``, which is the value the TDX quote
+attests.  A non-deterministic or differently-scoped key therefore fails
+closed, before any receipt exists.
+
+``--derive-key-only`` additionally refuses to write the key anywhere but a
+tmpfs, checked against ``/proc/self/mountinfo``.  There is no environment
+variable that relaxes that.
 
 What this script is NOT
 -----------------------
@@ -204,6 +229,61 @@ def write_exclusive(path: Path, raw: bytes, mode: int = 0o400) -> None:
 
 def sha256_bytes(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
+
+
+def mount_filesystem_type(path: Path) -> str:
+    """Filesystem type of the mount carrying ``path``, from mountinfo.
+
+    ``/proc/self/mountinfo`` is the kernel's own answer, so this cannot be
+    fooled by anything short of a compromised kernel -- which is outside the
+    TD's threat model anyway.  Field 5 is the mount point and the field after
+    the ``-`` separator is the filesystem type; octal escapes appear in the
+    mount point for the four characters mountinfo escapes.
+    """
+
+    target = path.resolve()
+    try:
+        raw = Path("/proc/self/mountinfo").read_text(encoding="utf-8")
+    except OSError as error:
+        raise fail(f"cannot read /proc/self/mountinfo: {error}") from error
+    best_type: str | None = None
+    best_length = -1
+    for line in raw.splitlines():
+        fields = line.split(" ")
+        try:
+            separator = fields.index("-")
+        except ValueError:
+            continue
+        if len(fields) < 5 or separator + 1 >= len(fields):
+            continue
+        mount_point = (
+            fields[4]
+            .replace("\\040", " ")
+            .replace("\\011", "\t")
+            .replace("\\012", "\n")
+            .replace("\\134", "\\")
+        )
+        prefix = mount_point.rstrip("/") + "/"
+        if str(target) == mount_point or str(target).startswith(prefix):
+            if len(mount_point) > best_length:
+                best_length = len(mount_point)
+                best_type = fields[separator + 1]
+    if best_type is None:
+        raise fail(f"cannot determine which filesystem carries {target}")
+    return best_type
+
+
+def require_tmpfs(path: Path) -> str:
+    """Refuse to put secret material anywhere the CVM's disk can see it."""
+
+    kind = mount_filesystem_type(path)
+    if kind != "tmpfs":
+        raise fail(
+            f"{path} is on a {kind!r} filesystem; the derived signing key may "
+            "be written only to a tmpfs, so that it never reaches the CVM's "
+            "disk and dies with the container"
+        )
+    return kind
 
 
 def sha384(raw: bytes) -> bytes:
@@ -855,6 +935,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--evidence-root", type=Path, default=Path("/workspace/evidence")
     )
+    parser.add_argument(
+        "--derive-key-only",
+        action="store_true",
+        help="re-derive the enclave signing key in the campaign container and "
+        "write it to a tmpfs.  Produces nothing else and refuses unless the "
+        "derived key reproduces what the prelude committed into the quote.",
+    )
+    parser.add_argument(
+        "--key-out",
+        type=Path,
+        help="where --derive-key-only writes the scalar.  Must be on a tmpfs.",
+    )
+    parser.add_argument(
+        "--prelude-summary",
+        type=Path,
+        help="the prelude-summary.json --derive-key-only checks itself "
+        "against.  Required in that mode; there is no way to skip it.",
+    )
     return parser
 
 
@@ -924,20 +1022,14 @@ def check_report_data_formula(receipt_module) -> None:
         )
 
 
-def run(args: argparse.Namespace) -> None:
-    os.umask(0o077)
-    receipt_module = import_receipt_module()
-    check_report_data_formula(receipt_module)
+def require_job_scope() -> dict:
+    """The declared TDX campaign job, or a refusal.
 
-    input_root: Path = args.input_root
-    evidence_root: Path = args.evidence_root
-    for root in (input_root, evidence_root):
-        if root.exists():
-            raise fail(f"{root} already exists; the prelude requires a fresh tree")
-    input_root.mkdir(mode=0o755, parents=True)
-    evidence_root.mkdir(mode=0o755, parents=True)
+    Both modes call this, unchanged: the campaign container is handed exactly
+    the same six literals as the prelude, so re-deriving the key there is
+    subject to the identical scope guard.
+    """
 
-    # ---- 0. Job scope ----------------------------------------------------
     scope = os.environ.get("SPARKINTERVAL_PHALA_TDX_WORKER_SCOPE")
     if scope != WORKER_SCOPE:
         raise fail(
@@ -973,7 +1065,15 @@ def run(args: argparse.Namespace) -> None:
     issued_at = env("TG_ISSUED_AT")
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", issued_at):
         raise fail("TG_ISSUED_AT must be an RFC 3339 UTC instant")
+    return {
+        "challenge": challenge,
+        "job_binding": job_binding,
+        "image_digest": image_digest,
+        "issued_at": issued_at,
+    }
 
+
+def open_guest_agent() -> GuestAgent:
     override = os.environ.get("TG_DSTACK_SOCKET")
     if override:
         socket_path = override
@@ -990,20 +1090,17 @@ def run(args: argparse.Namespace) -> None:
             )
         socket_path = found[0]
     note(f"using the dstack guest agent at {socket_path}")
-    agent = GuestAgent(socket_path)
+    return GuestAgent(socket_path)
 
-    # ---- 1. Application identity ----------------------------------------
-    note("asking the dstack guest agent for the application identity")
-    info = agent.call("Info", {})
-    app_id = require_hex(info.get("app_id"), 40, "dstack app id")
-    compose_hash = require_hex(info.get("compose_hash"), 64, "app-compose hash")
-    write_exclusive(
-        evidence_root / "dstack-info.json",
-        json.dumps(info, indent=2, sort_keys=True).encode("utf-8") + b"\n",
-        0o444,
-    )
 
-    # ---- 2. Derive the signing key --------------------------------------
+def derive_signing_key(agent: GuestAgent, receipt_module) -> tuple[str, str]:
+    """``POST /GetKey`` and read the answer as a P-256 scalar.
+
+    Returns ``(scalar_hex, public_key_hex)``.  The scalar is never printed,
+    logged, or returned to anything but the caller that needs it; both call
+    sites drop it as soon as the public key exists or the file is written.
+    """
+
     note("deriving the enclave signing key inside the TD")
     key_response = agent.call(
         "GetKey", {"path": DSTACK_KEY_PATH, "purpose": DSTACK_KEY_PURPOSE}
@@ -1019,14 +1116,139 @@ def run(args: argparse.Namespace) -> None:
             "next version suffix, redeploy, and re-run; do NOT reduce the "
             "scalar modulo the group order."
         )
-    # The scalar is written once, read-only, and never printed or logged.
-    write_exclusive(
-        input_root / "enclave-signing-key.hex",
-        scalar_hex.encode("ascii") + b"\n",
-        0o400,
+    return scalar_hex, receipt_module.public_key_hex(scalar)
+
+
+def derive_key_only(args: argparse.Namespace) -> None:
+    """Re-derive the signing key inside the campaign container.
+
+    The prelude wrote no key anywhere -- deliberately, since the only volume
+    that can carry files between the two containers is disk-backed.  This mode
+    obtains the same key from the same guest agent and proves it is the same
+    key, by reproducing both the public key and the report-data commitment the
+    prelude recorded and the quote attests.
+    """
+
+    os.umask(0o077)
+    if args.key_out is None or args.prelude_summary is None:
+        raise fail("--derive-key-only requires --key-out and --prelude-summary")
+    receipt_module = import_receipt_module()
+    check_report_data_formula(receipt_module)
+    scope = require_job_scope()
+
+    key_out: Path = args.key_out
+    if key_out.is_symlink() or key_out.exists():
+        raise fail(f"{key_out} already exists; refusing to overwrite a key file")
+    parent = key_out.parent
+    if parent.is_symlink() or not parent.is_dir():
+        raise fail(f"{parent} is not a non-symlink directory")
+    require_tmpfs(parent)
+
+    summary_path: Path = args.prelude_summary
+    if summary_path.is_symlink() or not summary_path.is_file():
+        raise fail(f"{summary_path} is not a regular file")
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise fail(f"cannot read the prelude summary: {error}") from error
+    if not isinstance(summary, dict):
+        raise fail("the prelude summary is not a JSON object")
+    expected_key = require_hex(
+        summary.get("enclave_public_key"), 130, "the prelude's enclave public key"
     )
-    enclave_public_key = receipt_module.public_key_hex(scalar)
-    del scalar, scalar_hex, key_response
+    expected_report_data = require_hex(
+        summary.get("report_data_sha256"), 64, "the prelude's report data"
+    )
+    if summary.get("challenge_nonce") != scope["challenge"]:
+        raise fail(
+            "the prelude summary records a different challenge nonce than this "
+            "container was given"
+        )
+    if summary.get("job_binding_sha256") != scope["job_binding"]:
+        raise fail(
+            "the prelude summary records a different job binding than this "
+            "container was given"
+        )
+
+    scalar_hex, public_key = derive_signing_key(open_guest_agent(), receipt_module)
+    if public_key != expected_key:
+        raise fail(
+            "the key derived in this container is NOT the key the prelude "
+            "committed to in the TDX quote's report data. dstack's GetKey is "
+            "not returning the same material to both containers, so a receipt "
+            "signed here would not be bound to the quote. Refusing."
+        )
+    report_data = require_hex(
+        receipt_module.report_data_hash(
+            enclave_public_key_hex=public_key,
+            challenge_nonce=scope["challenge"],
+            job_binding=scope["job_binding"],
+        ),
+        64,
+        "report data commitment",
+    )
+    if report_data != expected_report_data:
+        raise fail(
+            "the report-data commitment recomputed from the re-derived key "
+            "differs from the one the prelude put in the quote"
+        )
+    write_exclusive(key_out, scalar_hex.encode("ascii") + b"\n", 0o400)
+    del scalar_hex
+    note(
+        "re-derived the enclave signing key in this container; it reproduces "
+        f"the quote's report-data commitment {report_data}"
+    )
+    note(f"enclave public key: {public_key}")
+
+
+def run(args: argparse.Namespace) -> None:
+    os.umask(0o077)
+    if args.key_out is not None or args.prelude_summary is not None:
+        raise fail(
+            "--key-out and --prelude-summary belong to --derive-key-only"
+        )
+    receipt_module = import_receipt_module()
+    check_report_data_formula(receipt_module)
+
+    input_root: Path = args.input_root
+    evidence_root: Path = args.evidence_root
+    for root in (input_root, evidence_root):
+        if root.exists():
+            raise fail(f"{root} already exists; the prelude requires a fresh tree")
+    input_root.mkdir(mode=0o755, parents=True)
+    evidence_root.mkdir(mode=0o755, parents=True)
+
+    # ---- 0. Job scope ----------------------------------------------------
+    scope = require_job_scope()
+    challenge = scope["challenge"]
+    job_binding = scope["job_binding"]
+    image_digest = scope["image_digest"]
+    issued_at = scope["issued_at"]
+
+    agent = open_guest_agent()
+
+    # ---- 1. Application identity ----------------------------------------
+    note("asking the dstack guest agent for the application identity")
+    info = agent.call("Info", {})
+    app_id = require_hex(info.get("app_id"), 40, "dstack app id")
+    compose_hash = require_hex(info.get("compose_hash"), 64, "app-compose hash")
+    write_exclusive(
+        evidence_root / "dstack-info.json",
+        json.dumps(info, indent=2, sort_keys=True).encode("utf-8") + b"\n",
+        0o444,
+    )
+
+    # ---- 2. Derive the signing key --------------------------------------
+    #
+    # The scalar is NOT written anywhere.  The only volume that can carry a
+    # file from this container to the campaign container is disk-backed -- a
+    # tmpfs-backed named volume is private to each container, which is exactly
+    # what broke the first real run -- so handing the key over would mean
+    # putting it on the CVM's disk.  Instead the campaign container re-derives
+    # it from the same guest agent (`--derive-key-only`) and proves it got the
+    # same key by reproducing the report-data commitment computed just below.
+    scalar_hex, enclave_public_key = derive_signing_key(agent, receipt_module)
+    del scalar_hex
     note(f"enclave public key: {enclave_public_key}")
 
     # ---- 3. Report-data commitment --------------------------------------
@@ -1279,7 +1501,6 @@ def run(args: argparse.Namespace) -> None:
     required = (
         "registered-input.json",
         "a7_boundary.json",
-        "enclave-signing-key.hex",
         "tdx-quote.bin",
         "dcap-qvl-appraisal.json",
         "dcap-qvl-policy.json",
@@ -1289,6 +1510,14 @@ def run(args: argparse.Namespace) -> None:
         path = input_root / name
         if path.is_symlink() or not path.is_file() or path.stat().st_size == 0:
             raise fail(f"the prelude did not produce {name}")
+    # The hand-over tree is an ordinary shared volume, so it is on the CVM's
+    # disk.  Nothing secret may be on it.  This is the assertion that says so.
+    for entry in sorted(input_root.iterdir()):
+        if "key" in entry.name:
+            raise fail(
+                f"the hand-over tree contains {entry.name!r}; no key material "
+                "may be written to the shared volume"
+            )
 
     summary = {
         "kind": "sparkinterval.phala-tdx-prelude-summary.v1",
@@ -1315,7 +1544,6 @@ def run(args: argparse.Namespace) -> None:
         "input_sha256": {
             name: sha256_bytes((input_root / name).read_bytes())
             for name in required
-            if name != "enclave-signing-key.hex"
         },
     }
     write_exclusive(
@@ -1344,7 +1572,11 @@ def run(args: argparse.Namespace) -> None:
 
 def main() -> int:
     try:
-        run(build_parser().parse_args())
+        arguments = build_parser().parse_args()
+        if arguments.derive_key_only:
+            derive_key_only(arguments)
+        else:
+            run(arguments)
     except PreludeError as error:
         print(
             f"ch25-a7-boundary phala-tdx prelude FAILED: {error}",

@@ -67,7 +67,20 @@ COPY specifications/TERNARY_GOLDBACH_EXTERNAL_ATOMS.json \
     /opt/sparkinterval/specifications/TERNARY_GOLDBACH_EXTERNAL_ATOMS.json
 COPY proof_build/ch25_a7_phala_tdx/run_phala_tdx_campaign.sh \
     /opt/sparkinterval/run_phala_tdx_campaign.sh
+# The prelude is copied in because the entry point uses it, in
+# `--derive-key-only` mode, to obtain the signing key from the dstack guest
+# agent -- the key is no longer an input file.  A real Phala run does NOT use
+# this copy: the compose document writes the measured copy to /tmp and points
+# TG_PHALA_TDX_KEY_DERIVER at it, so the code that touches the key is inside
+# the compose hash and inside RTMR3.  This copy is what makes the image
+# runnable on its own, which is what the local dry run does.
+COPY proof_build/ch25_a7_phala_tdx/prelude_phala_tdx_inputs.py \
+    /opt/sparkinterval/prelude_phala_tdx_inputs.py
+COPY proof_build/ch25_a7_phala_tdx/emit_phala_tdx_evidence.py \
+    /opt/sparkinterval/emit_phala_tdx_evidence.py
 RUN chmod 0555 /opt/sparkinterval/run_phala_tdx_campaign.sh \
+    && chmod 0444 /opt/sparkinterval/prelude_phala_tdx_inputs.py \
+        /opt/sparkinterval/emit_phala_tdx_evidence.py \
     && find /opt/sparkinterval/tools /opt/sparkinterval/tg_verifier \
         /opt/sparkinterval/specifications -type f -exec chmod 0444 {} + \
     && python3 -c "import compileall, sys; sys.exit(0 if compileall.compile_dir('/opt/sparkinterval/tg_verifier', quiet=2) else 1)"
@@ -76,6 +89,8 @@ ENV PYTHONPATH="/opt/sparkinterval"
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONHASHSEED=0
 ENV TG_PYTHON_FLINT_WHEEL="/opt/sparkinterval/runtime/python_flint-0.9.0-cp310-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+# Overridden by the deploy manifest with the measured /tmp copy; see above.
+ENV TG_PHALA_TDX_KEY_DERIVER="/opt/sparkinterval/prelude_phala_tdx_inputs.py"
 
 WORKDIR /workspace
 ENTRYPOINT ["/opt/sparkinterval/run_phala_tdx_campaign.sh"]

@@ -9,16 +9,31 @@ Phala account. The local dry run is
 `tests/test_phala_tdx_first_run.py`; if it passes, the only missing
 ingredients are the ones marked **NEEDS PHALA** below.
 
-**Be clear about what "exercised locally" means for the in-CVM prelude.** No
-Intel TDX hardware was available when it was written. Its dstack guest-agent
-interaction is exercised only against an in-process mock
+**Status after the first real run (2026-07-27).** A run on real Phala TDX
+hardware got through the whole attestation: key derivation, the TDX quote,
+the `dcap-qvl` appraisal, every pinned platform measurement, and the RTMR3
+event-log replay proving the quote attests our app-compose hash. It then
+failed in the campaign container with
+
+```
+/workspace/staging/input/job-scope.env: No such file or directory
+```
+
+because the staging volume was a **tmpfs-backed named volume**, and such a
+volume is not shared between containers: each container that mounts it gets
+its own fresh, empty tmpfs. That was verified directly, with a two-container
+test in which the reader ran as UID 0 and still saw an empty directory. The
+layout below is the fix, and section 4e explains it. The parts of the run
+that succeeded have not been re-run since, so **the current layout has never
+executed on TDX hardware either**; what it has is a local end-to-end test that
+drives the committed compose entry point verbatim.
+
+**Be clear about what "exercised locally" means for the in-CVM prelude.** Its
+dstack guest-agent interaction is exercised against an in-process mock
 (`tests/test_phala_tdx_prelude.py`) built from dstack v0.5.3's source and
 its own SDKs, and its `dcap-qvl` interaction only against a stand-in that
-prints the schema dcap-qvl v0.6.1 was observed to emit. **The real path has
-never been executed.** Expect the first attempt to surface at least one
-mismatch between the source-derived wire contract and what a running guest
-agent actually does; the prelude is written to fail loudly rather than to
-paper over it, and the first run is a discovery run by design (section 4b).
+prints the schema dcap-qvl v0.6.1 was observed to emit. The prelude is
+written to fail loudly rather than to paper over a mismatch.
 
 Read `SparkInterval/Execution/PhalaTdxCampaignCertificate.lean` first: the
 docstring on `phalaTdxAttestedRun_sound` states precisely what this path
@@ -73,24 +88,35 @@ pinned in three places:
 
 ## 2. Assemble the campaign inputs
 
-The container reads everything from `/workspace/input` and writes nothing
-outside `/workspace`. Required files:
+The container reads everything from `/workspace/shared/input` and writes
+nothing outside `/workspace`. Required files:
 
 | File | What it is |
 | --- | --- |
 | `registered-input.json` | the exact registered input bytes; the producer compares them literally |
 | `a7_boundary.json` | the **retained production A.7 artifact**, sha256 `ccc11cec…9f29` |
-| `enclave-signing-key.hex` | the dstack-derived P-256 scalar, 64 lowercase hex digits |
 | `tdx-quote.bin` | the TDX quote fetched from the dstack guest agent |
 | `dcap-qvl-appraisal.json` | the `dcap-qvl` output for that quote |
 | `dcap-qvl-policy.json` | the reviewed appraisal policy |
 | `dcap-qvl-artifact.sha256` | the digest of the `dcap-qvl` binary that produced the appraisal |
 
-None of these files is created by the entry point: it requires all seven to
+None of these files is created by the entry point: it requires all six to
 already exist. They are produced inside the CVM by
 `proof_build/ch25_a7_phala_tdx/prelude_phala_tdx_inputs.py`, which runs as a
 separate one-shot compose service before the campaign service starts. Section
 4 describes it.
+
+**The signing key is not on that list, and that is the point.** The volume
+carrying these files between the two containers has to be an ordinary,
+disk-backed volume (section 4e), so nothing secret may be written to it. The
+prelude therefore derives the key, uses it only to compute the public key that
+goes into the quote's report data, and writes it nowhere at all. The campaign
+container re-derives the same key from the same dstack socket — `GetKey` is a
+deterministic HKDF of the app key and the derivation path — onto a
+container-local tmpfs, and refuses to continue unless the key it gets
+reproduces both the public key and the report-data commitment the prelude
+recorded in `prelude-summary.json`, which is what the quote attests. The
+determinism is therefore checked on every run, not assumed.
 
 **NEEDS THE RETAINED ARTIFACT.** `a7_boundary.json` is not in this
 repository and is **not baked into the image** — the published image contains
@@ -189,12 +215,14 @@ in the compose document and therefore measured into RTMR3:
    `p256::SecretKey`, so reading them as a P-256 scalar is dstack's own use of
    that KDF output, and it is **deterministic** in the app key and the path.
    (`GetTlsKey` is *not* usable here: it seeds from `SystemRandom` and so
-   returns a different key on every call.) The scalar is validated to lie in
-   `[1, n)` for the P-256 group, written to `enclave-signing-key.hex` mode
-   `0400` on a **tmpfs** volume, and never printed, logged, or copied.
-   About one derivation path in 2^32 yields a value at or above the P-256
-   group order; the prelude refuses it and tells you to bump the path suffix
-   rather than reducing modulo the order.
+   returns a different key on every call.) Determinism was confirmed on real
+   hardware: two containers in the same CVM asking for the same path got
+   byte-identical material. The scalar is validated to lie in `[1, n)` for the
+   P-256 group and is then used only to compute the public key. **It is not
+   written anywhere**, printed, logged, or copied. About one derivation path
+   in 2^32 yields a value at or above the P-256 group order; the prelude
+   refuses it and tells you to bump the path suffix rather than reducing
+   modulo the order.
 3. **Compute the report-data commitment.**
 
    ```
@@ -239,7 +267,26 @@ in the compose document and therefore measured into RTMR3:
    `registered-input.json`, and hand over.
 
 Anything unexpected is a hard failure: the prelude exits non-zero, writes no
-`job-scope.env`, and the campaign never runs.
+`job-scope.env`, and the campaign never runs. A *failed* prelude then sleeps
+before exiting non-zero, so that its log — which is where the discovery run
+prints the measurements to paste into the policy — can still be read; see
+section 4f. It still exits non-zero, so
+`depends_on: service_completed_successfully` is never satisfied.
+
+### 4a-bis. What the campaign service does, in order
+
+1. Writes the three measured sources (the prelude, the entry point, the
+   evidence emitter) from the compose document to `/tmp`.
+2. Sources `job-scope.env` from the shared volume, so
+   `require_phala_tdx_worker` sees the app id and compose hash that RTMR3
+   attests.
+3. Runs the entry point, which **re-derives the signing key** via
+   `prelude_phala_tdx_inputs.py --derive-key-only` onto the container-local
+   tmpfs at `/workspace/keys`, refusing if the key does not reproduce the
+   quote's report-data commitment, or if the destination is not a tmpfs.
+4. Runs the A.7 replay and signs the receipt.
+5. Prints all the evidence to stdout as delimited base64 (section 4f) and
+   holds the container open.
 
 ### 4b. The appraisal policy, and why the first run fails on purpose
 
@@ -271,7 +318,7 @@ an example in a measurement field is a paste hazard. So:
   the dstack OS image the CVM booted.
 * Setting `first_run_measurement_discovery: true` lets a run proceed with
   unpinned measurements, but it is not silent: a banner is printed,
-  `/workspace/retained/evidence/MEASUREMENTS-NOT-PINNED` is written, and the
+  `/workspace/shared/evidence/MEASUREMENTS-NOT-PINNED` is written, and the
   flag is inside the policy bytes whose SHA-256 the receipt signs — so the
   receipt itself proves the measurements were unpinned. **A receipt produced
   in discovery mode must never be promoted to the Lean production pin.**
@@ -287,15 +334,79 @@ Under `/workspace/out/output`:
 * `enclave-receipt.json` — the signed statement;
 * `work/a7-replay.json` — the normalized FLINT/Arb replay report.
 
-Under `/workspace/retained/evidence` (an ordinary volume, so it survives the
-containers): `dstack-info.json`, `dstack-event-log.json`,
-`dcap-qvl-decode.json`, `dcap-qvl-verify.stderr`, `dcap-qvl-strict.json`,
-`rtmr-replay.json`, `prelude-summary.json`, and the `dcap-qvl` binary itself.
+Under `/workspace/shared/evidence`: `dstack-info.json`,
+`dstack-event-log.json`, `dcap-qvl-decode.json`, `dcap-qvl-verify.stderr`,
+`dcap-qvl-strict.json`, `rtmr-replay.json`, `prelude-summary.json`, and the
+`dcap-qvl` binary itself.
 
-Retrieve all of it, plus `tdx-quote.bin`, `dcap-qvl-appraisal.json`,
-`dcap-qvl-policy.json`, and `dcap-qvl-artifact.sha256` from
-`/workspace/staging/input`, **before destroying the CVM** — the staging volume
-is a tmpfs and the evidence volume dies with the VM.
+None of that is reachable from outside the CVM. Section 4f is how you get it.
+
+### 4e. Volumes: what is shared, what is secret, and why
+
+This is the part the first real run got wrong, so it is spelled out.
+
+| Kind | Shared between containers? | Used for |
+| --- | --- | --- |
+| ordinary named volume (`campaign-shared: {}`) | **yes** | the six inputs, the prelude's evidence, `job-scope.env` |
+| tmpfs-backed *named* volume (`driver_opts: {type: tmpfs}`) | **no** — every container gets its own empty one | nothing. Never use it. |
+| service-level `tmpfs:` entry | no, and that is what you want | the re-derived signing key, `/workspace/runtime`, `/tmp` |
+
+The old layout put the inputs *and* the signing key on a tmpfs-backed named
+volume, reasoning that the key must not touch disk. The key half of that
+reasoning is right and the sharing half is impossible: those two requirements
+cannot both be met by one volume across a container boundary. So the key stops
+crossing the boundary. Both containers mount `/var/run/dstack.sock` and derive
+it; the campaign refuses unless what it derives reproduces the commitment
+inside the quote. Mounting the socket is not network access — the campaign
+service still has `network_mode: none` and `read_only: true`, and a container
+with both was observed on real hardware to reach the socket and call `GetKey`
+successfully.
+
+`tests/test_phala_tdx_manifest.py::test_no_named_volume_is_tmpfs_backed` is
+the regression guard. Do not "fix" it.
+
+**Each attempt needs fresh volumes.** The prelude refuses to run against a
+pre-existing input or evidence tree, and the entry point refuses a
+pre-existing output root — deliberately, so that a half-finished run can never
+be mistaken for a complete one. A re-run therefore needs a new CVM, not a
+restart of the old one.
+
+### 4f. Getting the evidence out
+
+There is no file channel out of a dstack CVM. Volumes are not reachable, and
+`phala cvms logs` returns nothing for a container that has already exited. The
+one channel that was observed to work is: the last container prints what must
+be kept, and then stays alive.
+
+So the campaign container ends by running
+`proof_build/ch25_a7_phala_tdx/emit_phala_tdx_evidence.py`, which prints each
+file as a delimited, line-prefixed base64 block plus a final manifest, and
+then sleeps for `TG_EVIDENCE_HOLD_SECONDS` (24 h, a literal in the compose and
+therefore measured). Retrieve and decode it with:
+
+```bash
+phala cvms logs <cvm-id> > run.log
+python3 tools/tg_phala_tdx_extract_evidence.py --log run.log \
+    --out-dir ./retained-evidence
+```
+
+The extractor verifies every block against the digest in its own header and
+trailer, and against the manifest, and writes nothing if any of them
+disagrees. A truncated log, a doctored block, or a block the manifest does not
+list is refused rather than silently accepted.
+
+**The signing key is never printed.** The emitter works from a hardcoded
+allowlist that cannot name key material (`_self_check` refuses to start
+otherwise), and it is additionally handed the path of the derived key and
+aborts the entire emission — printing nothing further, and not printing the
+secret in the error either — if those bytes appear inside anything it was
+about to emit. The extractor refuses any block whose name looks like key
+material. `tests/test_phala_tdx_evidence.py` tests all of that, and the
+container dry run asserts the key never appears in the container's stdout.
+
+What is deliberately **not** emitted: the retained A.7 artifact (1.5 MB,
+public, reproducible from the pinned digest, which is emitted) and the
+`dcap-qvl` binary (likewise pinned by digest).
 
 ---
 
@@ -310,6 +421,25 @@ committed files drift from the generator or from the prelude source.
 `app-compose.json` sets `no_instance_id: true` on purpose: it removes the
 per-instance random value from the RTMR3 chain, which is what makes RTMR3 a
 function of the app id and compose hash alone, and therefore pinnable at all.
+
+**What comes from the compose and what comes from the image.** Three sources
+are embedded verbatim in the compose document, and therefore measured into
+RTMR3: `prelude_phala_tdx_inputs.py`, `run_phala_tdx_campaign.sh`, and
+`emit_phala_tdx_evidence.py`. The campaign service runs those copies, not the
+ones baked into the image. The image contributes the workload
+(`tg_a7_phala_tdx_workload.py`), `tg_verifier`, and the pinned python-flint
+wheel, and is itself pinned by registry digest inside the same compose.
+
+That split is deliberate, and it has a practical consequence: an edit to any
+of the three entry scripts changes the **compose hash** and needs no
+republished image, while an edit to the workload or `tg_verifier` needs a
+rebuild, a new registry digest, and that digest updated in
+`tools/tg_phala_tdx_compose.py`, in the Lean pin, and in
+`tests/test_phala_tdx_manifest.py`. The digest currently pinned
+(`sha256:4e6029a3…`) is still correct: nothing that goes into the image has
+changed since it was published. The Dockerfile does now also copy the prelude
+and the emitter in, so that the image is runnable on its own for the local dry
+run — rebuilding it would move the digest, and nothing requires a rebuild.
 
 **The registry.** As of 2026-07-27 an anonymous pull of
 `ghcr.io/gersh/sparkinterval-ch25-a7-phala-tdx@sha256:4e6029a3…` returns
@@ -360,6 +490,11 @@ appraisal does not invalidate the signature, but it destroys the evidence for
 assumption 4 of the axiom, and the theorem should then be treated as
 unsupported.
 
+All of it except the `dcap-qvl` binary comes out of the campaign container's
+log (section 4f); keep `run.log` itself alongside the extracted files, since
+it is the primary record. The `dcap-qvl` binary is identified by the digest in
+`dcap-qvl-artifact.sha256`, which is emitted, and is a pinned public download.
+
 ---
 
 ## 6. Pin the enclave identity in Lean
@@ -386,7 +521,7 @@ above unless all of the following hold, and record that you checked them:
 
 * the retained `dcap-qvl-policy.json` has `first_run_measurement_discovery`
   set to `false` and **no** remaining `TODO:` value;
-* `/workspace/retained/evidence/MEASUREMENTS-NOT-PINNED` is absent from the
+* `/workspace/shared/evidence/MEASUREMENTS-NOT-PINNED` is absent from the
   retained evidence, and `prelude-summary.json` reports
   `"measurements_pinned": true`;
 * the retained `rtmr-replay.json` shows the replayed RTMRs equal to the ones
@@ -490,14 +625,19 @@ consequence of a successful run.
 - [ ] An unpredictable challenge nonce and a job binding chosen and recorded
       before the run
 - [ ] `python3 -m unittest tests.test_phala_tdx_first_run` passing locally
+      (with Docker available, so the two container tests really run)
 - [ ] `python3 -m unittest tests.test_phala_tdx_axiom_off_cone` passing
 - [ ] `python3 -m unittest tests.test_phala_tdx_prelude` passing
 - [ ] `python3 -m unittest tests.test_phala_tdx_manifest` passing
+- [ ] `python3 -m unittest tests.test_phala_tdx_evidence` passing
 - [ ] `python3 tools/audit_lean_source.py` passing
 
-The `dcap-qvl` policy is **not** on this list as something to have ready: its
-measurement pins cannot be known before the first run. Discovering them is
-what run 1 is for (section 4b).
+The platform measurement pins in `dcap-qvl-policy.json` were filled from the
+2026-07-27 discovery run on Phala's prod5 host and are no longer `TODO:`.
+`rt_mr3` remains the `verified-by-event-log-replay` sentinel by design. If the
+CVM lands on a different host or a different dstack OS image, expect the
+prelude to refuse with a measurement mismatch — that is the pin working, and
+the response is a fresh discovery run, not a widened policy.
 
 ---
 
@@ -508,7 +648,8 @@ what run 1 is for (section 4b).
 python3 -m unittest tests.test_phala_tdx_first_run \
                     tests.test_phala_tdx_axiom_off_cone \
                     tests.test_phala_tdx_prelude \
-                    tests.test_phala_tdx_manifest
+                    tests.test_phala_tdx_manifest \
+                    tests.test_phala_tdx_evidence
 python3 tools/audit_lean_source.py
 
 # 1. Choose the campaign scope and generate the manifest.
@@ -530,29 +671,37 @@ sha256sum /path/to/a7_boundary.json     # must be ccc11cec…9f29
 #   upload it somewhere HTTPS; export the URL as ARTIFACT_URL
 #   make ghcr.io/gersh/sparkinterval-ch25-a7-phala-tdx public (section 4d)
 
-# 3. Discovery run.  The policy still has every measurement as TODO.
+# 3. Deploy.  The measurement pins are already filled from the 2026-07-27
+#    discovery run; if this CVM is a different host or OS image the prelude
+#    will refuse, and THAT is a discovery run: read section 4b, re-pin, redo.
 POLICY_B64=$(base64 -w0 proof_build/ch25_a7_phala_tdx/dcap-qvl-policy.json)
-#   deploy ./deploy/app-compose.json to Phala Cloud with encrypted env
+#   deploy ./deploy/app-compose.json to Phala Cloud, on a FRESH CVM, with
+#   encrypted env
 #     TG_DCAP_QVL_POLICY_B64=$POLICY_B64
 #     TG_A7_ARTIFACT_URL=$ARTIFACT_URL
-#   the prelude will FAIL after printing the observed measurements.
-#   Copy them out of the prelude container's log.
 
-# 4. Fill the policy and re-run.
-#   paste the observed values into dcap-qvl-policy.json,
-#   leave first_run_measurement_discovery false,
-#   re-base64 it, redeploy the SAME app-compose.json (unchanged: the policy is
-#   not part of it, so the compose hash and RTMR3 do not move).
+# 4. Watch the prelude.  It exits 0 and the campaign starts, or it FAILS and
+#    holds itself open for 24 h so that its log is readable:
+phala cvms logs <cvm-id> | tail -200
+#   A failed prelude produces nothing and the campaign never starts.  Fix the
+#   policy (section 4b), destroy the CVM, redeploy the SAME app-compose.json
+#   (the policy is not part of it, so the compose hash and RTMR3 do not move).
 
-# 5. Retrieve everything BEFORE destroying the CVM.
-#   /workspace/out/output/{registered-result.txt,enclave-receipt.json,work/a7-replay.json}
-#   /workspace/staging/input/{tdx-quote.bin,dcap-qvl-appraisal.json,
-#                             dcap-qvl-policy.json,dcap-qvl-artifact.sha256}
-#   /workspace/retained/evidence/*        (NOT enclave-signing-key.hex)
+# 5. Retrieve the evidence from the campaign container's log, BEFORE
+#    destroying the CVM.  The container prints everything and then sleeps for
+#    24 h; that log is the only channel out.
+phala cvms logs <cvm-id> > run.log
+python3 tools/tg_phala_tdx_extract_evidence.py --log run.log \
+    --out-dir ./retained-evidence
+#   writes ./retained-evidence/{input,evidence,output}/... and verifies every
+#   digest.  Keep run.log too.  Then, and only then, destroy the CVM.
 
 # 6. Pin the enclave identity in Lean (section 6) and close the theorem
 #    (section 7).  This is the trust-boundary review event.
 ```
 
-**Never retrieve `enclave-signing-key.hex`.** It is the one file that must die
-with the CVM.
+**The signing key is never written to a shared volume, never printed, and
+never leaves the CVM.** It is derived in each container onto a container-local
+tmpfs and dies with that container. If anything claiming to be it ever appears
+in a log, the extractor refuses the whole transcript and the run must be
+treated as compromised.

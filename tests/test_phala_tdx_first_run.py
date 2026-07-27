@@ -31,14 +31,17 @@ from __future__ import annotations
 
 import gzip
 import hashlib
+import http.server
 import json
 import os
 from pathlib import Path
 import re
 import shutil
+import socketserver
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 
 
@@ -126,6 +129,70 @@ def _docker_available() -> bool:
 
 
 DOCKER_PROBE_IMAGE = "debian:bookworm-slim"
+
+EMITTER = ROOT / "proof_build/ch25_a7_phala_tdx/emit_phala_tdx_evidence.py"
+EXTRACTOR = ROOT / "tools/tg_phala_tdx_extract_evidence.py"
+
+
+class _UnixHTTPServer(socketserver.ThreadingUnixStreamServer):
+    daemon_threads = True
+
+
+class MockGetKeyAgent:
+    """The one dstack method the campaign entry point now calls.
+
+    The campaign container no longer receives the signing key as a file: it
+    asks the guest agent for it, exactly as the prelude did, and refuses
+    unless what it gets reproduces the report-data commitment the prelude
+    recorded.  So the dry run must answer `POST /GetKey`, and it answers with
+    the committed stand-in scalar -- which is why the receipt the container
+    produces is still byte-for-byte the one pinned in Lean.
+    """
+
+    def __init__(self, socket_path: Path, key_hex: str) -> None:
+        self.socket_path = socket_path
+        self.calls: list[str] = []
+        outer = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def log_message(self, *_args) -> None:  # noqa: N802
+                pass
+
+            def do_POST(self) -> None:  # noqa: N802
+                length = int(self.headers.get("Content-Length", "0"))
+                if length:
+                    self.rfile.read(length)
+                method = self.path.lstrip("/").split("?")[0]
+                outer.calls.append(method)
+                if method == "GetKey":
+                    body = json.dumps({"key": key_hex, "signature_chain": []})
+                    status = 200
+                else:
+                    body = json.dumps({"error": f"no such method {method}"})
+                    status = 404
+                encoded = body.encode("utf-8")
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(encoded)))
+                self.end_headers()
+                self.wfile.write(encoded)
+
+        self._server = _UnixHTTPServer(str(socket_path), Handler)
+        self._thread = threading.Thread(
+            target=self._server.serve_forever, daemon=True
+        )
+
+    def __enter__(self) -> "MockGetKeyAgent":
+        self._thread.start()
+        os.chmod(self.socket_path, 0o666)
+        return self
+
+    def __exit__(self, *_exc) -> None:
+        self._server.shutdown()
+        self._server.server_close()
+        self._thread.join(timeout=10)
 
 
 class GuardSeparationTests(unittest.TestCase):
@@ -405,10 +472,11 @@ class DryRunReceiptTests(unittest.TestCase):
 class ContainerDryRunTests(unittest.TestCase):
     """Build and run the campaign image; compare with the Lean literals."""
 
-    def test_container_reproduces_the_pinned_receipt(self) -> None:
-        if not _docker_available():
-            self.skipTest("docker cannot run linux/amd64 here")
-
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.docker = _docker_available()
+        if not cls.docker:
+            return
         build = subprocess.run(
             [
                 "docker", "build", "--platform", "linux/amd64",
@@ -418,24 +486,46 @@ class ContainerDryRunTests(unittest.TestCase):
             text=True,
             timeout=3600,
         )
-        self.assertEqual(
-            build.returncode, 0, f"image build failed:\n{build.stderr[-4000:]}"
-        )
+        assert build.returncode == 0, f"image build failed:\n{build.stderr[-4000:]}"
+
+    def test_container_reproduces_the_pinned_receipt(self) -> None:
+        if not self.docker:
+            self.skipTest("docker cannot run linux/amd64 here")
 
         with tempfile.TemporaryDirectory() as workspace:
             work = Path(workspace)
             inputs = work / "input"
+            evidence = work / "evidence"
             outputs = work / "out"
             inputs.mkdir()
+            evidence.mkdir()
             outputs.mkdir()
             (inputs / "registered-input.json").write_bytes(REGISTERED_INPUT)
             with gzip.open(
                 DATA / "a7_boundary.fixture.json.gz", "rb"
             ) as source:
                 (inputs / "a7_boundary.json").write_bytes(source.read())
-            shutil.copyfile(
-                DATA / "enclave-signing-key.NOT-SECRET.hex",
-                inputs / "enclave-signing-key.hex",
+            # The key is NOT staged as an input any more: the container
+            # derives it.  What is staged is the prelude summary it checks the
+            # derived key against.
+            key = public_key_hex(int(DATA_KEY_HEX, 16))
+            (evidence / "prelude-summary.json").write_text(
+                json.dumps(
+                    {
+                        "kind": "sparkinterval.phala-tdx-prelude-summary.v1",
+                        "challenge_nonce": DRY_RUN_CHALLENGE,
+                        "job_binding_sha256": DRY_RUN_JOB_BINDING,
+                        "enclave_public_key": key,
+                        "report_data_sha256": report_data_hash(
+                            enclave_public_key_hex=key,
+                            challenge_nonce=DRY_RUN_CHALLENGE,
+                            job_binding=DRY_RUN_JOB_BINDING,
+                        ),
+                    },
+                    indent=2,
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
             )
             shutil.copyfile(
                 DATA / "tdx-quote.NOT-A-QUOTE.bin", inputs / "tdx-quote.bin"
@@ -456,47 +546,68 @@ class ContainerDryRunTests(unittest.TestCase):
             os.chmod(inputs, 0o555)
 
             uid, gid = os.getuid(), os.getgid()
-            run = subprocess.run(
-                [
-                    "docker", "run", "--rm", "--platform", "linux/amd64",
-                    "--user", f"{uid}:{gid}",
-                    "--network", "none", "--read-only",
-                    "-v", f"{inputs}:/workspace/input:ro",
-                    "-v", f"{outputs}:/workspace/outroot",
-                    "--tmpfs",
-                    f"/workspace/runtime:exec,size=64m,uid={uid},gid={gid}",
-                    "-e", "TG_OUTPUT_ROOT=/workspace/outroot/output",
-                    "-e", f"TG_FINAL_IMAGE_REFERENCE={DRY_RUN_IMAGE_DIGEST}",
-                    "-e", f"TG_ISSUED_AT={DRY_RUN_ISSUED_AT}",
-                    "-e",
-                    "SPARKINTERVAL_PHALA_TDX_WORKER_SCOPE="
-                    "sparkinterval.phala-tdx-measured-worker.v1",
-                    "-e",
-                    "SPARKINTERVAL_PHALA_TDX_WORKER_BACKEND="
-                    "phala_dstack_tdx_cpu",
-                    "-e",
-                    "SPARKINTERVAL_PHALA_TDX_WORKER_CHALLENGE_NONCE="
-                    + DRY_RUN_CHALLENGE,
-                    "-e",
-                    "SPARKINTERVAL_PHALA_TDX_WORKER_JOB_BINDING_SHA256="
-                    + DRY_RUN_JOB_BINDING,
-                    "-e",
-                    "SPARKINTERVAL_PHALA_TDX_WORKER_APP_ID=" + DRY_RUN_APP_ID,
-                    "-e",
-                    "SPARKINTERVAL_PHALA_TDX_WORKER_COMPOSE_HASH="
-                    + DRY_RUN_COMPOSE_HASH,
-                    "-e", "SPARKINTERVAL_PHALA_TDX_LOCAL_DRY_RUN=1",
-                    IMAGE_TAG,
-                ],
-                capture_output=True,
-                text=True,
-                timeout=7200,
-            )
+            socket_dir = Path(tempfile.mkdtemp(prefix="phdry-"))
+            socket_path = socket_dir / "d.sock"
+            try:
+                with MockGetKeyAgent(socket_path, DATA_KEY_HEX) as agent:
+                    run = subprocess.run(
+                        [
+                            "docker", "run", "--rm", "--platform", "linux/amd64",
+                            "--user", f"{uid}:{gid}",
+                            "--network", "none", "--read-only",
+                            "-v", f"{inputs}:/workspace/input:ro",
+                            "-v", f"{evidence}:/workspace/evidence:ro",
+                            "-v", f"{outputs}:/workspace/outroot",
+                            "-v", f"{socket_path}:/var/run/dstack.sock",
+                            "--tmpfs",
+                            f"/workspace/runtime:exec,size=64m,uid={uid},gid={gid}",
+                            "--tmpfs",
+                            f"/workspace/keys:size=1m,mode=0700,uid={uid},gid={gid}",
+                            "-e", "TG_OUTPUT_ROOT=/workspace/outroot/output",
+                            "-e", "TG_ENCLAVE_KEY_ROOT=/workspace/keys",
+                            "-e",
+                            "TG_PRELUDE_SUMMARY="
+                            "/workspace/evidence/prelude-summary.json",
+                            "-e", f"TG_FINAL_IMAGE_REFERENCE={DRY_RUN_IMAGE_DIGEST}",
+                            "-e", f"TG_ISSUED_AT={DRY_RUN_ISSUED_AT}",
+                            "-e",
+                            "SPARKINTERVAL_PHALA_TDX_WORKER_SCOPE="
+                            "sparkinterval.phala-tdx-measured-worker.v1",
+                            "-e",
+                            "SPARKINTERVAL_PHALA_TDX_WORKER_BACKEND="
+                            "phala_dstack_tdx_cpu",
+                            "-e",
+                            "SPARKINTERVAL_PHALA_TDX_WORKER_CHALLENGE_NONCE="
+                            + DRY_RUN_CHALLENGE,
+                            "-e",
+                            "SPARKINTERVAL_PHALA_TDX_WORKER_JOB_BINDING_SHA256="
+                            + DRY_RUN_JOB_BINDING,
+                            "-e",
+                            "SPARKINTERVAL_PHALA_TDX_WORKER_APP_ID="
+                            + DRY_RUN_APP_ID,
+                            "-e",
+                            "SPARKINTERVAL_PHALA_TDX_WORKER_COMPOSE_HASH="
+                            + DRY_RUN_COMPOSE_HASH,
+                            "-e", "SPARKINTERVAL_PHALA_TDX_LOCAL_DRY_RUN=1",
+                            IMAGE_TAG,
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=7200,
+                    )
+            finally:
+                shutil.rmtree(socket_dir, ignore_errors=True)
             self.assertEqual(
                 run.returncode,
                 0,
                 f"campaign run failed:\n{run.stdout[-4000:]}\n{run.stderr[-4000:]}",
             )
+            self.assertIn(
+                "GetKey",
+                agent.calls,
+                "the container did not derive the signing key from the socket",
+            )
+            self.assertNotIn(DATA_KEY_HEX, run.stdout + run.stderr)
 
             produced = outputs / "output"
             self.assertEqual(
@@ -541,6 +652,262 @@ class ContainerDryRunTests(unittest.TestCase):
                 receipt["signature"],
                 "".join(re.findall(r'"([^"]*)"', match.group(1))),
             )
+
+            self._evidence_round_trips(work, inputs, evidence, produced)
+
+    def test_the_committed_campaign_entrypoint_runs_end_to_end(self) -> None:
+        """Run the measured campaign entry point itself, not the image's.
+
+        This is the closest local proxy for what the CVM will actually
+        execute: the *committed* `docker-compose.yaml` block scalar, verbatim.
+        It writes the three measured sources to /tmp, sources the job scope
+        that the prelude left on the shared volume, re-derives the signing key
+        from the dstack socket onto a container-local tmpfs, runs the replay,
+        signs the receipt, prints the evidence, and holds the container open.
+
+        The first real run got all the way through attestation and then died
+        here, on a shared-volume assumption that a unit test could not see.
+        """
+
+        if not self.docker:
+            self.skipTest("docker cannot run linux/amd64 here")
+        try:
+            import yaml  # noqa: PLC0415
+        except ImportError:  # pragma: no cover
+            self.skipTest("PyYAML is unavailable")
+
+        compose = yaml.safe_load(
+            (ROOT / "proof_build/ch25_a7_phala_tdx/docker-compose.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        entrypoint = compose["services"]["campaign"]["entrypoint"]
+        self.assertEqual(entrypoint[:2], ["/bin/bash", "-ec"])
+
+        with tempfile.TemporaryDirectory() as workspace:
+            work = Path(workspace)
+            shared = work / "shared"
+            inputs = shared / "input"
+            evidence = shared / "evidence"
+            outputs = work / "out"
+            inputs.mkdir(parents=True)
+            evidence.mkdir(parents=True)
+            outputs.mkdir()
+
+            key = public_key_hex(int(DATA_KEY_HEX, 16))
+            (inputs / "job-scope.env").write_text(
+                f"SPARKINTERVAL_PHALA_TDX_WORKER_APP_ID={DRY_RUN_APP_ID}\n"
+                "SPARKINTERVAL_PHALA_TDX_WORKER_COMPOSE_HASH="
+                f"{DRY_RUN_COMPOSE_HASH}\n",
+                encoding="ascii",
+            )
+            (inputs / "registered-input.json").write_bytes(REGISTERED_INPUT)
+            with gzip.open(DATA / "a7_boundary.fixture.json.gz", "rb") as source:
+                (inputs / "a7_boundary.json").write_bytes(source.read())
+            shutil.copyfile(
+                DATA / "tdx-quote.NOT-A-QUOTE.bin", inputs / "tdx-quote.bin"
+            )
+            shutil.copyfile(
+                DATA / "dcap-qvl-appraisal.NOT-AN-APPRAISAL.json",
+                inputs / "dcap-qvl-appraisal.json",
+            )
+            shutil.copyfile(
+                DATA / "dcap-qvl-policy.json", inputs / "dcap-qvl-policy.json"
+            )
+            shutil.copyfile(
+                DATA / "dcap-qvl-artifact.sha256",
+                inputs / "dcap-qvl-artifact.sha256",
+            )
+            (evidence / "prelude-summary.json").write_text(
+                json.dumps(
+                    {
+                        "kind": "sparkinterval.phala-tdx-prelude-summary.v1",
+                        "challenge_nonce": DRY_RUN_CHALLENGE,
+                        "job_binding_sha256": DRY_RUN_JOB_BINDING,
+                        "enclave_public_key": key,
+                        "report_data_sha256": report_data_hash(
+                            enclave_public_key_hex=key,
+                            challenge_nonce=DRY_RUN_CHALLENGE,
+                            job_binding=DRY_RUN_JOB_BINDING,
+                        ),
+                    },
+                    indent=2,
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+            )
+            # The prelude-only evidence the emitter also expects.
+            for name, raw in (
+                ("dstack-info.json", b'{"app_id":"placeholder"}'),
+                ("dstack-event-log.json", b"[]"),
+                ("dcap-qvl-decode.json", b'{"header":{}}'),
+                ("dcap-qvl-verify.stderr", b""),
+                ("dcap-qvl-strict.json", b'{"passed":false}'),
+                ("rtmr-replay.json", b'{"replayed_rtmrs":{}}'),
+            ):
+                (evidence / name).write_bytes(raw)
+
+            uid, gid = os.getuid(), os.getgid()
+            socket_dir = Path(tempfile.mkdtemp(prefix="phdry2-"))
+            socket_path = socket_dir / "d.sock"
+            try:
+                with MockGetKeyAgent(socket_path, DATA_KEY_HEX) as agent:
+                    run = subprocess.run(
+                        [
+                            "docker", "run", "--rm", "--platform", "linux/amd64",
+                            "--user", f"{uid}:{gid}",
+                            "--network", "none", "--read-only",
+                            "--entrypoint", "/bin/bash",
+                            "-v", f"{shared}:/workspace/shared:ro",
+                            "-v", f"{outputs}:/workspace/out",
+                            "-v", f"{socket_path}:/var/run/dstack.sock",
+                            "--tmpfs",
+                            f"/workspace/runtime:exec,size=64m,uid={uid},gid={gid}",
+                            "--tmpfs",
+                            f"/workspace/keys:size=1m,mode=0700,uid={uid},gid={gid}",
+                            "--tmpfs", f"/tmp:size=32m,uid={uid},gid={gid}",
+                            "-e", "TG_INPUT_ROOT=/workspace/shared/input",
+                            "-e", "TG_OUTPUT_ROOT=/workspace/out/output",
+                            "-e", "TG_ENCLAVE_KEY_ROOT=/workspace/keys",
+                            "-e",
+                            "TG_PHALA_TDX_KEY_DERIVER="
+                            "/tmp/prelude_phala_tdx_inputs.py",
+                            "-e",
+                            "TG_PRELUDE_SUMMARY="
+                            "/workspace/shared/evidence/prelude-summary.json",
+                            "-e", "TG_EVIDENCE_HOLD_SECONDS=1",
+                            "-e", f"TG_FINAL_IMAGE_REFERENCE={DRY_RUN_IMAGE_DIGEST}",
+                            "-e", f"TG_ISSUED_AT={DRY_RUN_ISSUED_AT}",
+                            "-e",
+                            "SPARKINTERVAL_PHALA_TDX_WORKER_SCOPE="
+                            "sparkinterval.phala-tdx-measured-worker.v1",
+                            "-e",
+                            "SPARKINTERVAL_PHALA_TDX_WORKER_BACKEND="
+                            "phala_dstack_tdx_cpu",
+                            "-e",
+                            "SPARKINTERVAL_PHALA_TDX_WORKER_CHALLENGE_NONCE="
+                            + DRY_RUN_CHALLENGE,
+                            "-e",
+                            "SPARKINTERVAL_PHALA_TDX_WORKER_JOB_BINDING_SHA256="
+                            + DRY_RUN_JOB_BINDING,
+                            "-e", "SPARKINTERVAL_PHALA_TDX_LOCAL_DRY_RUN=1",
+                            IMAGE_TAG,
+                            "-ec", entrypoint[2],
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=7200,
+                    )
+            finally:
+                shutil.rmtree(socket_dir, ignore_errors=True)
+
+            self.assertEqual(
+                run.returncode,
+                0,
+                f"compose entry point failed:\n{run.stdout[-6000:]}\n"
+                f"{run.stderr[-6000:]}",
+            )
+            self.assertIn("GetKey", agent.calls)
+            self.assertNotIn(DATA_KEY_HEX, run.stdout)
+            self.assertNotIn(DATA_KEY_HEX, run.stderr)
+
+            recovered = work / "recovered"
+            extracted = subprocess.run(
+                [sys.executable, str(EXTRACTOR), "--out-dir", str(recovered)],
+                input=run.stdout,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            self.assertEqual(
+                extracted.returncode,
+                0,
+                f"evidence extraction failed:\n{extracted.stdout}\n"
+                f"{extracted.stderr}",
+            )
+            receipt = json.loads(
+                (recovered / "output/enclave-receipt.json").read_text("utf-8")
+            )
+            self.assertEqual(
+                receipt["signed_fields"],
+                DryRunReceiptTests._lean_receipt_fields(),
+                "the receipt recovered from the container's log is not the "
+                "one pinned in Lean",
+            )
+            self.assertTrue(verify_receipt(receipt, enclave_public_key=key))
+            self.assertEqual(
+                (recovered / "output/registered-result.txt").read_bytes(), b"true"
+            )
+            for path in recovered.rglob("*"):
+                if path.is_file():
+                    self.assertNotIn(
+                        DATA_KEY_HEX, path.read_bytes().decode("latin-1")
+                    )
+
+    def _evidence_round_trips(
+        self, work: Path, inputs: Path, evidence: Path, produced: Path
+    ) -> None:
+        """The only channel out of a real CVM, exercised on real output.
+
+        A dstack CVM's volumes are unreachable and `phala cvms logs` drops the
+        logs of exited containers, so the campaign prints its evidence and
+        stays alive.  This runs the emitter over what the container actually
+        produced -- with a real key file present, so the "never printed"
+        assertion has something to be about -- and puts the log back through
+        the extractor.
+        """
+
+        key_file = work / "enclave-signing-key.hex"
+        shutil.copyfile(DATA / "enclave-signing-key.NOT-SECRET.hex", key_file)
+        emitted = subprocess.run(
+            [
+                sys.executable, str(EMITTER),
+                "--input-root", str(inputs),
+                "--evidence-root", str(evidence),
+                "--output-root", str(produced),
+                "--refuse-if-contains", str(key_file),
+                "--campaign-status", "0",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        # Several prelude-only files are absent in a dry run, so a non-zero
+        # "required file missing" status is expected; what must hold is that
+        # everything present round-trips and the key is nowhere in the log.
+        self.assertNotIn(DATA_KEY_HEX, emitted.stdout)
+        self.assertNotIn(DATA_KEY_HEX, emitted.stderr)
+        self.assertIn("enclave-receipt.json", emitted.stdout)
+
+        recovered = work / "recovered"
+        log = work / "run.log"
+        log.write_text(emitted.stdout, encoding="utf-8")
+        extracted = subprocess.run(
+            [
+                sys.executable, str(EXTRACTOR),
+                "--log", str(log), "--out-dir", str(recovered),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        self.assertIn("enclave-receipt.json", extracted.stdout)
+        self.assertEqual(
+            (recovered / "output/enclave-receipt.json").read_bytes(),
+            (produced / "enclave-receipt.json").read_bytes(),
+        )
+        self.assertEqual(
+            (recovered / "output/registered-result.txt").read_bytes(), b"true"
+        )
+        self.assertEqual(
+            (recovered / "input/tdx-quote.bin").read_bytes(),
+            (inputs / "tdx-quote.bin").read_bytes(),
+        )
+        for path in recovered.rglob("*"):
+            if path.is_file():
+                self.assertNotIn(
+                    DATA_KEY_HEX, path.read_bytes().decode("latin-1")
+                )
 
 
 if __name__ == "__main__":
