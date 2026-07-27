@@ -816,7 +816,17 @@ services:
 
 
         def import_receipt_module():
-            for candidate in ("/opt/sparkinterval", str(Path(__file__).resolve().parents[2])):
+            # ``/opt/sparkinterval`` is where the image puts ``tg_verifier``; the
+            # second candidate is the repository root and applies only when this file
+            # is run from a checkout.  Under the deploy manifest the prelude is
+            # written to ``/tmp/prelude.py``, whose ``parents`` is just ``/tmp`` and
+            # ``/``, so indexing it unconditionally raised ``IndexError`` on every
+            # real run.  The fallback is skipped when the path is too shallow.
+            candidates = ["/opt/sparkinterval"]
+            parents = Path(__file__).resolve().parents
+            if len(parents) > 2:
+                candidates.append(str(parents[2]))
+            for candidate in candidates:
                 if candidate not in sys.path:
                     sys.path.append(candidate)
             try:

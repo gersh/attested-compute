@@ -80,7 +80,16 @@ def indent(text: str, spaces: int) -> str:
     return "".join(pad + line if line.strip() else line for line in text.splitlines(True))
 
 
-def compose_yaml(*, challenge: str, job_binding: str, issued_at: str) -> str:
+def compose_yaml(*, challenge: str, job_binding: str, issued_at: str,
+                 IMAGE: str = IMAGE) -> str:
+    # ``IMAGE`` overrides the registry host only.  The digest is not a
+    # parameter: ``IMAGE_DIGEST`` stays authoritative and the caller is
+    # required to supply a reference carrying exactly it, so a different
+    # registry can never mean different bytes.
+    if not IMAGE.endswith("@" + IMAGE_DIGEST):
+        raise SystemExit(
+            f"image reference must be pinned to {IMAGE_DIGEST}; got {IMAGE}"
+        )
     prelude_source = PRELUDE.read_text(encoding="utf-8")
     if HEREDOC in prelude_source:
         raise SystemExit("the prelude source contains the heredoc sentinel")
@@ -250,6 +259,14 @@ def main() -> int:
     )
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument(
+        "--image",
+        default=IMAGE,
+        help="registry reference for the campaign image.  It must still be "
+        f"pinned to {IMAGE_DIGEST}, so this changes only where the bytes are "
+        "fetched from, never which bytes.  Use it when the default registry "
+        "is not anonymously pullable by the CVM.",
+    )
+    parser.add_argument(
         "--print-only",
         action="store_true",
         help="write nothing; print the compose hash and app id",
@@ -277,7 +294,8 @@ def main() -> int:
         issued_at = args.issued_at
 
     compose_text = compose_yaml(
-        challenge=challenge, job_binding=job_binding, issued_at=issued_at
+        challenge=challenge, job_binding=job_binding, issued_at=issued_at,
+        IMAGE=args.image,
     )
     document = app_compose(compose_text)
     compose_hash = hashlib.sha256(document.encode("utf-8")).hexdigest()
@@ -291,7 +309,7 @@ def main() -> int:
 
     print(f"app-compose.json sha256 (compose_hash) : {compose_hash}")
     print(f"app id (first 20 bytes)                : {compose_hash[:40]}")
-    print(f"image                                  : {IMAGE}")
+    print(f"image                                  : {args.image}")
     if args.template:
         print(
             "TEMPLATE: the challenge and job binding are refusal sentinels; "
