@@ -1,0 +1,33 @@
+{
+  "kind": "sparkinterval.dcap-qvl-upstream-pin.v1",
+  "schema_version": 1,
+  "note": "Pinned Intel TDX quote appraiser used by the Phala/dstack TDX campaign path. The in-CVM prelude downloads exactly this asset and refuses to continue unless its SHA-256 matches. The digest below was computed locally from the downloaded asset on 2026-07-27; it is not copied from any upstream checksum file.",
+  "project": "Phala-Network/dcap-qvl",
+  "repository": "https://github.com/Phala-Network/dcap-qvl",
+  "version": "v0.6.1",
+  "commit": "6ac45907f814e1c3e8bfc1b0e3c6a99710d4ef9f",
+  "source_archive_url": "https://github.com/Phala-Network/dcap-qvl/archive/6ac45907f814e1c3e8bfc1b0e3c6a99710d4ef9f.tar.gz",
+  "assets": {
+    "linux-x86_64-musl": {
+      "filename": "dcap-qvl-linux-x86_64-musl",
+      "url": "https://github.com/Phala-Network/dcap-qvl/releases/download/v0.6.1/dcap-qvl-linux-x86_64-musl",
+      "size_bytes": 11999544,
+      "sha256": "84bd935e37decbace7a902da2680d7486caca954438bb3196c8da8ed91f26d7b"
+    },
+    "linux-x86_64-gnu": {
+      "filename": "dcap-qvl-linux-x86_64",
+      "url": "https://github.com/Phala-Network/dcap-qvl/releases/download/v0.6.1/dcap-qvl-linux-x86_64",
+      "size_bytes": 12191768,
+      "sha256": "b93fc7d7ac08737d966c68ee86b3e5f4b361868fec2366d12b37b1efa4ad95d0"
+    }
+  },
+  "selected_asset": "linux-x86_64-musl",
+  "cli_contract": {
+    "decode": "dcap-qvl decode <quote_file> -> JSON on stdout: {header:{version,attestation_key_type,tee_type,qe_svn,pce_svn,qe_vendor_id,user_data}, report:{TD10|TD15|SgxEnclave:{...}}, auth_data:{V4:{...}}}; all byte fields are lowercase hex strings",
+    "verify": "dcap-qvl verify <quote_file> -> JSON on stdout: {status, advisory_ids, report:{TD10:{...}}, ppid, qe_status:{status,advisory_ids}, platform_status:{status,advisory_ids}}; exit 0 only if the quote verified cryptographically against collateral fetched from $PCCS_URL (default https://pccs.phala.network)",
+    "verify_strict": "dcap-qvl verify --strict <quote_file> -> additionally applies the built-in QuotePolicy::strict(now). OBSERVED 2026-07-27 against the upstream sample TDX quote: strict FAILS with 'Dynamic platform is not allowed by policy'. The prelude therefore records the strict verdict as evidence and gates on the reviewed policy file instead of on --strict, unless the policy explicitly sets require_dcap_qvl_strict."
+  },
+  "unverified": [
+    "No reproducible-build claim is made: the pinned asset is Phala's published release binary, not a locally rebuilt artifact. Rebuilding from the pinned commit and comparing digests is a strengthening step that has NOT been performed."
+  ]
+}

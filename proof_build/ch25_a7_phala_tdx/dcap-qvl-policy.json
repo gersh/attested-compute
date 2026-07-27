@@ -1,0 +1,68 @@
+{
+  "kind": "sparkinterval.phala-tdx.dcap-qvl-appraisal-policy.v1",
+  "schema_version": 1,
+
+  "_policy_status": "TEMPLATE. Every value below whose string begins with 'TODO:' is a named, deliberately unfilled pin. The in-CVM prelude HARD FAILS on any 'TODO:' value while first_run_measurement_discovery is false, which is the shipped setting. Nothing here is a wildcard: no value in this file means 'accept anything'.",
+
+  "_how_to_fill": "Run the prelude once with first_run_measurement_discovery set to true. It performs the full cryptographic appraisal, prints every observed measurement, writes /workspace/evidence/MEASUREMENTS-NOT-PINNED, and the policy bytes it commits into the receipt record that the measurements were unpinned. Copy the observed values here, set first_run_measurement_discovery back to false, and run again. Only a receipt produced with first_run_measurement_discovery false may be promoted to the Lean production enclave pin.",
+
+  "_no_measurement_is_supplied_here": "No measurement, quote, appraisal or key material in this file was copied from anywhere, and no example values are given, deliberately: an example value in a measurement field is a paste hazard. Fill every pin from the discovery run on the machine that will actually produce the receipt, and cross-check MRTD and RTMR0-2 against the measurements Phala publishes for the exact dstack OS image version the CVM booted.",
+
+  "first_run_measurement_discovery": false,
+
+  "require_dcap_qvl_strict": false,
+  "_require_dcap_qvl_strict": "dcap-qvl's built-in --strict policy rejects any platform whose PCK certificate marks DYNAMIC_PLATFORM, CACHED_KEYS or SMT as true. Running `dcap-qvl v0.6.1 verify --strict` against the upstream sample TDX quote on 2026-07-27 failed with 'Dynamic platform is not allowed by policy', so requiring --strict would very likely make a real Phala run impossible for a reason unrelated to this campaign's integrity. The prelude therefore ALWAYS runs plain `verify` (full cryptographic appraisal; non-zero exit on any failure) as an ungated floor, ALWAYS runs `verify --strict` as well and retains its verdict as evidence, and gates on the explicit fields below. Set this to true only once the platform is known to pass strict.",
+
+  "appraiser": {
+    "project": "Phala-Network/dcap-qvl",
+    "version": "v0.6.1",
+    "commit": "6ac45907f814e1c3e8bfc1b0e3c6a99710d4ef9f",
+    "asset": "dcap-qvl-linux-x86_64-musl",
+    "sha256": "84bd935e37decbace7a902da2680d7486caca954438bb3196c8da8ed91f26d7b"
+  },
+
+  "quote": {
+    "tee_type": 129,
+    "_tee_type": "0x81 = Intel TDX. An SGX quote (tee_type 0) is rejected outright.",
+    "min_quote_version": 4,
+    "accepted_report_kinds": ["TD10", "TD15"]
+  },
+
+  "measurements": {
+    "_units": "mr_seam, mr_signer_seam, mr_td and rt_mr0..rt_mr3 are 96 lowercase hex digits (48 bytes). td_attributes and xfam are 16 hex digits (8 bytes). tee_tcb_svn is 32 hex digits (16 bytes).",
+
+    "tee_tcb_svn": "TODO: pin the TDX module SVN observed in the discovery run. This is the minimum-TCB pin for the TDX module itself. An exact match is required, so a TDX module update deliberately invalidates this policy and forces a re-review rather than silently lowering the bar.",
+
+    "mr_seam": "TODO: pin the Intel TDX module measurement observed in the discovery run.",
+
+    "mr_signer_seam": "TODO: pin the TDX module signer observed in the discovery run. Pin whatever is actually observed rather than assuming the Intel-signed all-zero value.",
+
+    "td_attributes": "TODO: pin the TD attributes observed in the discovery run. Independently of this pin, the prelude unconditionally rejects a debuggable TD (TDATTRIBUTES bit 0).",
+
+    "xfam": "TODO: pin the XFAM observed in the discovery run.",
+
+    "mr_td": "TODO: pin MRTD, the dstack guest OS image measurement, observed in the discovery run. Cross-check it against the MRTD Phala publishes for the exact dstack OS image version the CVM booted before promoting the receipt.",
+
+    "rt_mr0": "TODO: pin RTMR0 (virtual firmware, CPU and memory configuration) observed in the discovery run.",
+    "rt_mr1": "TODO: pin RTMR1 (kernel image) observed in the discovery run.",
+    "rt_mr2": "TODO: pin RTMR2 (kernel command line and initrd) observed in the discovery run.",
+
+    "rt_mr3": "TODO: pin RTMR3 observed in the discovery run. RTMR3 is the dstack application chain: sha384-extended with system-preparing, key-provider, os-image-hash, app-id, compose-hash, instance-id, boot-mr-done and system-ready. It therefore depends on the app-compose.json bytes and, unless app-compose.json sets no_instance_id, on a per-instance random value. THIS PIN MUST BE FILLED AND RE-VERIFIED BEFORE THE RECEIPT IS PROMOTED to the Lean production enclave identity. This file is delivered OUTSIDE app-compose.json precisely so that filling this pin does not change the compose hash and therefore does not change RTMR3; moving the policy inside app-compose.json would make the pin self-referential and unfillable. Independently of this pin, the prelude unconditionally replays the RTMR event log against the quote and requires the RTMR3 chain to contain app-id and compose-hash events equal to the job-scope values, so the compose binding is enforced even while this pin is a TODO."
+  },
+
+  "tcb": {
+    "allowed_statuses": ["UpToDate"],
+    "allowed_platform_statuses": ["UpToDate"],
+    "allowed_qe_statuses": ["UpToDate"],
+    "_allowed_statuses": "Exhaustive whitelists. 'Revoked' is rejected by the prelude even if it is listed. Adding OutOfDate or SWHardeningNeeded here is a deliberate weakening and must be justified in writing at the promotion review.",
+    "accepted_advisory_ids": [],
+    "_accepted_advisory_ids": "Exhaustive whitelist of Intel advisory IDs that may appear in the appraisal. The empty list means the appraisal must carry no advisories at all. Any advisory not listed here fails the run; there is no wildcard."
+  },
+
+  "qe_identity": {
+    "qe_vendor_id": "TODO: pin the quoting-enclave vendor id observed in the discovery run (32 hex digits).",
+    "mr_signer": "TODO: pin the quoting enclave MRSIGNER observed in the discovery run (64 hex digits).",
+    "isv_prod_id": "TODO: pin the quoting enclave ISVPRODID observed in the discovery run. Replace this string with a decimal integer.",
+    "min_isv_svn": "TODO: pin the minimum acceptable quoting enclave ISVSVN. Replace this string with a decimal integer; the observed ISVSVN must be greater than or equal to it."
+  }
+}
