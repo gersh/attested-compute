@@ -132,6 +132,11 @@ CANDIDATE_SOCKETS = (
     "/run/dstack/dstack.sock",
 )
 DSTACK_RTMR3_EVENT_TYPE = 0x08000001
+
+# The only non-literal value a measurement pin may take, and only for rt_mr3.
+# See the branch in `enforce_policy` for why a literal pin is not merely
+# inconvenient there but wrong.
+REPLAY_VERIFIED = "verified-by-event-log-replay"
 INIT_MR = bytes(48)
 
 WORKER_SCOPE = "sparkinterval.phala-tdx-measured-worker.v1"
@@ -639,6 +644,30 @@ def enforce_policy(
             raise fail(f"the appraisal policy does not mention {name}")
         if is_todo(pinned):
             unpinned.append(name)
+            continue
+        if pinned == REPLAY_VERIFIED:
+            # rt_mr3 is the running hash of the dstack boot chain, and that
+            # chain includes `instance-id` unless the app-compose sets
+            # `no_instance_id`.  A literal pin is therefore not stable across
+            # deployments, and pinning one observed boot would either fail
+            # every subsequent run or silently invite someone to re-pin it
+            # each time -- which is no pin at all.
+            #
+            # `check_event_log` has already run, and it required: every RTMR3
+            # event digest to be the digest dstack would have computed for its
+            # recorded name and payload; the replay of the whole log to equal
+            # the rt_mr3 this quote attests; and the `compose-hash` event to
+            # equal the compose hash the guest agent reports.  That chain
+            # binds the measurement to *our* app-compose, which is what the
+            # pin is for, rather than to one previously observed boot.
+            #
+            # Restricted to rt_mr3: the platform measurements have no such
+            # derivation and must stay literal.
+            if name != "rt_mr3":
+                raise fail(
+                    f"the appraisal policy uses {REPLAY_VERIFIED!r} for "
+                    f"{name}, but only rt_mr3 may be verified that way"
+                )
             continue
         expected = require_hex(pinned, digits, f"policy pin for {name}")
         if expected != actual:
