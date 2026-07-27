@@ -476,6 +476,7 @@ def transcriptSizeBytes : Nat :=
 def leavesSha256 : String :=
   "{checked.leaves_sha256}"
 
+set_option maxHeartbeats 0 in
 set_option maxRecDepth 1000000 in
 def certificate : Certificate := {{
   maxDepth := {checked.max_depth}

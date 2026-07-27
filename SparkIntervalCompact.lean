@@ -40,6 +40,7 @@ import SparkInterval.Dirichlet.PhaseSignState
 import SparkInterval.Dirichlet.TMajorRowResidentWire
 import SparkInterval.TernaryGoldbach.A7BoundaryCompactChecker
 import SparkInterval.TernaryGoldbach.A7BoundaryWire
+import SparkInterval.TernaryGoldbach.A7BoundaryWireEvidence
 import SparkInterval.TernaryGoldbach.CDEMAbelArtifactProgram
 import SparkInterval.TernaryGoldbach.CDEMAbelCompactChecker
 import SparkInterval.TernaryGoldbach.ClosedAcceptedReceiptRoster

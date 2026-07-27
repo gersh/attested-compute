@@ -184,7 +184,9 @@ theorem dryRunAccepted :
       .ch25A7BoundaryProductionV1 dryRunReceipt "true" = true := by
   native_decide
 
-/-- The complete campaign conclusion, one hypothesis away. -/
+/-- **Legacy path.**  The complete campaign conclusion, one hypothesis away,
+via `phalaTdxAttestedRun_sound` -- the axiom that *asserts* this campaign's
+mathematics.  Retained for comparison; see `dryRunCampaignFromModel`. -/
 theorem dryRunCampaign
     (authority :
       PhalaTdxEnclave.ch25A7BoundaryLocalDryRunV1.pin.attestationAuthority
@@ -195,8 +197,43 @@ theorem dryRunCampaign
     RegisteredInvocation.ch25A7BoundaryProductionV1_sourceClaim authority
     dryRunAccepted
 
--- The dry-run stand-in key demonstrably has no such authority, so
--- `dryRunCampaign` asserts nothing about the world.
+/-- **Supported path.**  The same conclusion from the same container receipt,
+with the mathematics proved instead of assumed.
+
+Compare the hypothesis lists.  The legacy theorem above needs one hypothesis
+and an axiom that concludes `invocation.Runs`.  This one needs three
+hypotheses and an axiom that concludes only that the pinned image emitted the
+bytes `true`:
+
+* `authority` -- Intel TDX attestation authority for the signing key.  `false`
+  for this stand-in, exactly as before.
+* `model` -- the pinned image decides the same predicate as the Lean reference
+  model `A7BoundaryWireEvidence.modelOutput`.  This is the one residual
+  assumption, and it is about *bytes*: it is dischargeable by computation as
+  soon as the artifact bytes are available to Lean.
+* `realization` -- the recorded FLINT/Arb boxes really enclose Mathlib's
+  `riemannZeta` and `rawG`.  No attestation, and no byte-level checker, can
+  supply this; it is the honest remainder of the A.7 atom.
+
+Everything between those premises and `SourceClaim` -- the wire parser, the
+four gap-free edge covers, the exact dyadic guards, the strict `(349/250)^2`
+bound, and the final norm estimate -- is ordinary Lean. -/
+theorem dryRunCampaignFromModel
+    (authority :
+      PhalaTdxEnclave.ch25A7BoundaryLocalDryRunV1.pin.attestationAuthority
+        = true)
+    (model :
+      EnclaveImplementsA7ReferenceModel .ch25A7BoundaryLocalDryRunV1)
+    (realization :
+      SparkInterval.TernaryGoldbach.A7BoundaryWireEvidence.RetainedAnalyticRealization) :
+    PhalaTdxCertifiedSourceRun .ch25A7BoundaryProductionV1 dryRunReceipt "true"
+      SparkInterval.TernaryGoldbach.A7BoundarySourceSemantics.SourceClaim :=
+  certifyCH25A7BoundaryPhalaTdxFromModelAt authority dryRunAccepted model
+    realization
+
+-- The dry-run stand-in key demonstrably has no such authority, so neither
+-- `dryRunCampaign` nor `dryRunCampaignFromModel` asserts anything about the
+-- world.
 #guard !PhalaTdxEnclave.ch25A7BoundaryLocalDryRunV1.pin.attestationAuthority
 
 /-! ## Axioms -/
@@ -204,9 +241,13 @@ theorem dryRunCampaign
 #print axioms certifyPhalaTdxRun
 #print axioms certifyPhalaTdxSourceRun
 #print axioms certifyCH25A7BoundaryPhalaTdx
+#print axioms certifyCH25A7BoundaryPhalaTdxFromModel
+#print axioms certifyCH25A7BoundaryPhalaTdxFromModelAt
+#print axioms ch25A7BoundaryRuns_of_modelOutput
 #print axioms ch25A7BoundaryPhalaTdxCheck_eq_false
 #print axioms dryRunSignature_kernelChecked
 #print axioms dryRunAccepted
 #print axioms dryRunCampaign
+#print axioms dryRunCampaignFromModel
 
 end SparkInterval.Tests.PhalaTdxDryRun

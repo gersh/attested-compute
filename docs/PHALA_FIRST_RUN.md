@@ -35,9 +35,17 @@ its own SDKs, and its `dcap-qvl` interaction only against a stand-in that
 prints the schema dcap-qvl v0.6.1 was observed to emit. The prelude is
 written to fail loudly rather than to paper over a mismatch.
 
-Read `SparkInterval/Execution/PhalaTdxCampaignCertificate.lean` first: the
-docstring on `phalaTdxAttestedRun_sound` states precisely what this path
-trusts.
+Read `SparkInterval/Execution/PhalaTdxOperationalAttestation.lean` first: the
+docstring on `phalaTdxAttestedEmission_sound` states precisely what this path
+trusts. That axiom is purely operational -- it concludes only that the pinned
+image emitted particular bytes -- and it is the axiom the supported campaign
+theorem `certifyCH25A7BoundaryPhalaTdxFromModel` uses. The older
+`phalaTdxAttestedRun_sound` in
+`SparkInterval/Execution/PhalaTdxCampaignCertificate.lean` concludes
+`invocation.Runs`, which for CH25 A.7 contains a Lean existential over
+certificates and an analytic statement about Mathlib's zeta function; no
+attestation can establish either, and the A.7 path no longer uses it. See
+`docs/algorithms/CH25_A7_LEAN_MODEL.md`.
 
 ---
 
@@ -568,16 +576,19 @@ preference:
    `Lean.ofReduceBool` in the theorem's axiom set.
 
 Whichever is chosen, run `#print axioms` on the resulting theorem and record
-it. Expect `phalaTdxAttestedRun_sound` plus the base trio, plus a native
-reduction axiom if option 2 or 3 was used.
+it. Expect `phalaTdxAttestedEmission_sound` plus the base trio, plus a native
+reduction axiom if option 2 or 3 was used. `phalaTdxAttestedRun_sound` must
+**not** appear: reaching it means the campaign was instantiated through the
+legacy generic layer, which assumes the mathematics instead of proving it.
 
 ---
 
 ## 8. Decide, explicitly, whether this goes on the live cone
 
 By default it does not, and `tests/test_phala_tdx_axiom_off_cone.py` enforces
-that: no capstone may transitively import the Phala layer, and
-`phalaTdxAttestedRun_sound` must not appear in any capstone's `#print axioms`.
+that: no capstone may transitively import the Phala layer, and neither
+`phalaTdxAttestedRun_sound` nor `phalaTdxAttestedEmission_sound` may appear in
+any capstone's `#print axioms`.
 Azure remains the only path that discharges an atom.
 
 Putting a TDX-derived result on the cone means editing that test on purpose,

@@ -30,7 +30,31 @@ set_option autoImplicit false
 
 namespace SparkInterval.Execution
 
-/-- **The Phala/dstack Intel TDX execution boundary.**
+/-- **Legacy: the Phala/dstack Intel TDX execution boundary, stated as a
+mathematical conclusion.**
+
+> **Do not build new campaigns on this axiom.**  For every registered
+> invocation whose `Runs` relation carries a success proposition -- which is
+> all of the current source campaigns -- the conclusion below is not merely
+> "these bytes came out of that program".  For CH25 Lemma A.7,
+> `invocation.Runs "true"` unfolds to
+> `∃ certificate, certificate.check = true ∧ Nonempty (AnalyticRealization certificate)`:
+> a Lean-level existential over certificates together with an analytic claim
+> about Mathlib's `riemannZeta`.  No Intel TDX quote can establish either.  A
+> quote establishes that a measured binary produced bytes.
+>
+> The A.7 path no longer uses this axiom.  It uses the purely operational
+> `phalaTdxAttestedEmission_sound` in
+> `Execution/PhalaTdxOperationalAttestation.lean`, together with an explicit
+> Lean reference model and two named premises; see
+> `certifyCH25A7BoundaryPhalaTdxFromModel`.
+>
+> This axiom and the two generic theorems below are retained because deleting
+> a theorem is out of scope, and because the generic "a campaign is data"
+> shape has no operational counterpart: it cannot be migrated without a Lean
+> reference model for the campaign's program, which is exactly the work A.7
+> now does for itself.  Anything still reaching this axiom is *assuming* its
+> campaign's mathematics, not proving it.
 
 If a receipt passes `phalaTdxOutcomeCheck` against an enclave identity that
 the project has reviewed as carrying attestation authority, then the closed

@@ -36,6 +36,7 @@ IMPORT_RE = re.compile(
 PHALA_MODULES = frozenset(
     {
         "SparkInterval.Execution.PhalaTdxAttestation",
+        "SparkInterval.Execution.PhalaTdxOperationalAttestation",
         "SparkInterval.Execution.PhalaTdxCampaignCertificate",
         "SparkInterval.Execution.PhalaTdxA7BoundaryCertificate",
         "SparkInterval.Tests.PhalaTdxDryRunTest",
@@ -43,6 +44,22 @@ PHALA_MODULES = frozenset(
 )
 
 TDX_AXIOM = "phalaTdxAttestedRun_sound"
+TDX_OPERATIONAL_AXIOM = "phalaTdxAttestedEmission_sound"
+
+# The supported A.7 TDX campaign theorem and the axioms it may and may not
+# use.  `phalaTdxAttestedEmission_sound` is purely operational; the legacy
+# `phalaTdxAttestedRun_sound` asserts the campaign's mathematics and must not
+# be reachable from the supported path.
+SUPPORTED_A7_TDX_THEOREM = (
+    "SparkInterval.Execution.certifyCH25A7BoundaryPhalaTdxFromModel"
+)
+AXIOM_FREE_A7_MODEL_THEOREMS = (
+    "SparkInterval.TernaryGoldbach.A7BoundaryWireEvidence."
+    "successEvidence_of_modelOutput",
+    "SparkInterval.TernaryGoldbach.A7BoundaryWireEvidence."
+    "sourceClaim_of_modelOutput",
+    "SparkInterval.Execution.ch25A7BoundaryRuns_of_modelOutput",
+)
 
 CAPSTONE_ROOTS = (
     "SparkIntervalCompact",
@@ -196,8 +213,85 @@ class PhalaTdxOffConeTests(unittest.TestCase):
             "the Phala TDX axiom appears in a capstone's axiom set",
         )
         self.assertNotIn(
+            TDX_OPERATIONAL_AXIOM,
+            output,
+            "the Phala TDX operational axiom appears in a capstone's axiom set",
+        )
+        self.assertNotIn(
             "PhalaTdx", output, "a capstone now depends on the TDX layer"
         )
+
+    def test_supported_a7_path_avoids_the_mathematical_axiom(self) -> None:
+        """The supported A.7 TDX theorem must use only the operational axiom.
+
+        `phalaTdxAttestedRun_sound` concludes `invocation.Runs`, which for this
+        invocation contains a Lean existential over certificates and an
+        analytic statement about Mathlib's zeta function.  Attestation cannot
+        establish either, so the supported path must not reach it.  The three
+        model theorems below must additionally be free of *every* project
+        axiom.
+        """
+
+        if os.environ.get("SPARKINTERVAL_SKIP_LEAN_PROBE") == "1":
+            self.skipTest("Lean probe disabled by environment")
+        if shutil.which("lake") is None:
+            self.skipTest("lake is not available")
+        if not (ROOT / ".lake/build/lib/lean").is_dir():
+            self.skipTest("no Lean build artifacts")
+
+        probe = ROOT / ".lake" / "phala-tdx-supported-path-probe.lean"
+        names = (SUPPORTED_A7_TDX_THEOREM,) + AXIOM_FREE_A7_MODEL_THEOREMS
+        lines = ["import SparkInterval.Execution.PhalaTdxA7BoundaryCertificate"]
+        lines += [f"#print axioms {name}" for name in names]
+        probe.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        try:
+            completed = subprocess.run(
+                ["lake", "env", "lean", "-j1", "-M8192", str(probe)],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                timeout=3600,
+                env={**os.environ, "LEAN_NUM_THREADS": "1"},
+            )
+        finally:
+            probe.unlink(missing_ok=True)
+        output = completed.stdout + completed.stderr
+        self.assertEqual(
+            completed.returncode, 0, f"probe failed to elaborate:\n{output}"
+        )
+        # One report per requested name; `#print axioms` wraps long lists.
+        reports = {}
+        normalized = " ".join(output.split())
+        for name in names:
+            marker = f"'{name}' depends on axioms:"
+            self.assertIn(marker, normalized, f"no axiom report for {name}")
+            tail = normalized.split(marker, 1)[1]
+            reports[name] = tail.split("]", 1)[0]
+        self.assertNotIn(
+            TDX_AXIOM,
+            reports[SUPPORTED_A7_TDX_THEOREM],
+            "the supported A.7 TDX theorem reaches the legacy mathematical "
+            "axiom",
+        )
+        self.assertIn(
+            TDX_OPERATIONAL_AXIOM,
+            reports[SUPPORTED_A7_TDX_THEOREM],
+            "the supported A.7 TDX theorem no longer records the operational "
+            "trust boundary",
+        )
+        for name in AXIOM_FREE_A7_MODEL_THEOREMS:
+            for forbidden in (
+                TDX_AXIOM,
+                TDX_OPERATIONAL_AXIOM,
+                "accepted_run_certificate_sound",
+                "ofReduceBool",
+                "sorryAx",
+            ):
+                self.assertNotIn(
+                    forbidden,
+                    reports[name],
+                    f"{name} unexpectedly depends on {forbidden}",
+                )
 
 
 if __name__ == "__main__":

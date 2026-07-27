@@ -20,6 +20,22 @@ ALLOWED_AXIOMS = {
     Path("SparkInterval/Execution/PhalaTdxCampaignCertificate.lean"): {
         "phalaTdxAttestedRun_sound"
     },
+    # The *operational* Phala/dstack Intel TDX boundary.  Its conclusion is an
+    # `opaque` relation between strings, so no mathematical proposition can be
+    # derived from it; the A.7 campaign path uses this one and reaches its
+    # mathematics by ordinary Lean theorems plus explicitly named premises.
+    Path("SparkInterval/Execution/PhalaTdxOperationalAttestation.lean"): {
+        "phalaTdxAttestedEmission_sound"
+    },
+}
+# `opaque c : T` introduces an uninterpreted constant.  On a `Prop`-valued
+# relation that is exactly the right way to say "this is a fact about the
+# world that Lean models but cannot compute with", but it is still a
+# declaration that review must see, so it is allowlisted by name too.
+ALLOWED_OPAQUE = {
+    Path("SparkInterval/Execution/PhalaTdxOperationalAttestation.lean"): {
+        "PhalaTdxAttestedEmission"
+    },
 }
 FORBIDDEN = re.compile(r"\b(sorry|admit|unsafe)\b")
 NATIVE_DECIDE = re.compile(r"\bnative_decide\b")
@@ -29,6 +45,7 @@ NATIVE_DECIDE = re.compile(r"\bnative_decide\b")
 TRUST_DECLARATION = re.compile(
     r"\b(axiom|constant)\s+([A-Za-z_][A-Za-z0-9_']*)"
 )
+OPAQUE_DECLARATION = re.compile(r"\bopaque\s+([A-Za-z_][A-Za-z0-9_']*)")
 
 
 def strip_comments_and_strings(source: str) -> str:
@@ -117,6 +134,13 @@ def main() -> int:
                     f"{relative}:{line_number(stripped, match.start())}: "
                     "production theorem code must use kernel-checkable "
                     "`decide` or an explicit certificate, not `native_decide`"
+                )
+        for match in OPAQUE_DECLARATION.finditer(stripped):
+            name = match.group(1)
+            if name not in ALLOWED_OPAQUE.get(relative, set()):
+                failures.append(
+                    f"{relative}:{line_number(stripped, match.start())}: "
+                    f"unapproved opaque declaration '{name}'"
                 )
         for match in TRUST_DECLARATION.finditer(stripped):
             kind = match.group(1)

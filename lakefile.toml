@@ -53,6 +53,13 @@ precompileModules = false
 name = "sparkinterval-gen"
 root = "SparkInterval.GeneratePTX"
 
+# Compiled front end for the Lean A.7 compact-wire decision procedure.  It is
+# the same source text as the reference semantics in `A7BoundaryWire.lean`;
+# see `docs/algorithms/CH25_A7_LEAN_MODEL.md`.
+[[lean_exe]]
+name = "sparkinterval-check-a7-wire"
+root = "SparkInterval.TernaryGoldbach.A7BoundaryWireCLI"
+
 [[lean_exe]]
 name = "sparkinterval-check-certificate"
 root = "SparkInterval.Certificate.CLI"
