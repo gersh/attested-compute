@@ -55,7 +55,9 @@ INPUT_FILES = {
     "dcap-qvl-artifact.sha256": b"84bd  dcap-qvl\n",
 }
 EVIDENCE_FILES = {
-    "dstack-info.json": b'{"app_id":"9f"}',
+    # dstack-info.json is deliberately absent: it is staged in the CVM but not
+    # emitted, because its 263 KB exhausted the ~64 KiB `phala cvms logs`
+    # budget on the first real run and cost us the receipt.
     "dstack-event-log.json": b"[]",
     "dcap-qvl-decode.json": b'{"header":{}}',
     "dcap-qvl-verify.stderr": b"",

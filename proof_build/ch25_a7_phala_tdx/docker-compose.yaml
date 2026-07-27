@@ -3539,24 +3539,35 @@ services:
         # (root, relative name, required).  ROOTS are resolved from the command line.
         # Adding anything here is a deliberate act: everything on this list is printed
         # to a log that leaves the CVM.
+        # Ordered most load-bearing first.  `phala cvms logs` returns at most ~64 KiB,
+        # and the first real run lost the receipt because it was printed after
+        # `dstack-info.json`, whose 263,652 bytes exhausted that budget on their own.
+        # The signed statement and the result it commits to are therefore printed
+        # before anything bulky, so a truncated tail costs corroboration rather than
+        # the evidence itself.
+        #
+        # `dstack-info.json` is deliberately NOT on this list.  It is the guest
+        # agent's /Info response, dominated by the app certificate, and everything it
+        # attests that matters here is already carried by `tdx-quote.bin` and
+        # `dstack-event-log.json` -- which are on the list, and which the replay check
+        # ties together.  Re-adding it will silently cost you the receipt.
         EVIDENCE: tuple[tuple[str, str, bool], ...] = (
-            ("input", "job-scope.env", True),
+            ("output", "enclave-receipt.json", True),
+            ("output", "registered-result.txt", True),
             ("input", "registered-input.json", True),
+            ("input", "job-scope.env", True),
+            ("evidence", "prelude-summary.json", True),
+            ("evidence", "rtmr-replay.json", True),
+            ("input", "dcap-qvl-artifact.sha256", True),
             ("input", "tdx-quote.bin", True),
             ("input", "dcap-qvl-appraisal.json", True),
-            ("input", "dcap-qvl-policy.json", True),
-            ("input", "dcap-qvl-artifact.sha256", True),
-            ("evidence", "dstack-info.json", True),
-            ("evidence", "dstack-event-log.json", True),
-            ("evidence", "dcap-qvl-decode.json", True),
-            ("evidence", "dcap-qvl-verify.stderr", False),
-            ("evidence", "dcap-qvl-strict.json", True),
-            ("evidence", "rtmr-replay.json", True),
-            ("evidence", "prelude-summary.json", True),
             ("evidence", "MEASUREMENTS-NOT-PINNED", False),
-            ("output", "registered-result.txt", True),
-            ("output", "enclave-receipt.json", True),
+            ("evidence", "dcap-qvl-strict.json", True),
+            ("evidence", "dcap-qvl-verify.stderr", False),
+            ("input", "dcap-qvl-policy.json", True),
             ("output", "work/a7-replay.json", True),
+            ("evidence", "dcap-qvl-decode.json", True),
+            ("evidence", "dstack-event-log.json", True),
         )
 
         # Substrings that must never appear in an emitted file name.  This is a
