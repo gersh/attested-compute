@@ -284,14 +284,82 @@ def replay_rtmr(history: list[str]) -> str:
     return measurement.hex()
 
 
-def rtmr3_event_digest(event: str, payload: bytes) -> str:
-    return hashlib.sha384(
+def rtmr3_event_preimage_v1(event: str, payload: bytes) -> bytes:
+    """dstack ``EventLogVersion::V1``.
+
+    ``SHA(event_type_le || ":" || event_name || ":" || payload)``, per
+    ``cc-eventlog/src/runtime_events.rs::preimage``.
+    """
+    return (
         DSTACK_RTMR3_EVENT_TYPE.to_bytes(4, "little")
         + b":"
         + event.encode("utf-8")
         + b":"
         + payload
-    ).hexdigest()
+    )
+
+
+def rtmr3_event_preimage_v2(event: str, payload: bytes) -> bytes:
+    """dstack ``EventLogVersion::V2``.
+
+    The RFC 8785 (JCS) canonical JSON of ``{"name", "payload", "type"}``.
+    JCS orders keys by code point, so the serialization is fully determined:
+    no whitespace, ``name`` then ``payload`` then ``type``, and the payload
+    is lower-case hex.  dstack builds this with ``serde_jcs``; for this fixed
+    three-key object with a plain string name the result is reproducible
+    without a JCS library, and ``json.dumps`` with ``ensure_ascii`` escapes
+    non-ASCII exactly as JCS requires for the BMP.
+    """
+    return json.dumps(
+        {
+            "name": event,
+            "payload": payload.hex(),
+            "type": DSTACK_RTMR3_EVENT_TYPE,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+
+def rtmr3_event_digest(event: str, payload: bytes, version: str = "v1") -> str:
+    preimage = (
+        rtmr3_event_preimage_v1(event, payload)
+        if version == "v1"
+        else rtmr3_event_preimage_v2(event, payload)
+    )
+    return hashlib.sha384(preimage).hexdigest()
+
+
+def detect_event_log_version(events: list[dict]) -> str:
+    """Decide which dstack digest convention this log uses.
+
+    The version is not carried in the log, so it is inferred: whichever
+    convention reproduces the recorded digest of every RTMR3 entry that
+    carries a name and payload.  Requiring *all* such entries to agree on one
+    convention is what keeps this an inference rather than a licence to try
+    both per event -- a per-event choice would let an attacker relabel an
+    event and then pick whichever formula happened to match.
+    """
+    named = [
+        e for e in events
+        if e.get("imr") == 3 and "event" in e and "event_payload" in e
+    ]
+    if not named:
+        raise fail("the dstack event log has no named RTMR3 entries to verify")
+    for version in ("v1", "v2"):
+        if all(
+            rtmr3_event_digest(
+                e["event"], bytes.fromhex(e.get("event_payload") or ""), version
+            ) == e["digest"]
+            for e in named
+        ):
+            return version
+    raise fail(
+        "no dstack event-log digest convention (v1 or v2) reproduces the "
+        "recorded digests of every named RTMR3 entry; the event log has been "
+        "relabelled or dstack has introduced a third convention"
+    )
 
 
 def parse_event_log(raw: str) -> list[dict]:
@@ -320,6 +388,12 @@ def check_event_log(events: list[dict], quote_rtmrs: dict[int, str]) -> dict:
     replay of every IMR must reproduce the value the quote actually attests.
     """
 
+    # dstack has shipped two digest conventions and does not record which one
+    # a log uses, so it is inferred once, from the whole log, and then applied
+    # uniformly below.
+    version = detect_event_log_version(events)
+    note(f"dstack event-log digest convention: {version}")
+
     for event in events:
         if int(event["imr"]) != 3:
             continue
@@ -334,11 +408,12 @@ def check_event_log(events: list[dict], quote_rtmrs: dict[int, str]) -> dict:
             raise fail("an RTMR3 event has a malformed name or payload")
         if payload and not HEX_RE.match(payload.lower()):
             raise fail(f"RTMR3 event {name!r} has a non-hex payload")
-        expected = rtmr3_event_digest(name, bytes.fromhex(payload))
+        expected = rtmr3_event_digest(name, bytes.fromhex(payload), version)
         if expected != str(event["digest"]).lower():
             raise fail(
-                f"RTMR3 event {name!r} does not hash to its recorded digest; "
-                "the event log has been relabelled"
+                f"RTMR3 event {name!r} does not hash to its recorded digest "
+                f"under the {version} convention; the event log has been "
+                "relabelled"
             )
 
     replayed = {}
@@ -953,8 +1028,27 @@ def run(args: argparse.Namespace) -> None:
             "commitment"
         )
     write_exclusive(input_root / "tdx-quote.bin", quote, 0o444)
-    event_log_raw = quote_response.get("event_log")
-    if not isinstance(event_log_raw, str) or not event_log_raw:
+    # The event log must come from ``Info``'s ``tcb_info``, not from the
+    # ``GetQuote`` response.  Both carry the same 30 entries, but GetQuote
+    # leaves every ``digest`` field empty, so the per-event digest check would
+    # compare a correctly computed digest against "" and refuse a genuine log.
+    # Taking the log from ``tcb_info`` costs nothing in trust: it is still
+    # replayed below and every IMR must reproduce what the quote attests, so a
+    # tampered log cannot survive regardless of which endpoint served it.
+    tcb_info = info.get("tcb_info")
+    if isinstance(tcb_info, str):
+        try:
+            tcb_info = json.loads(tcb_info)
+        except json.JSONDecodeError as error:
+            raise fail(f"the guest agent's tcb_info is not JSON: {error}")
+    if not isinstance(tcb_info, dict):
+        raise fail("the guest agent returned no tcb_info")
+    event_log_raw = tcb_info.get("event_log")
+    if not isinstance(event_log_raw, str):
+        if event_log_raw is None:
+            raise fail("the guest agent's tcb_info carries no event log")
+        event_log_raw = json.dumps(event_log_raw)
+    if not event_log_raw:
         raise fail("the guest agent returned no event log")
     write_exclusive(
         evidence_root / "dstack-event-log.json",

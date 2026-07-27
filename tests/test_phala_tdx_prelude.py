@@ -86,6 +86,20 @@ def rtmr3_digest(event: str, payload_hex: str) -> str:
     ).hexdigest()
 
 
+def rtmr3_digest_v2(event: str, payload_hex: str) -> str:
+    """dstack ``EventLogVersion::V2``: the RFC 8785 canonical JSON preimage.
+
+    Written out independently of the prelude's own helper so that agreement
+    between the two is evidence rather than a tautology.
+    """
+    return hashlib.sha384(
+        (
+            '{"name":"' + event + '","payload":"' + payload_hex.lower()
+            + '","type":' + str(RTMR3_EVENT_TYPE) + "}"
+        ).encode("utf-8")
+    ).hexdigest()
+
+
 def replay(history: list[str]) -> str:
     measurement = bytes(48)
     for digest in history:
@@ -472,8 +486,27 @@ class PreludeHarness:
                 "report_data": echoed,
             }
 
+        def get_info(_payload):
+            # The real guest agent serves tcb_info live, so a test that
+            # mutates the event log or the RTMRs must see its mutation here;
+            # a snapshot taken at construction would silently test stale data.
+            return {
+                **self.info,
+                "tcb_info": json.dumps(
+                    {
+                        "mrtd": MEASUREMENTS["mr_td"],
+                        "rootfs_hash": "00" * 32,
+                        "rtmr0": self.rtmrs[0],
+                        "rtmr1": self.rtmrs[1],
+                        "rtmr2": self.rtmrs[2],
+                        "rtmr3": self.rtmrs[3],
+                        "event_log": self.events,
+                    }
+                ),
+            }
+
         return {
-            "Info": lambda _payload: self.info,
+            "Info": get_info,
             "GetKey": lambda _payload: {
                 "key": self.key_hex,
                 "signature_chain": ["ee" * 65, "ff" * 65],
@@ -767,7 +800,36 @@ class PreludeRefusalTests(unittest.TestCase):
         for event in self.harness.events:
             if event.get("event") == "compose-hash":
                 event["event_payload"] = "de" * 32
-        self.assertRefused(self.harness.run(), "does not hash to its recorded digest")
+        # Relabelling is caught either by the per-event digest check or, as
+        # here, by version detection finding no convention that reproduces
+        # every recorded digest.  Both are refusals and both say "relabelled".
+        self.assertRefused(self.harness.run(), "relabelled")
+
+    def test_a_v2_event_log_is_accepted(self) -> None:
+        # Phala's deployed dstack emits the V2 (RFC 8785 canonical JSON)
+        # convention.  The first real TDX run refused a genuine log because
+        # only V1 was implemented, so this pins that V2 is accepted -- and,
+        # via the independent helper above, that it is accepted for the right
+        # reason rather than because both sides share one bug.
+        for event in self.harness.events:
+            if event.get("imr") == 3:
+                event["digest"] = rtmr3_digest_v2(
+                    event["event"], event.get("event_payload", "")
+                )
+        self.harness.rtmrs[3] = replay(
+            [e["digest"] for e in self.harness.events if e["imr"] == 3]
+        )
+        self.harness.decode["report"]["TD10"]["rt_mr3"] = self.harness.rtmrs[3]
+        self.harness.appraisal = build_appraisal(self.harness.decode)
+        self.harness.policy = build_policy(
+            self.harness.dcap_sha256, rtmrs=self.harness.rtmrs
+        )
+        result = self.harness.run()
+        self.assertEqual(
+            result.returncode, 0,
+            f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}",
+        )
+        self.assertIn("digest convention: v2", result.stdout)
 
     def test_an_rtmr_the_quote_does_not_attest_is_fatal(self) -> None:
         self.harness.decode["report"]["TD10"]["rt_mr3"] = "ab" * 48
