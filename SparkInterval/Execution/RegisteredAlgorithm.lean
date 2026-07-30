@@ -17,6 +17,7 @@ import SparkInterval.Execution.HistoricalGoldbachTerminalPins
 import SparkInterval.Execution.ProductionDeploymentPins
 import SparkInterval.TernaryGoldbach.HurstSourceSemantics
 import SparkInterval.TernaryGoldbach.PsiPrimePowerCertificate
+import SparkInterval.TernaryGoldbach.RamareNativeFoldContracts
 import SparkInterval.TernaryGoldbach.Prop1224SourceSemantics
 import SparkInterval.TernaryGoldbach.R2StarSourceSemantics
 import SparkInterval.TernaryGoldbach.Sqrt218.CPUChecker.V2Adapter
@@ -94,6 +95,11 @@ inductive RegisteredAlgorithm where
   | helfgottSqrt218V1
   /-- Fixed-width V2 CPU certificate and exact SQ218R2 result envelope. -/
   | helfgottSqrt218FixedV2
+  /-- Signed fixed-point interval folds for the three Ramaré production
+  scans: the corrected first-Mertens seam and anchor through `10^8`, the four
+  Ramaré--Zúñiga Lemma 7.1 rows through `10^8`, and the `m★` product through
+  `1.4·10^8`. -/
+  | ramareProductionFoldsV1
   deriving Repr, DecidableEq, BEq
 
 namespace RegisteredAlgorithm
@@ -159,6 +165,12 @@ def ch25PsiLemma92Input : String :=
 def ramareZunigaLemma62Input : String :=
   "{\"campaign\":\"ramare-zuniga-lemma-6-2-v1\"," ++
   "\"source_lower\":1,\"source_upper_exclusive\":21000000001}"
+
+/-- Exact closed input for the three Ramaré production folds. -/
+def ramareProductionFoldsInput : String :=
+  "{\"campaign\":\"ramare-production-folds-v1\"," ++
+  "\"first_mertens_limit\":100000000,\"lemma71_limit\":100000000," ++
+  "\"mstar_limit\":140000000}"
 
 /-- Exact closed input for Helfgott Proposition 12.2.4's source-rank scan. -/
 def helfgottProp1224MpfrInput : String :=
@@ -399,6 +411,8 @@ def algorithmId : RegisteredAlgorithm → String
       "sparkinterval.ternary-goldbach.sqrt218-finite.v1"
   | .helfgottSqrt218FixedV2 =>
       "sparkinterval.ternary-goldbach.sqrt218-fixed-v2.v1"
+  | .ramareProductionFoldsV1 =>
+      "sparkinterval.ternary-goldbach.ramare-production-folds.v1"
 
 /-- Canonical, human-reviewable definition bytes whose digest is signed as
 `RunStatement.algorithmHash`.
@@ -569,6 +583,16 @@ def canonicalDefinition : RegisteredAlgorithm → String
       "semantics=complete-V2-roster-layout-log-event-fold-and-anchor-check\n" ++
       "result=false-or-canonical-ascii-exact-hex-envelope-of-120-byte-SQ218R2-record\n" ++
       "success-binding=result-state-input-length-and-input-sha256"
+  | .ramareProductionFoldsV1 =>
+      "sparkinterval.registered-algorithm.v1\n" ++
+      "name=ternary-goldbach-ramare-production-folds\n" ++
+      "producer=reference/tg_ramare_production_folds.cpp\n" ++
+      "semantics=signed-fixed-point-interval-folds-with-exact-integer-guards\n" ++
+      "first-mertens-range=[144913,100000000]\n" ++
+      "lemma71-range=[1,100000000]\n" ++
+      "mstar-range=[2,140000000]\n" ++
+      "scales=2^48-first-mertens,2^32-lemma71,2^96-mstar-product\n" ++
+      "output=false-or-true-with-finite-fold-evidence"
 
 /-- Source-reviewed protocol digest of the fixed algorithm definition.
 
@@ -608,6 +632,8 @@ def algorithmHash (algorithm : RegisteredAlgorithm) : Digest :=
       "cd24ed4d5f0ee907d28c27dd5aadededeb80e5497024c3e256352ea2fddfd4c5"
   | .helfgottSqrt218FixedV2 =>
       "cefa3f3eccfc3505923d1c37f600766127473a1a8a097b2e9097cede014011d6"
+  | .ramareProductionFoldsV1 =>
+      "9f5ffa335e068542b0838ee221626c8b4c4bb8cc0c8bb0e4b13c6c41f4fcc099"
 
 /-- Executable audit check for the source-reviewed algorithm digest.  The
 closed invocation selector includes this check through
@@ -691,6 +717,11 @@ def canonicalParameters : RegisteredAlgorithm → String
       "{\"certificate_format\":\"SQ218V2\",\"certificate_version\":2," ++
       "\"result_bytes\":120,\"result_envelope\":\"canonical-lower-hex\"," ++
       "\"result_format\":\"SQ218R2\"}"
+  | .ramareProductionFoldsV1 =>
+      "{\"first_mertens_scale_bits\":48,\"lemma71_scale_bits\":32," ++
+      "\"mstar_product_scale_bits\":96," ++
+      "\"replay\":\"independent-two-pass\"," ++
+      "\"row_domain\":\"sparkinterval.tg.ramare-production-fold-rows.v1\"}"
 
 /-- Canonical domain bytes bound by the signed statement. -/
 def canonicalDomain : RegisteredAlgorithm → String
@@ -772,6 +803,15 @@ def canonicalDomain : RegisteredAlgorithm → String
       "\"head_lower\":1,\"head_upper\":2000000," ++
       "\"input_identity\":\"reviewed-byte-length-and-sha256\"," ++
       "\"strict\":true}"
+  | .ramareProductionFoldsV1 =>
+      "{\"claim\":\"ramare-production-folds-source\"," ++
+      "\"first_mertens_anchor_denominator\":10000," ++
+      "\"first_mertens_anchor_numerator\":4," ++
+      "\"first_mertens_lower\":144913,\"first_mertens_upper\":100000000," ++
+      "\"lemma71_limits\":[462848,1000000,10000000,100000000]," ++
+      "\"lemma71_numerators\":[374,422,579,762]," ++
+      "\"mstar_lower\":2,\"mstar_upper\":140000000," ++
+      "\"seam_denominator\":1000,\"seam_numerator\":5}"
 
 /-- Source-reviewed SHA-256 of `canonicalParameters`. -/
 def canonicalParametersHash : RegisteredAlgorithm → Digest
@@ -805,6 +845,8 @@ def canonicalParametersHash : RegisteredAlgorithm → Digest
       "389a9a946df89008639edffb01f66f34ffdf86ace00098791bac81c774d9c502"
   | .helfgottSqrt218FixedV2 =>
       "11a8b0f784e4846b10c46669d04d349ba13640c08ba782fe0ac1450246ab379f"
+  | .ramareProductionFoldsV1 =>
+      "4c2bfc7fefa0e9c33c8877c52107a8f8fdcc2f1289ab0e25e8d9d6e7bdfb4481"
 
 /-- Source-reviewed SHA-256 of `canonicalDomain`. -/
 def canonicalDomainHash : RegisteredAlgorithm → Digest
@@ -838,6 +880,8 @@ def canonicalDomainHash : RegisteredAlgorithm → Digest
       "44ba1f2b13b8cdbb3422d1ca674d95531e6c6ffe4e07652a969652d9c0ac120f"
   | .helfgottSqrt218FixedV2 =>
       "e27ff5ea0864cfbaa3a2618bcc6e79ff82ad0767c74473e8f88bef9670d6ecc9"
+  | .ramareProductionFoldsV1 =>
+      "e57d9903f117e68dce0db4fa223eae103a599c4ccd31735c4487ccec129fcff4"
 
 /-- Executable audit check for parameter/domain protocol digests. -/
 def metadataHashesDiagnosticCheck (algorithm : RegisteredAlgorithm) : Bool :=
@@ -983,6 +1027,12 @@ def Runs : RegisteredAlgorithm → String → String → Prop
   | .helfgottSqrt218FixedV2, input, output =>
       output = "false" ∨
         helfgottSqrt218FixedV2Success input output
+  | .ramareProductionFoldsV1, input, output =>
+      input = ramareProductionFoldsInput ∧
+        (output = "false" ∨
+          output = "true" ∧
+            Nonempty
+              SparkInterval.TernaryGoldbach.RamareNativeFoldContracts.FiniteFoldEvidence)
 
 /-- Extract exact typed operational success from the successful Sqrt218 branch.
 
@@ -1198,6 +1248,8 @@ inductive RegisteredInvocation where
   | helfgottSqrt218ProductionV1
   /-- Fixed-width V2 CPU certificate with an exact SQ218R2 result record. -/
   | helfgottSqrt218FixedProductionV2
+  /-- Azure CPU replay of the three Ramaré production interval folds. -/
+  | ramareProductionFoldsProductionV1
   deriving Repr, DecidableEq, BEq
 
 namespace RegisteredInvocation
@@ -1219,6 +1271,7 @@ def algorithm : RegisteredInvocation → RegisteredAlgorithm
   | .goldbach10Pow27ProductionV1 => .goldbach10Pow27V1
   | .helfgottSqrt218ProductionV1 => .helfgottSqrt218V1
   | .helfgottSqrt218FixedProductionV2 => .helfgottSqrt218FixedV2
+  | .ramareProductionFoldsProductionV1 => .ramareProductionFoldsV1
 
 /-- Exact canonical input selected by a closed invocation.
 
@@ -1259,6 +1312,8 @@ def canonicalInput : RegisteredInvocation → String
       match helfgottSqrt218FixedV2ProductionDeployment with
       | none => ""
       | some reviewed => reviewed.certificateSHA256
+  | .ramareProductionFoldsProductionV1 =>
+      RegisteredAlgorithm.ramareProductionFoldsInput
 
 /-- Source-reviewed SHA-256 of the closed invocation input.
 
@@ -1297,6 +1352,8 @@ def canonicalInputHash : RegisteredInvocation → Digest
       match helfgottSqrt218FixedV2ProductionDeployment with
       | none => ""
       | some reviewed => reviewed.certificateSHA256
+  | .ramareProductionFoldsProductionV1 =>
+      "3535d4ae8a9a1073b7aedd66c900de77abfbc0519d96fcaa89242a0bc638c629"
 
 /-- Executable audit check for the source-reviewed input digest. -/
 def inputHashDiagnosticCheck (invocation : RegisteredInvocation) : Bool :=
@@ -1370,6 +1427,9 @@ def deploymentCheck (invocation : RegisteredInvocation)
   | .helfgottSqrt218FixedProductionV2 =>
       statement.target == .azureSEVSNPCPU &&
         statement.trust == .azureSEVSNPConfidentialCompute
+  | .ramareProductionFoldsProductionV1 =>
+      statement.target == .azureSEVSNPCPU &&
+        statement.trust == .azureSEVSNPConfidentialCompute
 
 /-- Bind profile and artifact hashes when a closed production invocation has
 post-run reviewed pins.
@@ -1426,6 +1486,9 @@ def artifactCheck (invocation : RegisteredInvocation)
   | .helfgottSqrt218FixedProductionV2 =>
       reviewedSqrt218FixedV2DeploymentCheck
         helfgottSqrt218FixedV2ProductionDeployment statement
+  | .ramareProductionFoldsProductionV1 =>
+      reviewedProductionDeploymentCheck
+        ramareProductionFoldsProductionDeployment statement
   | .cubicSumDivThree20000V1
   | .h100FormalPtxConstantOneV1 => true
 
@@ -1474,6 +1537,9 @@ def receiptCheck (invocation : RegisteredInvocation)
   | .helfgottSqrt218FixedProductionV2 =>
       reviewedSqrt218FixedV2ReceiptCheck
         helfgottSqrt218FixedV2ProductionDeployment attestation
+  | .ramareProductionFoldsProductionV1 =>
+      reviewedProductionReceiptCheck
+        ramareProductionFoldsProductionDeployment attestation
   | .cubicSumDivThree20000V1
   | .h100FormalPtxConstantOneV1 => true
 
@@ -1523,6 +1589,8 @@ def ResultAllowed : RegisteredInvocation → String → Prop
   | .helfgottSqrt218FixedProductionV2, output =>
       output = "false" ∨
         sqrt218FixedV2AcceptedResultCheck output = true
+  | .ramareProductionFoldsProductionV1, output =>
+      output = "false" ∨ output = "true"
 
 /-- The closed result language is decidable constructor by constructor. -/
 instance instDecidableResultAllowed
@@ -1666,6 +1734,9 @@ def Runs : RegisteredInvocation → String → Prop
       RegisteredAlgorithm.helfgottSqrt218FixedV2.Runs
         RegisteredInvocation.helfgottSqrt218FixedProductionV2.canonicalInput
         output
+  | .ramareProductionFoldsProductionV1, output =>
+      RegisteredAlgorithm.ramareProductionFoldsV1.Runs
+        RegisteredAlgorithm.ramareProductionFoldsInput output
 
 /-- Every result satisfying the fixed execution relation belongs to the
 invocation's canonical result language.  This theorem is axiom-free and makes
@@ -1716,6 +1787,8 @@ theorem resultAllowed_of_runs {invocation : RegisteredInvocation}
             hrun, hcomplete, hresult, haccepted, hresultBytes,
             hresultDigest, hresultState⟩
         simpa [sqrt218FixedV2AcceptedResultCheck, hresult] using haccepted
+  | ramareProductionFoldsProductionV1 =>
+      exact run.2.imp id And.left
 
 theorem statementCheck_sound {invocation : RegisteredInvocation}
     {statement : RunStatement}
@@ -1949,6 +2022,8 @@ theorem runs_satisfiable (invocation : RegisteredInvocation) :
       exact ⟨"false", rfl, Or.inl rfl⟩
   | helfgottSqrt218FixedProductionV2 =>
       exact ⟨"false", Or.inl rfl⟩
+  | ramareProductionFoldsProductionV1 =>
+      exact ⟨"false", rfl, Or.inl rfl⟩
 
 /-- The closed tutorial invocation can return only its one exact canonical
 result string. -/
@@ -2284,6 +2359,29 @@ theorem helfgottSqrt218ProductionV1_operationalSuccess
       SparkInterval.TernaryGoldbach.Sqrt218Operational.run
         RegisteredAlgorithm.helfgottSqrt218ProductionProfile archive = true :=
   RegisteredAlgorithm.helfgottSqrt218_operationalSuccess_of_runs run houtput
+
+/-- A successful registered Ramaré production-fold run yields all three
+source-shaped real claims replaced by this campaign: the corrected
+first-Mertens seam and anchor through `10^8`, the four Ramaré--Zúñiga
+Lemma 7.1 rows, and the `m★` product bound through `1.4·10^8`.
+
+The success relation admits only `FiniteFoldEvidence`: signed integer interval
+states and increments, exact fold recurrences, local increment realizations,
+and integer guard comparisons.  It has no source-claim field, so an accepted
+receipt cannot assert a real inequality directly; the three claims are derived
+by ordinary Lean induction in `RamareNativeFoldContracts`. -/
+theorem ramareProductionFoldsProductionV1_sourceClaims
+    {output : String}
+    (run : RegisteredInvocation.ramareProductionFoldsProductionV1.Runs output)
+    (houtput : output = "true") :
+    SparkInterval.TernaryGoldbach.RamareNativeFoldContracts.SourceClaims := by
+  rcases run.2 with hfailed | hsuccess
+  · rw [houtput] at hfailed
+    contradiction
+  · rcases hsuccess with ⟨_, ⟨evidence⟩⟩
+    exact
+      SparkInterval.TernaryGoldbach.RamareNativeFoldContracts.sourceClaims_of_finiteFoldEvidence
+        evidence
 
 end RegisteredInvocation
 

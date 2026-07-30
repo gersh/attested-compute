@@ -147,6 +147,11 @@ def ch25PsiLemma92ProductionDeployment :
 def ramareZunigaLemma62ProductionDeployment :
     Option ReviewedProductionDeployment := none
 
+/-- No Ramaré production-fold campaign has been run, reviewed, or accepted.
+`none` fails every deployment and receipt check closed. -/
+def ramareProductionFoldsProductionDeployment :
+    Option ReviewedProductionDeployment := none
+
 def helfgottProp1224ProductionDeployment :
     Option ReviewedProductionDeployment := none
 
