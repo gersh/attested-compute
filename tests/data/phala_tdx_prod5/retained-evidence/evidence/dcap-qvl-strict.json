@@ -1,0 +1,5 @@
+{
+  "exit_status": 1,
+  "passed": false,
+  "stderr": "Getting collateral from https://pccs.phala.network...\nError: Failed to verify quote\n\nCaused by:\n    0: Strict policy validation failed\n    1: Dynamic platform is not allowed by policy\n"
+}

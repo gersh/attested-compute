@@ -1,0 +1,98 @@
+# syntax=docker/dockerfile:1.7
+#
+# Copyright (c) 2026 Gershon Bialer. All rights reserved.
+# SPDX-License-Identifier: MIT
+#
+# Campaign image for a *chained* leancompcert CompCert campaign, packaged to
+# run as a dstack application inside an Intel TDX confidential VM.
+#
+# What it contains, and what it does not
+# --------------------------------------
+# There is **no analytic stack** in this image: no python-flint, no FLINT, no
+# Arb, no numpy, no compiled bytecode of `tg_verifier`.  The mathematics is
+# done by a directory of statically linked, freestanding, CompCert-compiled
+# x86_64 executables that call no library at all -- not even libc.
+#
+# Python is still here, and that is not an oversight.  The attestation half of
+# the run -- talking HTTP to `/var/run/dstack.sock` to derive the P-256 key,
+# fetching the TDX quote, running the pinned `dcap-qvl` appraiser, replaying
+# the RTMR3 event log, and signing with RFC-6979 P-256 -- is I/O and key
+# material.  A leancompcert `Program` is a closed u64 computation with no I/O,
+# no sockets and no keys, so none of that can become an artifact.  The prelude
+# uses the Python standard library only; nothing is installed with `pip`.
+#
+# The artifacts are COPIED IN, never built here.  Building them inside the
+# image would put `ccomp`, the Lean toolchain and a C library into the
+# measured image, and would make the image digest depend on a compiler run
+# rather than on reviewed bytes.  They are built on a reviewed host by
+# `proof_build/leancompcert_tdx/build_seg_campaign.py`, and the digest of the
+# manifest that names every one of them is what `algorithmHash` commits to.
+#
+# Base image pin: `python:3.12-slim` linux/amd64, resolved 2026-07-30.
+# Replacing this digest is a review event.
+
+FROM --platform=linux/amd64 docker.io/library/python@sha256:cab2dbf575e971934a81e4622f5aba17aa7929719bd7e31033a3a83b97fd0464
+
+# The SHA-256 of `campaign-manifest.txt`.  It is checked at build time and
+# again inside the TD before any artifact runs.  It is the same literal that
+# appears as `manifest-sha256` in the registered algorithm's
+# `canonicalDefinition`, so a substituted campaign changes `algorithmHash` and
+# the Lean acceptance check refuses.
+ARG TG_MANIFEST_SHA256=REPLACE-WITH-64-HEX-MANIFEST-DIGEST
+ARG TG_CAMPAIGN_NAME=REPLACE-WITH-CAMPAIGN-NAME
+
+RUN install -d -m 0755 /opt/sparkinterval /opt/sparkinterval/tools \
+        /opt/sparkinterval/tg_verifier /opt/sparkinterval/specifications
+
+# The campaign: one manifest, one directory of freestanding artifacts, and
+# the emitted C they were compiled from.  The C is carried so that the image
+# itself exhibits the preimage of every `cSha256` in the manifest; it is never
+# executed and never compiled inside the TD.
+COPY campaign/campaign-manifest.txt /opt/sparkinterval/campaign/campaign-manifest.txt
+COPY campaign/canonical-definition.txt /opt/sparkinterval/campaign/canonical-definition.txt
+COPY --chmod=0555 campaign/bin/ /opt/sparkinterval/campaign/bin/
+COPY campaign/c/ /opt/sparkinterval/campaign/c/
+
+RUN printf '%s  %s\n' "${TG_MANIFEST_SHA256}" \
+        /opt/sparkinterval/campaign/campaign-manifest.txt \
+    | sha256sum --check --strict
+
+# Exactly the receipt machinery and the campaign pre-check, and nothing
+# analytic.  `phala_tdx_receipt.py` is the canonical signed payload, the
+# report-data preimage, and the RFC-6979 P-256 signer; it is shared verbatim
+# with the A.7 image so that one Lean verifier accepts both.
+COPY tg_verifier/__init__.py tg_verifier/phala_tdx_receipt.py \
+    /opt/sparkinterval/tg_verifier/
+COPY tools/tg_seg_campaign_check.py /opt/sparkinterval/tg_seg_campaign_check.py
+COPY proof_build/leancompcert_tdx/run_seg_campaign.sh \
+    /opt/sparkinterval/run_seg_campaign.sh
+COPY proof_build/ch25_a7_phala_tdx/prelude_phala_tdx_inputs.py \
+    /opt/sparkinterval/prelude_phala_tdx_inputs.py
+COPY proof_build/ch25_a7_phala_tdx/emit_phala_tdx_evidence.py \
+    /opt/sparkinterval/emit_phala_tdx_evidence.py
+
+# The build-host pre-check runs the same routine the TD will run, so an image
+# that would fail inside the enclave fails here instead.
+RUN python3 /opt/sparkinterval/tg_seg_campaign_check.py \
+        --campaign-root /opt/sparkinterval/campaign
+
+RUN chmod 0555 /opt/sparkinterval/run_seg_campaign.sh \
+    && chmod 0444 /opt/sparkinterval/prelude_phala_tdx_inputs.py \
+        /opt/sparkinterval/emit_phala_tdx_evidence.py \
+        /opt/sparkinterval/tg_seg_campaign_check.py \
+    && find /opt/sparkinterval/tg_verifier /opt/sparkinterval/campaign/c \
+        -type f -exec chmod 0444 {} + \
+    && chmod 0444 /opt/sparkinterval/campaign/campaign-manifest.txt \
+        /opt/sparkinterval/campaign/canonical-definition.txt
+
+ENV PYTHONPATH="/opt/sparkinterval"
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONHASHSEED=0
+ENV TG_CAMPAIGN_ROOT="/opt/sparkinterval/campaign"
+ENV TG_CAMPAIGN_CHECKER="/opt/sparkinterval/tg_seg_campaign_check.py"
+ENV TG_MANIFEST_SHA256="${TG_MANIFEST_SHA256}"
+ENV TG_CAMPAIGN_NAME="${TG_CAMPAIGN_NAME}"
+ENV TG_PHALA_TDX_KEY_DERIVER="/opt/sparkinterval/prelude_phala_tdx_inputs.py"
+
+WORKDIR /workspace
+ENTRYPOINT ["/opt/sparkinterval/run_seg_campaign.sh"]

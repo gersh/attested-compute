@@ -1,0 +1,4 @@
+NOT-A-TDX-QUOTE. This file exists so the local dry run has something to hash
+in the place where a real Intel TDX quote goes. It is not a quote, it was not
+produced by any TDX hardware, and no dcap-qvl appraisal of it exists.
+sparkinterval.phala-tdx.local-dry-run.placeholder-quote.v1

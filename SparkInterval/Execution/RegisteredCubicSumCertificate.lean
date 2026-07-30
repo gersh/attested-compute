@@ -1,4 +1,4 @@
-import SparkInterval.Execution.SignedResultCertificateComposition
+import SparkInterval.Execution.RegisteredCampaignCertificate
 
 /-!
 # End-to-end registered computation certificate example
@@ -17,6 +17,12 @@ then recover the exact output and mathematical equality.
 No 20,001-row result certificate, `native_decide`, or evaluation of 20,001
 summands is required.  The arithmetic theorem uses the symbolic sum-of-cubes
 identity proved in `RegisteredAlgorithm`.
+
+This campaign is an instantiation of the generic layer in
+`SparkInterval.Execution.RegisteredCampaignCertificate`.  Unlike the exact-
+output campaigns it needs no textual expectation in the application check,
+because the registered `Runs` relation already pins the returned bytes; that
+is exactly the `certifyDerivedRun` entry point.
 -/
 
 set_option autoImplicit false
@@ -80,21 +86,22 @@ theorem certifyCubicSumDivThree20000
     (hcheck : certificate.outcomeCheckForRegisteredInvocation
       cubicSumDivThree20000Invocation = true) :
     CertifiedCubicSumDivThree20000 certificate := by
-  have certified :=
-    outcomeCheckForRegisteredInvocation_sound hcheck
-  have hresult :=
-    RegisteredInvocation.cubicSumDivThree20000V1_result certified.run
-  have hexecution := certified.outcome.execution
-  rw [hresult.1] at hexecution
+  have run : CertifiedRun certificate cubicSumDivThree20000Invocation
+      cubicSumDivThree20000Output :=
+    certifyDerivedRun
+      (fun hrun => (RegisteredInvocation.cubicSumDivThree20000V1_result hrun).1)
+      hcheck
+  have hcomputation :=
+    (RegisteredInvocation.cubicSumDivThree20000V1_result run.certified.run).2
   exact {
-    certified := certified
-    resultCertificate_eq := hresult.1
-    statementResult_eq := certified.outcome.binding.1.trans hresult.1
-    execution := hexecution
+    certified := run.certified
+    resultCertificate_eq := run.resultCertificate_eq
+    statementResult_eq := run.statementResult_eq
+    execution := run.execution
     operationalResult := RegisteredAlgorithm.cubicSumDivThreeMachine_20000
     operationalSound :=
       RegisteredAlgorithm.cubicSumDivThreeMachine_sound_20000
-    computation := hresult.2
+    computation := hcomputation
     accumulatorFitsU64 := RegisteredAlgorithm.cubicNumeratorLoop_lt_u64
     squareFitsU64 := RegisteredAlgorithm.square_lt_u64
     cubeFitsU64 := RegisteredAlgorithm.cube_lt_u64

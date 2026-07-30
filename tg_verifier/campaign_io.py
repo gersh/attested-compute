@@ -202,6 +202,226 @@ def require_azure_measured_worker_for_workload(
     )
 
 
+# ---------------------------------------------------------------------------
+# Phala/dstack Intel TDX acceptance route
+#
+# This is a SEPARATE, EXPLICITLY NAMED acceptance path.  It shares no code,
+# no environment variable, no scope string, and no exception type with the
+# Azure route above, and it never calls -- and is never called by -- any
+# ``require_azure_measured_worker*`` function.  A defect confined to the
+# functions below therefore cannot admit a job that the Azure route would
+# have rejected: an Azure workload CLI does not import them.
+#
+# Neither route is attestation evidence.  Both are execution-scope guards
+# that stop production arithmetic from being dispatched by accident.  For the
+# TDX route the security evidence is the retained Intel TDX quote, its
+# external ``dcap-qvl`` appraisal, and the enclave-signed receipt.
+# ---------------------------------------------------------------------------
+
+PHALA_TDX_WORKER_SCOPE = "sparkinterval.phala-tdx-measured-worker.v1"
+PHALA_TDX_WORKER_SCOPE_ENV = "SPARKINTERVAL_PHALA_TDX_WORKER_SCOPE"
+PHALA_TDX_WORKER_BACKEND_ENV = "SPARKINTERVAL_PHALA_TDX_WORKER_BACKEND"
+PHALA_TDX_WORKER_CHALLENGE_ENV = (
+    "SPARKINTERVAL_PHALA_TDX_WORKER_CHALLENGE_NONCE"
+)
+PHALA_TDX_WORKER_JOB_BINDING_ENV = (
+    "SPARKINTERVAL_PHALA_TDX_WORKER_JOB_BINDING_SHA256"
+)
+PHALA_TDX_WORKER_APP_ID_ENV = "SPARKINTERVAL_PHALA_TDX_WORKER_APP_ID"
+PHALA_TDX_WORKER_COMPOSE_HASH_ENV = (
+    "SPARKINTERVAL_PHALA_TDX_WORKER_COMPOSE_HASH"
+)
+PHALA_TDX_WORKER_BACKENDS = frozenset({"phala_dstack_tdx_cpu"})
+PHALA_TDX_WORKER_ENVIRONMENT_KEYS = frozenset(
+    {
+        PHALA_TDX_WORKER_SCOPE_ENV,
+        PHALA_TDX_WORKER_BACKEND_ENV,
+        PHALA_TDX_WORKER_CHALLENGE_ENV,
+        PHALA_TDX_WORKER_JOB_BINDING_ENV,
+        PHALA_TDX_WORKER_APP_ID_ENV,
+        PHALA_TDX_WORKER_COMPOSE_HASH_ENV,
+    }
+)
+
+
+class PhalaTdxWorkerScopeError(CampaignIOError):
+    """A production workload escaped its Phala/dstack TDX job scope."""
+
+
+def _phala_tdx_lower_hex(value: object, length: int, what: str) -> str:
+    if (
+        not isinstance(value, str)
+        or len(value) != length
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise PhalaTdxWorkerScopeError(
+            f"{what} must be {length} lowercase hexadecimal digits"
+        )
+    return value
+
+
+def phala_tdx_worker_environment(
+    environment: dict[str, str],
+    *,
+    backend: str,
+    challenge_nonce: str,
+    job_binding: str,
+    app_id: str,
+    compose_hash: str,
+) -> dict[str, str]:
+    """Return the exact environment for one Phala/dstack TDX campaign job.
+
+    These variables are written by the dstack app-compose entry point after
+    the launcher has fixed the campaign challenge, the job binding, the
+    dstack application identity, and the app-compose hash that the TDX quote
+    measures.  A job may not preseed them.
+    """
+
+    if not isinstance(environment, dict) or any(
+        not isinstance(key, str) or not isinstance(value, str)
+        for key, value in environment.items()
+    ):
+        raise PhalaTdxWorkerScopeError(
+            "TDX job environment must map strings to strings"
+        )
+    overlap = PHALA_TDX_WORKER_ENVIRONMENT_KEYS.intersection(environment)
+    if overlap:
+        raise PhalaTdxWorkerScopeError(
+            "job environment attempts to set launcher-reserved TDX scope: "
+            + ", ".join(sorted(overlap))
+        )
+    azure_overlap = AZURE_MEASURED_WORKER_ENVIRONMENT_KEYS.intersection(
+        environment
+    )
+    if azure_overlap:
+        raise PhalaTdxWorkerScopeError(
+            "TDX job environment must not carry Azure measured-runner scope: "
+            + ", ".join(sorted(azure_overlap))
+        )
+    if backend not in PHALA_TDX_WORKER_BACKENDS:
+        raise PhalaTdxWorkerScopeError(
+            f"unsupported Phala TDX worker backend: {backend!r}"
+        )
+    challenge = _phala_tdx_lower_hex(challenge_nonce, 64, "challenge nonce")
+    binding = _phala_tdx_lower_hex(job_binding, 64, "job binding")
+    application = _phala_tdx_lower_hex(app_id, 40, "dstack app id")
+    compose = _phala_tdx_lower_hex(compose_hash, 64, "app-compose hash")
+    return {
+        **environment,
+        PHALA_TDX_WORKER_SCOPE_ENV: PHALA_TDX_WORKER_SCOPE,
+        PHALA_TDX_WORKER_BACKEND_ENV: backend,
+        PHALA_TDX_WORKER_CHALLENGE_ENV: challenge,
+        PHALA_TDX_WORKER_JOB_BINDING_ENV: binding,
+        PHALA_TDX_WORKER_APP_ID_ENV: application,
+        PHALA_TDX_WORKER_COMPOSE_HASH_ENV: compose,
+    }
+
+
+def require_phala_tdx_worker(
+    *,
+    challenge_nonce: str,
+    job_binding: str,
+    environment: dict[str, str] | None = None,
+) -> dict[str, str]:
+    """Fail closed unless this call is the dstack-bound TDX campaign job.
+
+    Returns the accepted backend, dstack application id, and app-compose hash
+    so the caller can bind them into the enclave-signed receipt.  This
+    function never inspects, and never falls back to, the Azure
+    measured-runner variables: a TDX job that carries Azure runner scope is
+    rejected outright rather than silently accepted by either route.
+    """
+
+    challenge = _phala_tdx_lower_hex(challenge_nonce, 64, "challenge nonce")
+    binding = _phala_tdx_lower_hex(job_binding, 64, "job binding")
+    actual = os.environ if environment is None else environment
+    mixed = AZURE_MEASURED_WORKER_ENVIRONMENT_KEYS.intersection(actual)
+    if mixed:
+        raise PhalaTdxWorkerScopeError(
+            "refusing a mixed-scope job: Azure measured-runner variables are "
+            "present in a Phala TDX job: " + ", ".join(sorted(mixed))
+        )
+    expected = {
+        PHALA_TDX_WORKER_SCOPE_ENV: PHALA_TDX_WORKER_SCOPE,
+        PHALA_TDX_WORKER_CHALLENGE_ENV: challenge,
+        PHALA_TDX_WORKER_JOB_BINDING_ENV: binding,
+    }
+    for key, value in expected.items():
+        if actual.get(key) != value:
+            raise PhalaTdxWorkerScopeError(
+                "production arithmetic/replay is enclave-only: the exact "
+                f"dstack TDX job binding is absent or mismatched ({key})"
+            )
+    backend = actual.get(PHALA_TDX_WORKER_BACKEND_ENV)
+    if backend not in PHALA_TDX_WORKER_BACKENDS:
+        raise PhalaTdxWorkerScopeError(
+            "production arithmetic/replay is enclave-only: Phala TDX worker "
+            "backend is absent or unsupported"
+        )
+    return {
+        "backend": backend,
+        "app_id": _phala_tdx_lower_hex(
+            actual.get(PHALA_TDX_WORKER_APP_ID_ENV), 40, "dstack app id"
+        ),
+        "compose_hash": _phala_tdx_lower_hex(
+            actual.get(PHALA_TDX_WORKER_COMPOSE_HASH_ENV),
+            64,
+            "app-compose hash",
+        ),
+        "challenge_nonce": challenge,
+        "job_binding": binding,
+    }
+
+
+def require_phala_tdx_worker_for_workload(
+    *,
+    exact_production: bool,
+    work_bounds: tuple[int, ...],
+    environment: dict[str, str] | None = None,
+) -> dict[str, str] | None:
+    """Keep production and non-tiny finite work inside a dstack TDX job.
+
+    The local-KAT allowance matches the Azure route's rule -- a non-production
+    known-answer test whose every declared finite bound is at most
+    ``LOCAL_KAT_MAX_WORK_ITEMS`` needs no enclave -- but the rule is restated
+    here rather than shared, so that changing one route can never change the
+    other.
+    """
+
+    if not isinstance(exact_production, bool):
+        raise PhalaTdxWorkerScopeError("exact_production must be Boolean")
+    if not isinstance(work_bounds, tuple) or any(
+        isinstance(bound, bool) or not isinstance(bound, int) or bound < 0
+        for bound in work_bounds
+    ):
+        raise PhalaTdxWorkerScopeError(
+            "finite workload bounds must be nonnegative integers"
+        )
+    if not exact_production and not work_bounds:
+        raise PhalaTdxWorkerScopeError(
+            "non-production arithmetic must declare at least one finite "
+            "workload bound"
+        )
+    if not exact_production and all(
+        bound <= LOCAL_KAT_MAX_WORK_ITEMS for bound in work_bounds
+    ):
+        return None
+
+    actual = os.environ if environment is None else environment
+    challenge = actual.get(PHALA_TDX_WORKER_CHALLENGE_ENV)
+    binding = actual.get(PHALA_TDX_WORKER_JOB_BINDING_ENV)
+    if not isinstance(challenge, str) or not isinstance(binding, str):
+        raise PhalaTdxWorkerScopeError(
+            "production arithmetic/replay is enclave-only: dstack TDX "
+            "challenge or job binding is absent"
+        )
+    return require_phala_tdx_worker(
+        challenge_nonce=challenge,
+        job_binding=binding,
+        environment=actual,
+    )
+
+
 def _object_without_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:

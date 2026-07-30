@@ -1,7 +1,7 @@
 /- Copyright (c) 2026 Gershon Bialer. All rights reserved.
 SPDX-License-Identifier: MIT -/
 
-import SparkInterval.Execution.SignedResultCertificateComposition
+import SparkInterval.Execution.RegisteredCampaignCertificate
 import SparkInterval.TernaryGoldbach.A7BoundarySuccessEvidence
 
 /-!
@@ -13,6 +13,12 @@ registered program may return `false`, which proves nothing. A successful
 relation retains one exact checked seven-field transcript and its
 `AnalyticRealization`, the explicit FLINT/Arb-to-Mathlib-zeta refinement
 obligation.
+
+This campaign is an instantiation of the generic layer in
+`SparkInterval.Execution.RegisteredCampaignCertificate`: the check is
+`productionCheck` at this invocation and output, and the shared conclusions
+come from `certifyRun`.  Only the campaign-specific `sourceClaim` field is
+named here.
 -/
 
 set_option autoImplicit false
@@ -31,9 +37,8 @@ namespace SignedResultCertificate
 /-- Fail-closed application check for the exact successful A.7 replay. -/
 def ch25A7BoundaryProductionCheck
     (certificate : SignedResultCertificate) : Bool :=
-  certificate.outcomeCheckForRegisteredInvocation
-      ch25A7BoundaryProductionInvocation &&
-    certificate.resultCertificate == ch25A7BoundarySuccessOutput
+  certificate.productionCheck ch25A7BoundaryProductionInvocation
+    ch25A7BoundarySuccessOutput
 
 end SignedResultCertificate
 
@@ -58,24 +63,15 @@ bound are ordinary Lean theorems. -/
 theorem certifyCH25A7Boundary
     {certificate : SignedResultCertificate}
     (hcheck : certificate.ch25A7BoundaryProductionCheck = true) :
-    CertifiedCH25A7Boundary certificate := by
-  simp only [ch25A7BoundaryProductionCheck, Bool.and_eq_true] at hcheck
-  have certified := outcomeCheckForRegisteredInvocation_sound hcheck.1
-  have houtput :
-      certificate.resultCertificate = ch25A7BoundarySuccessOutput := by
-    simpa using hcheck.2
-  have hsource :=
-    RegisteredInvocation.ch25A7BoundaryProductionV1_sourceClaim
-      certified.run houtput
-  have hexecution := certified.outcome.execution
-  rw [houtput] at hexecution
-  exact {
-    certified := certified
-    resultCertificate_eq := houtput
-    statementResult_eq := certified.outcome.binding.1.trans houtput
-    execution := hexecution
-    sourceClaim := hsource
-  }
+    CertifiedCH25A7Boundary certificate :=
+  let run : CertifiedRun certificate ch25A7BoundaryProductionInvocation
+      ch25A7BoundarySuccessOutput := certifyRun hcheck
+  { certified := run.certified
+    resultCertificate_eq := run.resultCertificate_eq
+    statementResult_eq := run.statementResult_eq
+    execution := run.execution
+    sourceClaim :=
+      run.claim RegisteredInvocation.ch25A7BoundaryProductionV1_sourceClaim }
 
 end SignedResultCertificate
 

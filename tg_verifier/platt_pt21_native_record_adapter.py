@@ -71,7 +71,13 @@ from tg_verifier.platt_stationary_trace import (
     PT21StationaryTraceError,
     validate as validate_stationary_trace,
 )
+from tg_verifier.platt_pt21_native_artifact_fastpath import (
+    NativeArtifactSession,
+    PT21NativeArtifactFastpathError,
+    build_block_artifact_native,
+)
 from tg_verifier.platt_pt21_native_scan_fastpath import (
+    EXPECTED_PACKET_BYTES as NATIVE_EXPECTED_PACKET_BYTES,
     NativePacketScan,
     NativeScanSession,
     PT21NativeScanFastpathError,
@@ -390,8 +396,9 @@ def adapt_block(
         stationary_trace=stationary_trace,
         turing_inputs=turing_inputs,
         worker=identity,
-        artifact_builder=lambda trace_path: build_block_artifact_from_packet(
-            packet, trace_path
+        artifact_builder=lambda trace_path, _trace_raw: (
+            build_block_artifact_from_packet(packet, trace_path),
+            None,
         ),
     )
 
@@ -403,9 +410,16 @@ def _adapt_validated_packet(
     stationary_trace: Path,
     turing_inputs: Path,
     worker: WorkerIdentity,
-    artifact_builder: Callable[[Path], dict[str, object]],
+    artifact_builder: Callable[
+        [Path, bytes], tuple[dict[str, object], bytes | None]
+    ],
 ) -> AdaptedBlock:
-    """Shared exact Turing/artifact/record tail after packet scan replay."""
+    """Shared exact Turing/artifact/record tail after packet scan replay.
+
+    ``artifact_builder`` returns the decoded artifact and, when the producer
+    already holds the canonical wire bytes, those exact bytes.  Returning
+    ``None`` keeps the reference behaviour of re-serialising here.
+    """
 
     block_delta = window_center - (SOURCE_LOWER + SOURCE_HALF_STEP)
     if block_delta < 0 or block_delta % SOURCE_STEP:
@@ -463,7 +477,7 @@ def _adapt_validated_packet(
         trace_path = Path(temporary) / "source-trace.json"
         trace_path.write_bytes(trace_raw)
         try:
-            artifact = artifact_builder(trace_path)
+            artifact, prebuilt_raw = artifact_builder(trace_path, trace_raw)
         except (OSError, PT21FusedArtifactError) as error:
             raise PT21NativeRecordAdapterError(
                 f"fused block reconstruction failed: {error}"
@@ -477,7 +491,13 @@ def _adapt_validated_packet(
             "fused block reconstruction changed its bound identities"
         )
 
-    artifact_raw = _canonical(artifact) + b"\n"
+    if prebuilt_raw is None:
+        artifact_raw = _canonical(artifact) + b"\n"
+    else:
+        # The producer supplied canonical bytes; the decoded value above was
+        # parsed from exactly these bytes, so re-serialising them would be a
+        # second copy of the same canonical form.
+        artifact_raw = prebuilt_raw
     lower_count = int(artifact["turing"]["lower"]["count"])
     upper_count = int(artifact["turing"]["upper"]["count"])
     main_slots = len(artifact["streams"]["main"]["brackets"])
@@ -605,7 +625,7 @@ def _adapt_block_from_validated_native_scan(
         stationary_trace=stationary_trace,
         turing_inputs=turing_inputs,
         worker=identity,
-        artifact_builder=lambda trace_path: (
+        artifact_builder=lambda trace_path, _trace_raw: (
             build_block_artifact_from_prevalidated_scan(
                 packet_sha256=scan.packet_sha256,
                 window_center=scan.window_center,
@@ -615,7 +635,8 @@ def _adapt_block_from_validated_native_scan(
                 positive_at=scan.positive_at,
                 interval_at=scan.interval_at,
                 source_trace=trace_path,
-            )
+            ),
+            None,
         ),
     )
     return NativeFastpathAdaptation(adapted=adapted, scan=scan)
@@ -650,6 +671,161 @@ def adapt_block_native_scan_session(
         stationary_trace=stationary_trace,
         turing_inputs=turing_inputs,
         worker=identity,
+    )
+
+
+def _native_packet_identity(path: Path) -> tuple[bytes, str, int]:
+    """Read one packet's bytes, digest, and window centre without decoding it.
+
+    The pinned native builder repeats the complete PT21SGN1 decode -- fixed
+    header, both version-1 wire checksums, unused sign bits, every DD disk
+    guard, and every sign-bit/disk agreement -- and refuses to emit an
+    artifact whose bound centre differs from the value returned here.  The
+    reference :func:`adapt_block` path keeps the Python decoder; this fast
+    path deliberately does not duplicate it in both implementations.
+    """
+
+    stream, size = _open_regular(path, "required-sign packet")
+    with stream:
+        if size != NATIVE_EXPECTED_PACKET_BYTES:
+            raise PT21NativeRecordAdapterError(
+                "required-sign packet byte length differs"
+            )
+        raw = stream.read(size + 1)
+    if len(raw) != size:
+        raise PT21NativeRecordAdapterError(
+            "required-sign packet changed while being read"
+        )
+    return (
+        raw,
+        hashlib.sha256(raw).hexdigest(),
+        int.from_bytes(raw[48:56], "little"),
+    )
+
+
+def _native_artifact_builder(
+    *,
+    packet_path: Path,
+    raw_packet: bytes,
+    window_center: int,
+    native_builder: Path | None,
+    expected_native_builder_sha256: str | None,
+    session: NativeArtifactSession | None,
+    full_reference_validation: bool,
+) -> Callable[[Path, bytes], tuple[dict[str, object], bytes]]:
+    """Return an artifact builder backed by the pinned native executable."""
+
+    def build(
+        trace_path: Path, trace_raw: bytes
+    ) -> tuple[dict[str, object], bytes]:
+        try:
+            if session is not None:
+                produced = session.artifact(
+                    raw_packet,
+                    trace_raw,
+                    full_reference_validation=full_reference_validation,
+                )
+            else:
+                assert native_builder is not None
+                assert expected_native_builder_sha256 is not None
+                produced = build_block_artifact_native(
+                    required_sign_packet=packet_path,
+                    source_trace=trace_path,
+                    builder=native_builder,
+                    expected_builder_sha256=expected_native_builder_sha256,
+                    full_reference_validation=full_reference_validation,
+                )
+        except PT21NativeArtifactFastpathError as error:
+            raise PT21NativeRecordAdapterError(
+                f"pinned native artifact build failed: {error}"
+            ) from error
+        if produced.window_center != window_center:
+            raise PT21NativeRecordAdapterError(
+                "pinned native artifact window centre differs"
+            )
+        return produced.value, produced.raw
+
+    return build
+
+
+def adapt_block_native_artifact_fastpath(
+    *,
+    required_sign_packet: Path,
+    stationary_trace: Path,
+    turing_inputs: Path,
+    worker: Path | WorkerIdentity,
+    native_builder: Path,
+    expected_native_builder_sha256: str,
+    full_reference_validation: bool = False,
+) -> AdaptedBlock:
+    """Qualification-only pinned native v2 artifact build plus record tail.
+
+    This is intentionally absent from the manifest/shard production API.  The
+    returned ``PT21BLK1`` must be byte-identical to :func:`adapt_block` in
+    differential qualification, and the Python reference builder remains the
+    independent implementation of record.
+    """
+
+    identity = (
+        worker
+        if isinstance(worker, WorkerIdentity)
+        else worker_identity(worker)
+    )
+    raw_packet, packet_sha256, window_center = _native_packet_identity(
+        required_sign_packet
+    )
+    return _adapt_validated_packet(
+        packet_sha256=packet_sha256,
+        window_center=window_center,
+        stationary_trace=stationary_trace,
+        turing_inputs=turing_inputs,
+        worker=identity,
+        artifact_builder=_native_artifact_builder(
+            packet_path=required_sign_packet,
+            raw_packet=raw_packet,
+            window_center=window_center,
+            native_builder=native_builder,
+            expected_native_builder_sha256=expected_native_builder_sha256,
+            session=None,
+            full_reference_validation=full_reference_validation,
+        ),
+    )
+
+
+def adapt_block_native_artifact_session(
+    *,
+    required_sign_packet: Path,
+    stationary_trace: Path,
+    turing_inputs: Path,
+    worker: Path | WorkerIdentity,
+    session: NativeArtifactSession,
+    full_reference_validation: bool = False,
+) -> AdaptedBlock:
+    """Qualification-only adapter through one already pinned builder session."""
+
+    identity = (
+        worker
+        if isinstance(worker, WorkerIdentity)
+        else worker_identity(worker)
+    )
+    raw_packet, packet_sha256, window_center = _native_packet_identity(
+        required_sign_packet
+    )
+    return _adapt_validated_packet(
+        packet_sha256=packet_sha256,
+        window_center=window_center,
+        stationary_trace=stationary_trace,
+        turing_inputs=turing_inputs,
+        worker=identity,
+        artifact_builder=_native_artifact_builder(
+            packet_path=required_sign_packet,
+            raw_packet=raw_packet,
+            window_center=window_center,
+            native_builder=None,
+            expected_native_builder_sha256=None,
+            session=session,
+            full_reference_validation=full_reference_validation,
+        ),
     )
 
 

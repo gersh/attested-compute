@@ -1,7 +1,7 @@
 /- Copyright (c) 2026 Gershon Bialer. All rights reserved.
 SPDX-License-Identifier: MIT -/
 
-import SparkInterval.Execution.SignedResultCertificateComposition
+import SparkInterval.Execution.RegisteredCampaignCertificate
 
 /-!
 # Registered trusted-compute bridge for the CDEM Abel scan
@@ -20,6 +20,13 @@ The application check additionally requires the exact production result
 bytes.  Once the sole trusted-run axiom supplies the registered `Runs` fact,
 all decoding and the passage to the exact two-conjunct source proposition are
 ordinary kernel-checked Lean theorems.
+
+This campaign is an instantiation of the generic layer in
+`SparkInterval.Execution.RegisteredCampaignCertificate`: the check is
+`productionCheck` at this invocation and output, and the shared conclusions
+come from `certifyRun`.  What remains campaign-specific is exactly the two
+pieces of data this campaign owns — the proof that its decimal expected
+output is not the failure token, and the `Nat.pair` decoding of that output.
 -/
 
 set_option autoImplicit false
@@ -42,11 +49,40 @@ namespace SignedResultCertificate
 exact result/hash binding, and exact expected numerator-pair bytes. -/
 def cdemTableAbelProductionCheck
     (certificate : SignedResultCertificate) : Bool :=
-  certificate.outcomeCheckForRegisteredInvocation
-      cdemTableAbelProductionInvocation &&
-    certificate.resultCertificate == cdemTableAbelProductionOutput
+  certificate.productionCheck cdemTableAbelProductionInvocation
+    cdemTableAbelProductionOutput
 
 end SignedResultCertificate
+
+/-- The canonical CDEM numerator-pair payload is a decimal `Nat.repr`, hence
+never the failure token.  This is the one campaign-specific fact the generic
+non-failure combinator needs. -/
+theorem cdemTableAbelProductionOutput_ne_failure :
+    cdemTableAbelProductionOutput ≠ "false" := by
+  intro hfailure
+  have hparsed := congrArg String.toNat? hfailure
+  have hfalseParse : String.toNat? "false" = none := by
+    apply String.toNat?_eq_none
+    rw [Bool.eq_false_iff]
+    intro hnat
+    have hdigits := (String.isNat_iff.mp hnat).2.1
+    have hf := hdigits 'f' (by simp)
+    simp at hf
+  have hproductionParse :
+      String.toNat? cdemTableAbelProductionOutput =
+        some (Nat.pair
+          SparkInterval.TernaryGoldbach.CDEMAbelSource.signedTarget
+          SparkInterval.TernaryGoldbach.CDEMAbelSource.absoluteTarget) := by
+    change
+      (Nat.repr (Nat.pair
+        SparkInterval.TernaryGoldbach.CDEMAbelSource.signedTarget
+        SparkInterval.TernaryGoldbach.CDEMAbelSource.absoluteTarget)).toNat? =
+          some (Nat.pair
+            SparkInterval.TernaryGoldbach.CDEMAbelSource.signedTarget
+            SparkInterval.TernaryGoldbach.CDEMAbelSource.absoluteTarget)
+    exact Nat.toNat?_repr _
+  rw [hproductionParse, hfalseParse] at hparsed
+  cases hparsed
 
 /-- Everything recovered from one accepted production CDEM receipt. -/
 structure CertifiedCDEMTableAbel
@@ -84,45 +120,14 @@ theorem certifyCDEMTableAbel
     {certificate : SignedResultCertificate}
     (hcheck : certificate.cdemTableAbelProductionCheck = true) :
     CertifiedCDEMTableAbel certificate := by
-  simp only [cdemTableAbelProductionCheck, Bool.and_eq_true] at hcheck
-  have certified :=
-    outcomeCheckForRegisteredInvocation_sound hcheck.1
-  have houtput :
-      certificate.resultCertificate = cdemTableAbelProductionOutput := by
-    simpa using hcheck.2
+  have run : CertifiedRun certificate cdemTableAbelProductionInvocation
+      cdemTableAbelProductionOutput := certifyRun hcheck
+  have houtput := run.resultCertificate_eq
   have hsource :=
-    RegisteredInvocation.cdemTableAbelProductionV2_sourceClaim
-      certified.run houtput
-  have hsuccess : certificate.resultCertificate ≠ "false" := by
-    intro hfailure
-    have htext : "false" = cdemTableAbelProductionOutput :=
-      hfailure.symm.trans houtput
-    have hparsed := congrArg String.toNat? htext
-    have hfalseParse : String.toNat? "false" = none := by
-      apply String.toNat?_eq_none
-      rw [Bool.eq_false_iff]
-      intro hnat
-      have hdigits := (String.isNat_iff.mp hnat).2.1
-      have hf := hdigits 'f' (by simp)
-      simp at hf
-    have hproductionParse :
-        String.toNat? cdemTableAbelProductionOutput =
-          some (Nat.pair
-            SparkInterval.TernaryGoldbach.CDEMAbelSource.signedTarget
-            SparkInterval.TernaryGoldbach.CDEMAbelSource.absoluteTarget) := by
-      change
-        (Nat.repr (Nat.pair
-          SparkInterval.TernaryGoldbach.CDEMAbelSource.signedTarget
-          SparkInterval.TernaryGoldbach.CDEMAbelSource.absoluteTarget)).toNat? =
-            some (Nat.pair
-              SparkInterval.TernaryGoldbach.CDEMAbelSource.signedTarget
-              SparkInterval.TernaryGoldbach.CDEMAbelSource.absoluteTarget)
-      exact Nat.toNat?_repr _
-    rw [hfalseParse, hproductionParse] at hparsed
-    cases hparsed
+    run.claim RegisteredInvocation.cdemTableAbelProductionV2_sourceClaim
   rcases
-      RegisteredInvocation.cdemTableAbelProductionV2_result
-        certified.run hsuccess with
+      RegisteredInvocation.cdemTableAbelProductionV2_result run.certified.run
+        (run.nonFailure cdemTableAbelProductionOutput_ne_failure) with
     ⟨hencoded, hrecurrenceCheck, hlocalSourceScaleEvidence, hscaled⟩
   have htargets :
       SparkInterval.Generated.CDEMAbelProduction.certificate.signedNumerator =
@@ -156,13 +161,11 @@ theorem certifyCDEMTableAbel
     exact Nat.pair_eq_pair.mp hpair
   rcases htargets with ⟨hsigned, habsolute⟩
   rw [hsigned, habsolute] at hscaled
-  have hexecution := certified.outcome.execution
-  rw [houtput] at hexecution
   exact {
-    certified := certified
-    resultCertificate_eq := houtput
-    statementResult_eq := certified.outcome.binding.1.trans houtput
-    execution := hexecution
+    certified := run.certified
+    resultCertificate_eq := run.resultCertificate_eq
+    statementResult_eq := run.statementResult_eq
+    execution := run.execution
     recurrenceCheck := hrecurrenceCheck
     localSourceScaleEvidence := hlocalSourceScaleEvidence
     scaledNumerators := hscaled

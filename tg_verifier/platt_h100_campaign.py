@@ -126,15 +126,32 @@ CURRENT_CAPABILITIES: dict[str, dict[str, object]] = {
         "v2_first_64_maximum_required_radius": 2.929562605879431e-12,
         "v2_terminal_64_maximum_required_radius": 4.0676286523638164e-10,
         "v2_strict_sm90_binary_builds": True,
+        # The stationary Gaussian-sinc resolver and the one-sided Arb Turing
+        # input producer are now joined to the same fail-closed worker loop,
+        # which streams all three record-adapter inputs as PT21WBF1 frames.
+        # That was measured only on a bounded 64-block GB10 sample, so the
+        # source-wide flag stays false.
+        "stationary_and_turing_joined_to_fused_worker": True,
+        "three_adapter_inputs_streamed_from_one_ordered_loop": True,
+        "block_input_frame_magic": "PT21WBF1",
+        "bounded_gb10_joined_sample_blocks": 64,
+        "bounded_gb10_joined_sample_gpu_blocks_per_second": 10.494159525284037,
+        "bounded_gb10_joined_sample_invalid_required_disks": 0,
+        "bounded_gb10_joined_sample_ambiguous_required_disks": 0,
+        "source_wide_joined_run": False,
         "all_window_fused_stream": False,
-        "all_window_fused_stream_blocker": "source-wide width usefulness, stationary Gaussian-sinc resolution, and Turing acceptance have not run",
+        "all_window_fused_stream_blocker": "source-wide width usefulness has not run: the joined worker resolved stationary candidates and produced one-sided Turing inputs for only a bounded 64-block GB10 sample, and PT21BLK1 still comes from the out-of-process exact-rational Python adapter rather than the worker",
     },
     "gaussian_sinc_interpolation": {
-        "status": "bounded_cpu_flint_stationary_resolver_not_fused",
+        "status": "flint_stationary_resolver_fused_into_worker_bounded_gb10_sample_only",
         "source_terms_per_query": 140,
         "corrected_interpolation_error_applied": True,
         "independent_higher_precision_replay": True,
-        "fused_event_root_binding": False,
+        "fused_event_root_binding": True,
+        "fused_into_measured_worker_binary": True,
+        "bounded_gb10_sample_blocks": 64,
+        "bounded_gb10_sample_resolutions": 172,
+        "source_wide_measured_worker": False,
         "measured_worker": False,
     },
     "main_zero_event_stream": {
@@ -187,6 +204,10 @@ CURRENT_CAPABILITIES: dict[str, dict[str, object]] = {
         "deterministic_required_packet_to_v2_artifact_finalizer": True,
         "stationary_dyadic_brackets_separate_from_multiplicity_two_cells": True,
         "turing_quotients_and_integer_roundings_independently_recomputed": True,
+        # The fused worker now emits the four directed-Arb inputs for both
+        # one-sided calls, but the exact-rational v2 block artifact is still
+        # rebuilt by the out-of-process adapter.
+        "fused_producer_emits_one_sided_turing_inputs": True,
         "current_fused_producer_emits_artifact": False,
         "analytic_turing_realization": False,
     },
@@ -223,17 +244,31 @@ CURRENT_CAPABILITIES: dict[str, dict[str, object]] = {
         "adapter_terminal_manifest_authentication": True,
         "intermediate_native_record_spool_required": False,
         "adapter_source": "tg_verifier/platt_pt21_native_record_adapter.py",
+        # The adapter can now be driven straight from the worker's
+        # authenticated PT21WB block-input stream, so no per-block artifact and
+        # no operator manifest sit between the worker and the finalizer.  The
+        # adapter itself is still a separate Python process.
+        "adapter_consumes_worker_block_input_stream": True,
+        "adapter_manifest_channel_required": False,
+        "adapter_per_block_artifact_retention_required": False,
         "measured_worker_emits_native_records": False,
     },
     "fused_measured_h100_worker": {
-        "status": "required_transform_and_three_stream_event_record_emission_complete_stationary_and_turing_outputs_missing",
+        "status": "required_transform_three_stream_events_stationary_resolution_and_one_sided_turing_inputs_joined_pt21blk1_still_out_of_process",
         "adapter_to_native_shard_stream_complete": True,
         "compact_nonterminal_event_record_emission": True,
         "compact_nonterminal_event_record_magic": "PT21EVT1",
         "compact_nonterminal_event_record_bytes": 192,
         "compact_nonterminal_event_record_terminal_authentication": True,
         "source_packet_retention_required": False,
+        "stationary_resolution_joined_to_worker": True,
+        "one_sided_turing_inputs_joined_to_worker": True,
+        "three_adapter_inputs_streamed": True,
+        "block_input_stream_magic": "PT21WBH1",
+        "standalone_assembly_channel_required": False,
+        "record_adapter_runs_in_worker_process": False,
         "direct_native_record_emission": False,
+        "physical_h100_measurement": False,
         "hardy_z_endpoint_realization_proved": False,
         "main_multiplicity_realization_proved": False,
         "analytic_turing_realization_proved": False,

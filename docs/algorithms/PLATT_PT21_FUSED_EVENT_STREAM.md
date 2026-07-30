@@ -236,7 +236,14 @@ short process, so the worker reports setup, submission, replay-drain, and
 post-replay timings separately.  This validates overlap mechanics and byte
 identity on the GB10; it is not an H100 throughput claim.
 
-The default worker still stops at event replay. A distinct
+The default `sparkinterval-tg-platt-fused-source-worker-v2` target still stops
+at event replay, and its 64-block authenticated event artifact is unchanged at
+`94d3b2d0a71df3c2251bddce62a70ea8d48c2e96b30ca17e53c5de5f6a2d28ed`. A distinct
+[block-stage target](PLATT_PT21_BLOCK_INPUT_STREAM.md) continues through
+stationary resolution and one-sided Turing inputs and streams all three record
+adapter inputs; its 64 `PT21EVT1` records are byte-identical to the default
+worker's, and only the stream header differs because the header binds a
+different `--producer-sha256` pin. A distinct
 [qualification-only inline target](PLATT_PT21_INLINE_STATIONARY.md) now calls
 `resolve_replayed_block` immediately after `replay_captured`, using the same
 replay-owned samples and candidates without a second scanner replay or

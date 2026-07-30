@@ -1,7 +1,7 @@
 /- Copyright (c) 2026 Gershon Bialer. All rights reserved.
 SPDX-License-Identifier: MIT -/
 
-import SparkInterval.Execution.SignedResultCertificateComposition
+import SparkInterval.Execution.RegisteredCampaignCertificate
 import SparkInterval.TernaryGoldbach.HurstSourceSemantics
 
 /-!
@@ -18,6 +18,12 @@ the combined global source row predicate directly.  It still owns the
 physical claims that every primitive row has the stated delta and that every
 guard-admissible local replay state passes the finite integer guards;
 production two-pass guards are root-derived singletons.
+
+This campaign is an instantiation of the generic layer in
+`SparkInterval.Execution.RegisteredCampaignCertificate`: the check is
+`productionCheck` at this invocation and output, and the shared conclusions
+come from `certifyRun`.  Only the three campaign-specific claim fields are
+named here.
 -/
 
 set_option autoImplicit false
@@ -37,9 +43,8 @@ namespace SignedResultCertificate
 /-- Fail-closed application check for the exact successful source campaign. -/
 def hurstSharedFourResidualProductionCheck
     (certificate : SignedResultCertificate) : Bool :=
-  certificate.outcomeCheckForRegisteredInvocation
-      hurstSharedFourResidualProductionInvocation &&
-    certificate.resultCertificate == hurstSharedFourResidualSuccessOutput
+  certificate.productionCheck hurstSharedFourResidualProductionInvocation
+    hurstSharedFourResidualSuccessOutput
 
 end SignedResultCertificate
 
@@ -70,32 +75,19 @@ projection are ordinary Lean theorems. -/
 theorem certifyHurstSharedFourResidual
     {certificate : SignedResultCertificate}
     (hcheck : certificate.hurstSharedFourResidualProductionCheck = true) :
-    CertifiedHurstSharedFourResidual certificate := by
-  simp only [hurstSharedFourResidualProductionCheck, Bool.and_eq_true] at hcheck
-  have certified := outcomeCheckForRegisteredInvocation_sound hcheck.1
-  have houtput :
-      certificate.resultCertificate = hurstSharedFourResidualSuccessOutput := by
-    simpa using hcheck.2
-  have hsource :=
-    RegisteredInvocation.hurstSharedFourResidualProductionV2_sourceClaims
-      certified.run houtput
-  have hreal :=
-    RegisteredInvocation.hurstSharedFourResidualProductionV2_realClaims
-      certified.run houtput
-  have hshared :=
-    RegisteredInvocation.hurstSharedFourResidualProductionV2_sharedRealClaims
-      certified.run houtput
-  have hexecution := certified.outcome.execution
-  rw [houtput] at hexecution
-  exact {
-    certified := certified
-    resultCertificate_eq := houtput
-    statementResult_eq := certified.outcome.binding.1.trans houtput
-    execution := hexecution
-    sourceClaims := hsource
-    realClaims := hreal
-    sharedRealClaims := hshared
-  }
+    CertifiedHurstSharedFourResidual certificate :=
+  let run : CertifiedRun certificate hurstSharedFourResidualProductionInvocation
+      hurstSharedFourResidualSuccessOutput := certifyRun hcheck
+  { certified := run.certified
+    resultCertificate_eq := run.resultCertificate_eq
+    statementResult_eq := run.statementResult_eq
+    execution := run.execution
+    sourceClaims := run.claim
+      RegisteredInvocation.hurstSharedFourResidualProductionV2_sourceClaims
+    realClaims := run.claim
+      RegisteredInvocation.hurstSharedFourResidualProductionV2_realClaims
+    sharedRealClaims := run.claim
+      RegisteredInvocation.hurstSharedFourResidualProductionV2_sharedRealClaims }
 
 end SignedResultCertificate
 

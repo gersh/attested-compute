@@ -22,6 +22,7 @@ import SparkInterval.TernaryGoldbach.PsiCompactChecker
 import SparkInterval.TernaryGoldbach.R2StarCompactChecker
 import SparkInterval.TernaryGoldbach.ZetaHeadCompactChecker
 import SparkInterval.TernaryGoldbach.ZetaRHCompactChecker
+import SparkInterval.Execution.RegisteredCampaignCertificate
 import SparkInterval.Execution.RegisteredA7BoundaryCertificate
 import SparkInterval.Execution.RegisteredCubicSumCertificate
 import SparkInterval.Execution.RegisteredCDEMAbelCertificate

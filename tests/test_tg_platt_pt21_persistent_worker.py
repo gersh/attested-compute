@@ -240,6 +240,51 @@ class PT21PersistentWorkerPureTest(unittest.TestCase):
             )
             self.assertEqual(actual, expected, index)
 
+    def test_native_artifact_builder_cannot_be_half_selected(self) -> None:
+        """Both the path and its pinned digest are required together."""
+
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary) / "out"
+            common = {
+                "junction_executable": Path("/nonexistent/junction"),
+                "turing_executable": Path("/nonexistent/turing"),
+                "flint_library": Path("/nonexistent/libflint.so.24.0.0"),
+                "finalizer_executable": Path("/nonexistent/finalizer"),
+                "output_directory": directory,
+                "request_count": 1,
+            }
+            for extra in (
+                {"native_artifact_builder": Path("/nonexistent/builder")},
+                {"expected_native_artifact_builder_sha256": "5c" * 32},
+            ):
+                with self.assertRaises(PT21PersistentWorkerError) as caught:
+                    run_persistent_bounded_batch(**common, **extra)
+                self.assertIn(
+                    "both its path and its expected SHA-256",
+                    str(caught.exception),
+                )
+            self.assertFalse(directory.exists())
+
+    def test_native_artifact_builder_cli_rejects_a_half_selection(
+        self,
+    ) -> None:
+        completed = subprocess.run(
+            [
+                "python3",
+                str(ROOT / "tools" / "tg_platt_pt21_persistent_worker.py"),
+                "--junction-executable", "/nonexistent/junction",
+                "--turing-executable", "/nonexistent/turing",
+                "--flint-library", "/nonexistent/libflint.so.24.0.0",
+                "--finalizer-executable", "/nonexistent/finalizer",
+                "--output-directory", "/nonexistent/out",
+                "--native-artifact-builder", "/nonexistent/builder",
+            ],
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn(b"must be given together", completed.stderr)
+
 
 class PT21PersistentWorkerNativeTest(unittest.TestCase):
     @classmethod
@@ -294,6 +339,83 @@ class PT21PersistentWorkerNativeTest(unittest.TestCase):
                 "persistent PT21 executables are missing: "
                 + ", ".join(map(str, missing))
             )
+
+    def test_native_artifact_fast_path_moves_no_retained_digest(self) -> None:
+        """The opt-in fast path must change timings, never bytes."""
+
+        value = os.environ.get("TG_PLATT_PT21_NATIVE_ARTIFACT_BUILDER")
+        if not value:
+            raise unittest.SkipTest(
+                "TG_PLATT_PT21_NATIVE_ARTIFACT_BUILDER is not set"
+            )
+        builder = Path(value).resolve()
+        if not builder.is_file():
+            raise unittest.SkipTest("native artifact builder is missing")
+        builder_sha256 = hashlib.sha256(builder.read_bytes()).hexdigest()
+        reports: dict[str, dict[str, object]] = {}
+        for label, extra in (
+            ("python_reference", {}),
+            (
+                "pinned_native_fastpath",
+                {
+                    "native_artifact_builder": builder,
+                    "expected_native_artifact_builder_sha256": builder_sha256,
+                },
+            ),
+        ):
+            with tempfile.TemporaryDirectory(
+                prefix=f"pt21-persistent-{label}-"
+            ) as temporary:
+                result = run_persistent_bounded_batch(
+                    junction_executable=self.junction,
+                    turing_executable=self.turing,
+                    flint_library=self.flint,
+                    finalizer_executable=self.finalizer,
+                    output_directory=Path(temporary),
+                    request_count=2,
+                    **extra,  # type: ignore[arg-type]
+                )
+            reports[label] = result.report
+            self.assertEqual(
+                result.report["artifact_builder_implementation"], label
+            )
+            self.assertEqual(result.report["byte_identical_pt21blk1_count"], 2)
+            self.assertTrue(
+                result.report["persistent_output_independently_replayed"]
+            )
+            self.assertTrue(
+                result.report["persistent_output_native_shard_replayed"]
+            )
+        reference = reports["python_reference"]
+        fast = reports["pinned_native_fastpath"]
+        for key in (
+            "chain_commitment_sha256",
+            "shard_archive_sha256",
+            "block_record_sha256",
+            "event_record_sha256",
+            "stationary_junction_record_sha256",
+            "stationary_trace_sha256",
+            "turing_inputs_sha256",
+            "adapter_sources_sha256",
+        ):
+            self.assertEqual(fast[key], reference[key], key)
+        self.assertEqual(reference["persistent_process_count"], 2)
+        self.assertEqual(fast["persistent_process_count"], 3)
+        self.assertIsNone(reference["native_artifact_builder_sha256"])
+        self.assertEqual(
+            fast["native_artifact_builder_sha256"], builder_sha256
+        )
+        for report in (reference, fast):
+            for key in (
+                "hardy_z_endpoint_realization_proved",
+                "main_multiplicity_realization_proved",
+                "analytic_turing_realization_proved",
+                "azure_attestation_verified",
+                "production_ready",
+                "source_claim_ready",
+                "source_eta_claimed",
+            ):
+                self.assertFalse(report[key], key)
 
     def test_three_requests_match_one_shot_and_replay(self) -> None:
         with tempfile.TemporaryDirectory(

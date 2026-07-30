@@ -1,7 +1,7 @@
 /- Copyright (c) 2026 Gershon Bialer. All rights reserved.
 SPDX-License-Identifier: MIT -/
 
-import SparkInterval.Execution.SignedResultCertificateComposition
+import SparkInterval.Execution.RegisteredCampaignCertificate
 import SparkInterval.TernaryGoldbach.PsiSourceSemantics
 
 /-!
@@ -10,6 +10,12 @@ import SparkInterval.TernaryGoldbach.PsiSourceSemantics
 Only a receipt bound to the closed source-scale CPU invocation and the exact
 success result `true` exposes the paper-shaped real Chebyshev-psi claim.  The
 registered program may honestly return `false`; that output proves nothing.
+
+This campaign is an instantiation of the generic layer in
+`SparkInterval.Execution.RegisteredCampaignCertificate`: the check is
+`productionCheck` at this invocation and output, and the shared conclusions
+come from `certifyRun`.  Only the campaign-specific `sourceClaim` field is
+named here.
 -/
 
 set_option autoImplicit false
@@ -26,9 +32,8 @@ namespace SignedResultCertificate
 /-- Fail-closed application check for the exact successful source campaign. -/
 def ch25PsiLemma92ProductionCheck
     (certificate : SignedResultCertificate) : Bool :=
-  certificate.outcomeCheckForRegisteredInvocation
-      ch25PsiLemma92ProductionInvocation &&
-    certificate.resultCertificate == ch25PsiLemma92SuccessOutput
+  certificate.productionCheck ch25PsiLemma92ProductionInvocation
+    ch25PsiLemma92SuccessOutput
 
 end SignedResultCertificate
 
@@ -54,24 +59,14 @@ ordinary Lean theorem. -/
 theorem certifyCH25PsiLemma92
     {certificate : SignedResultCertificate}
     (hcheck : certificate.ch25PsiLemma92ProductionCheck = true) :
-    CertifiedPsiLemma92 certificate := by
-  simp only [ch25PsiLemma92ProductionCheck, Bool.and_eq_true] at hcheck
-  have certified := outcomeCheckForRegisteredInvocation_sound hcheck.1
-  have houtput :
-      certificate.resultCertificate = ch25PsiLemma92SuccessOutput := by
-    simpa using hcheck.2
-  have hsource :=
-    RegisteredInvocation.ch25PsiLemma92ProductionV1_sourceClaim
-      certified.run houtput
-  have hexecution := certified.outcome.execution
-  rw [houtput] at hexecution
-  exact {
-    certified := certified
-    resultCertificate_eq := houtput
-    statementResult_eq := certified.outcome.binding.1.trans houtput
-    execution := hexecution
-    sourceClaim := hsource
-  }
+    CertifiedPsiLemma92 certificate :=
+  let run : CertifiedRun certificate ch25PsiLemma92ProductionInvocation
+      ch25PsiLemma92SuccessOutput := certifyRun hcheck
+  { certified := run.certified
+    resultCertificate_eq := run.resultCertificate_eq
+    statementResult_eq := run.statementResult_eq
+    execution := run.execution
+    sourceClaim := run.claim RegisteredInvocation.ch25PsiLemma92ProductionV1_sourceClaim }
 
 end SignedResultCertificate
 

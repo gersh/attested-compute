@@ -127,10 +127,17 @@ class A7LeanCertificateTests(unittest.TestCase):
         first = render_lean_source(certificate)
         second = render_lean_source(certificate)
         self.assertEqual(first, second)
+        # Repinned when `set_option maxHeartbeats 0 in` was added to the
+        # generated `def certificate`: without it, elaborating the real
+        # 16,191-leaf literal aborts at the default 200,000-heartbeat budget
+        # roughly halfway through the list.  See
+        # `docs/algorithms/CH25_A7_LEAN_MODEL.md`.
         self.assertEqual(
             hashlib.sha256(first.encode("utf-8")).hexdigest(),
-            "cde0c953aaafe980757543f61f21131942dabc7093e11228d27fb36f740ad11b",
+            "a6c1ef238113aaad00616a157242722922104c8bbaaa99d66e662932a9a16e7d",
         )
+        self.assertIn("set_option maxHeartbeats 0 in\nset_option "
+                      "maxRecDepth 1000000 in\ndef certificate", first)
         self.assertIn(
             "import SparkInterval.TernaryGoldbach."
             "A7BoundaryCertificate",

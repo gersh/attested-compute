@@ -1,7 +1,7 @@
 /- Copyright (c) 2026 Gershon Bialer. All rights reserved.
 SPDX-License-Identifier: MIT -/
 
-import SparkInterval.Execution.SignedResultCertificateComposition
+import SparkInterval.Execution.RegisteredCampaignCertificate
 import SparkInterval.TernaryGoldbach.Sqrt218.Operational.Run
 import SparkInterval.TernaryGoldbach.Sqrt218SourceSemantics
 import TGComputeContracts.Sqrt218.Sound
@@ -37,6 +37,12 @@ scan during an ordinary Lean build.
 The sole execution trust used by the conditional theorem below is the
 project-wide `accepted_run_certificate_sound` axiom reached through
 `outcomeCheckForRegisteredInvocation_sound`.
+
+This campaign is an instantiation of the generic layer in
+`SparkInterval.Execution.RegisteredCampaignCertificate`: the check is
+`productionCheck` at this invocation and output, and the shared conclusions
+come from `certifyRun`.  Only the campaign-specific `sourceClaim` field is
+named here.
 -/
 
 set_option autoImplicit false
@@ -71,9 +77,8 @@ namespace SignedResultCertificate
 /-- Fail-closed application check for the exact successful Sqrt218 replay. -/
 def helfgottSqrt218ProductionCheck
     (certificate : SignedResultCertificate) : Bool :=
-  certificate.outcomeCheckForRegisteredInvocation
-      helfgottSqrt218ProductionInvocation &&
-    certificate.resultCertificate == helfgottSqrt218SuccessOutput
+  certificate.productionCheck helfgottSqrt218ProductionInvocation
+    helfgottSqrt218SuccessOutput
 
 end SignedResultCertificate
 
@@ -98,24 +103,14 @@ pin disabled, no certificate can satisfy the premise. -/
 theorem certifyHelfgottSqrt218
     {certificate : SignedResultCertificate}
     (hcheck : certificate.helfgottSqrt218ProductionCheck = true) :
-    CertifiedHelfgottSqrt218 certificate := by
-  simp only [helfgottSqrt218ProductionCheck, Bool.and_eq_true] at hcheck
-  have certified := outcomeCheckForRegisteredInvocation_sound hcheck.1
-  have houtput :
-      certificate.resultCertificate = helfgottSqrt218SuccessOutput := by
-    simpa using hcheck.2
-  have hsource :=
-    RegisteredInvocation.helfgottSqrt218ProductionV1_sourceClaim
-      certified.run houtput
-  have hexecution := certified.outcome.execution
-  rw [houtput] at hexecution
-  exact {
-    certified := certified
-    resultCertificate_eq := houtput
-    statementResult_eq := certified.outcome.binding.1.trans houtput
-    execution := hexecution
-    sourceClaim := hsource
-  }
+    CertifiedHelfgottSqrt218 certificate :=
+  let run : CertifiedRun certificate helfgottSqrt218ProductionInvocation
+      helfgottSqrt218SuccessOutput := certifyRun hcheck
+  { certified := run.certified
+    resultCertificate_eq := run.resultCertificate_eq
+    statementResult_eq := run.statementResult_eq
+    execution := run.execution
+    sourceClaim := run.claim RegisteredInvocation.helfgottSqrt218ProductionV1_sourceClaim }
 
 end SignedResultCertificate
 

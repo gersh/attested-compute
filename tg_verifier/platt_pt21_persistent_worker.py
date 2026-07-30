@@ -59,9 +59,14 @@ from tg_verifier.platt_pt21_native_finalizer import (
     PT21NativeFinalizerError,
     replay_shard,
 )
+from tg_verifier.platt_pt21_native_artifact_fastpath import (
+    NativeArtifactSession,
+    PT21NativeArtifactFastpathError,
+)
 from tg_verifier.platt_pt21_native_record_adapter import (
     PT21NativeRecordAdapterError,
     adapt_block,
+    adapt_block_native_artifact_session,
     worker_identity,
     write_exclusive,
 )
@@ -420,6 +425,19 @@ def _median(values: list[float]) -> float:
     return (ordered[middle - 1] + ordered[middle]) / 2
 
 
+def _discard_artifact_session(
+    session: "NativeArtifactSession | None",
+) -> None:
+    """Close an optional builder session without masking a pending failure."""
+
+    if session is None:
+        return
+    try:
+        session.close()
+    except (OSError, PT21NativeArtifactFastpathError):
+        pass
+
+
 def run_persistent_bounded_batch(
     *,
     junction_executable: Path,
@@ -428,8 +446,19 @@ def run_persistent_bounded_batch(
     finalizer_executable: Path,
     output_directory: Path,
     request_count: int,
+    native_artifact_builder: Path | None = None,
+    expected_native_artifact_builder_sha256: str | None = None,
 ) -> PersistentBatch:
-    """Run a bounded persistent batch and compare it with one-shot bytes."""
+    """Run a bounded persistent batch and compare it with one-shot bytes.
+
+    ``native_artifact_builder`` optionally replaces the Python exact-rational
+    v2 artifact construction with the pinned native streaming checker.  It is
+    never selected implicitly: the path and its expected SHA-256 must both be
+    supplied, the image is sealed and re-hashed before execution, and every
+    returned document is still independently revalidated.  The one-shot
+    reference chain in this same run always uses the Python reference builder,
+    so the existing per-request byte comparison is the differential oracle.
+    """
 
     if (
         isinstance(request_count, bool)
@@ -437,6 +466,13 @@ def run_persistent_bounded_batch(
     ):
         raise PT21PersistentWorkerError(
             f"request count is outside 1..{MAXIMUM_REQUESTS}"
+        )
+    if (native_artifact_builder is None) != (
+        expected_native_artifact_builder_sha256 is None
+    ):
+        raise PT21PersistentWorkerError(
+            "the native artifact builder needs both its path and its "
+            "expected SHA-256"
         )
     if output_directory.exists():
         if (
@@ -497,25 +533,46 @@ def run_persistent_bounded_batch(
     # process is started.  Failure here must not strand a worker waiting for
     # framed input on an inherited pipe.
     adapter_sha256 = _adapter_source_identity()
+    # Pin and seal the optional native builder before either producer starts,
+    # for the same reason: a rejected identity must not strand a worker that
+    # is already waiting for framed input on an inherited pipe.
+    artifact_session: NativeArtifactSession | None = None
+    if native_artifact_builder is not None:
+        assert expected_native_artifact_builder_sha256 is not None
+        try:
+            artifact_session = NativeArtifactSession(
+                builder=native_artifact_builder,
+                expected_builder_sha256=(
+                    expected_native_artifact_builder_sha256
+                ),
+            )
+        except PT21NativeArtifactFastpathError as error:
+            raise PT21PersistentWorkerError(
+                f"pinned native artifact builder failed: {error}"
+            ) from error
 
-    junction = _PinnedProcess(
-        executable=junction_executable,
-        expected_sha256=junction_identity.sha256,
-        arguments=[
-            "--mode",
-            "valid",
-            "--fixture",
-            "turing-closure",
-            "--persistent-requests",
-            str(request_count),
-            "--resolver-sha256",
-            junction_identity.sha256,
-            "--flint-sha256",
-            flint_sha256,
-        ],
-        environment=environment,
-        label="persistent CUDA/FLINT junction",
-    )
+    try:
+        junction = _PinnedProcess(
+            executable=junction_executable,
+            expected_sha256=junction_identity.sha256,
+            arguments=[
+                "--mode",
+                "valid",
+                "--fixture",
+                "turing-closure",
+                "--persistent-requests",
+                str(request_count),
+                "--resolver-sha256",
+                junction_identity.sha256,
+                "--flint-sha256",
+                flint_sha256,
+            ],
+            environment=environment,
+            label="persistent CUDA/FLINT junction",
+        )
+    except Exception:
+        _discard_artifact_session(artifact_session)
+        raise
     try:
         turing = _PinnedProcess(
             executable=turing_executable,
@@ -528,6 +585,7 @@ def run_persistent_bounded_batch(
         # Do not leave a GPU process blocked on stdin if the second worker
         # cannot be started or its selected identity fails validation.
         junction.abort()
+        _discard_artifact_session(artifact_session)
         raise
 
     junction_seconds: list[float] = []
@@ -623,12 +681,21 @@ def run_persistent_bounded_batch(
 
             started = time.monotonic()
             try:
-                adapted = adapt_block(
-                    required_sign_packet=required_path,
-                    stationary_trace=stationary_path,
-                    turing_inputs=turing_path,
-                    worker=junction_identity,
-                )
+                if artifact_session is None:
+                    adapted = adapt_block(
+                        required_sign_packet=required_path,
+                        stationary_trace=stationary_path,
+                        turing_inputs=turing_path,
+                        worker=junction_identity,
+                    )
+                else:
+                    adapted = adapt_block_native_artifact_session(
+                        required_sign_packet=required_path,
+                        stationary_trace=stationary_path,
+                        turing_inputs=turing_path,
+                        worker=junction_identity,
+                        session=artifact_session,
+                    )
             except PT21NativeRecordAdapterError as error:
                 raise PT21PersistentWorkerError(
                     f"persistent native adapter failed: {error}"
@@ -695,9 +762,17 @@ def run_persistent_bounded_batch(
             accepted_bytes = candidate
         junction.finish()
         turing.finish()
+        if artifact_session is not None:
+            try:
+                artifact_session.close()
+            except PT21NativeArtifactFastpathError as error:
+                raise PT21PersistentWorkerError(
+                    f"pinned native artifact builder did not stop: {error}"
+                ) from error
     except Exception:
         junction.abort()
         turing.abort()
+        _discard_artifact_session(artifact_session)
         raise
     producer_adapter_seconds = time.monotonic() - overall_started
     assert accepted_bytes is not None
@@ -848,8 +923,18 @@ def run_persistent_bounded_batch(
         "exact_adapter_median_seconds": _median(adapter_seconds),
         "independent_replay_seconds": replay_seconds,
         "native_finalizer_seconds": finalizer_seconds,
-        "persistent_process_count": 2,
+        "persistent_process_count": 2 if artifact_session is None else 3,
         "per_request_native_process_start_count": 0,
+        "artifact_builder_implementation": (
+            "python_reference"
+            if artifact_session is None
+            else "pinned_native_fastpath"
+        ),
+        "native_artifact_builder_sha256": (
+            None
+            if artifact_session is None
+            else artifact_session.builder.sha256
+        ),
         "native_finalizer_invocations": 1,
         "one_shot_reference_replayed": True,
         "persistent_output_independently_replayed": True,
@@ -871,7 +956,11 @@ def run_persistent_bounded_batch(
         "flint_library_sha256": flint_sha256,
         "flint_library_size_bytes": flint_size,
         "adapter_sources_sha256": adapter_sha256,
-        "performance_bottleneck": "python_exact_rational_artifact_replay",
+        "performance_bottleneck": (
+            "python_exact_rational_artifact_replay"
+            if artifact_session is None
+            else "native_artifact_build_and_python_canonical_revalidation"
+        ),
         "source_work_count_measured": False,
         "source_eta_claimed": False,
         "hardy_z_endpoint_realization_proved": False,

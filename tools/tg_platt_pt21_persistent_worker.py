@@ -36,8 +36,20 @@ def main() -> int:
         default=3,
         choices=range(1, MAXIMUM_REQUESTS + 1),
     )
+    # Opt-in only.  Both flags are required together, so the pinned native v2
+    # artifact builder can never be selected implicitly, and the Python
+    # reference builder stays the default and the one-shot oracle.
+    parser.add_argument("--native-artifact-builder", type=Path)
+    parser.add_argument("--expected-native-artifact-builder-sha256")
     parser.add_argument("--pretty", action="store_true")
     arguments = parser.parse_args()
+    if (arguments.native_artifact_builder is None) != (
+        arguments.expected_native_artifact_builder_sha256 is None
+    ):
+        parser.error(
+            "--native-artifact-builder and "
+            "--expected-native-artifact-builder-sha256 must be given together"
+        )
     try:
         result = run_persistent_bounded_batch(
             junction_executable=arguments.junction_executable,
@@ -46,6 +58,10 @@ def main() -> int:
             finalizer_executable=arguments.finalizer_executable,
             output_directory=arguments.output_directory,
             request_count=arguments.requests,
+            native_artifact_builder=arguments.native_artifact_builder,
+            expected_native_artifact_builder_sha256=(
+                arguments.expected_native_artifact_builder_sha256
+            ),
         )
     except (
         OSError,

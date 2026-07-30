@@ -1,7 +1,7 @@
 /- Copyright (c) 2026 Gershon Bialer. All rights reserved.
 SPDX-License-Identifier: MIT -/
 
-import SparkInterval.Execution.SignedResultCertificateComposition
+import SparkInterval.Execution.RegisteredCampaignCertificate
 import SparkInterval.TernaryGoldbach.Prop1224SourceSemantics
 
 /-!
@@ -13,6 +13,12 @@ registered program may return `false`, which proves nothing.  A successful
 relation retains the external MPFR/GMP-to-exact-real realization explicitly
 in `SourceScaleEvidence`; neither a shard hash nor a reported margin creates
 that evidence.
+
+This campaign is an instantiation of the generic layer in
+`SparkInterval.Execution.RegisteredCampaignCertificate`: the check is
+`productionCheck` at this invocation and output, and the shared conclusions
+come from `certifyRun`.  Only the campaign-specific `sourceClaim` field is
+named here.
 -/
 
 set_option autoImplicit false
@@ -31,9 +37,8 @@ namespace SignedResultCertificate
 /-- Fail-closed application check for the exact successful source campaign. -/
 def helfgottProp1224ProductionCheck
     (certificate : SignedResultCertificate) : Bool :=
-  certificate.outcomeCheckForRegisteredInvocation
-      helfgottProp1224ProductionInvocation &&
-    certificate.resultCertificate == helfgottProp1224SuccessOutput
+  certificate.productionCheck helfgottProp1224ProductionInvocation
+    helfgottProp1224SuccessOutput
 
 end SignedResultCertificate
 
@@ -58,24 +63,14 @@ source-shaped reduction are ordinary Lean theorems. -/
 theorem certifyHelfgottProp1224
     {certificate : SignedResultCertificate}
     (hcheck : certificate.helfgottProp1224ProductionCheck = true) :
-    CertifiedHelfgottProp1224 certificate := by
-  simp only [helfgottProp1224ProductionCheck, Bool.and_eq_true] at hcheck
-  have certified := outcomeCheckForRegisteredInvocation_sound hcheck.1
-  have houtput :
-      certificate.resultCertificate = helfgottProp1224SuccessOutput := by
-    simpa using hcheck.2
-  have hsource :=
-    RegisteredInvocation.helfgottProp1224ProductionV1_sourceClaim
-      certified.run houtput
-  have hexecution := certified.outcome.execution
-  rw [houtput] at hexecution
-  exact {
-    certified := certified
-    resultCertificate_eq := houtput
-    statementResult_eq := certified.outcome.binding.1.trans houtput
-    execution := hexecution
-    sourceClaim := hsource
-  }
+    CertifiedHelfgottProp1224 certificate :=
+  let run : CertifiedRun certificate helfgottProp1224ProductionInvocation
+      helfgottProp1224SuccessOutput := certifyRun hcheck
+  { certified := run.certified
+    resultCertificate_eq := run.resultCertificate_eq
+    statementResult_eq := run.statementResult_eq
+    execution := run.execution
+    sourceClaim := run.claim RegisteredInvocation.helfgottProp1224ProductionV1_sourceClaim }
 
 end SignedResultCertificate
 

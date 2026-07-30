@@ -167,12 +167,119 @@ median exact Python adapter remained `0.1785 s`, so the source-scale design
 still must overlap the CPU replay with the GPU and replace the Python
 artifact builder rather than extrapolate this bounded fixture.
 
-The remaining measured bottleneck is the Python exact-rational artifact
-construction and validation, not FLINT or Arb.  A source worker should next
-move that replay into a compact native streaming checker or compute the same
-canonical digest incrementally.  That change must preserve byte identity and
-retain an independent implementation; the bounded numbers above do not
-justify a full-campaign ETA.
+The remaining measured bottleneck was the Python exact-rational artifact
+construction and validation, not FLINT or Arb.  That replay now has a compact
+native streaming checker, documented in
+[PT21 native v2 artifact builder](PLATT_PT21_NATIVE_ARTIFACT_BUILDER.md).  It
+preserves byte identity, and the Python reference finalizer remains the
+independent implementation the differential known answers compare against.
+
+A 2026-07-26 DGX Spark measurement on the same repeated block-zero fixture,
+timing whole `PT21BLK1` adaptations, gave:
+
+| stage | median | runs |
+|---|---:|---:|
+| Python reference `build_block_artifact` | 0.16435 s | 15 |
+| Python reference `adapt_block` | 0.16699 s | 15 |
+| native fast-path adapter, pinned one-shot | 0.06495 s | 15 |
+| native fast-path adapter, pinned session | 0.06780 s | 15 |
+
+That is `2.46x` on the whole record adapter for byte-identical `PT21BLK1`,
+source-trace, and block-artifact output.  The exact-rational replay is no
+longer the largest component: the two remaining costs are the native build
+itself (median warm framed response `0.02649 s`, which includes its own
+SHA-256 over the 2.24 MiB document) and the Python side's independent
+canonical/identity revalidation of the returned bytes (median `0.03141 s`).
+
+## Opt-in native artifact builder in this worker
+
+The bounded worker can now run that native builder in place of the Python
+exact-rational v2 construction.  It is never selected implicitly: both
+
+```text
+--native-artifact-builder PATH
+--expected-native-artifact-builder-sha256 SHA256
+```
+
+must be supplied together, the image is copied into a sealed `memfd` and
+re-hashed before execution, and one builder process serves the whole bounded
+batch.  Omitting them keeps the Python reference builder, which stays the
+default.
+
+Nothing about the verification structure changes.  The one-shot reference
+chain that runs first in the same invocation always uses the Python reference
+builder, so the existing per-request byte comparison of `PT21EVT1`,
+`PT21STJ1`, the stationary trace, the Turing artifact, the source trace, the
+block artifact, and `PT21BLK1` is the differential oracle for every fast-path
+response.  The independent retained-chain replay and the native shard replay
+are unchanged and still run.
+
+`adapter_sources_sha256`, and therefore `chain_commitment_sha256`, bind the
+six Python reference adapter sources.  The native builder does not enter that
+identity: it must reproduce their bytes, and it is reported separately as
+`native_artifact_builder_sha256` with
+`artifact_builder_implementation: pinned_native_fastpath`.
+
+### Measured effect, 2026-07-26, same host and fixture
+
+Three runs per configuration, block zero, medians of the reported per-run
+values.  Every one of the twelve runs produced the same
+`chain_commitment_sha256`, `shard_archive_sha256`, `block_record_sha256`,
+`event_record_sha256`, `stationary_junction_record_sha256`,
+`stationary_trace_sha256`, and `turing_inputs_sha256`, and every request in
+every run was byte-identical to the one-shot reference.
+
+Seven requests per run:
+
+| field | Python reference | pinned native fast path |
+|---|---:|---:|
+| `persistent_seconds_per_request` | 0.32020 s | 0.22055 s |
+| `exact_adapter_median_seconds` | 0.18035 s | 0.08158 s |
+| `junction_warm_response_median_seconds` | 0.04247 s | 0.04247 s |
+| `independent_replay_seconds` | 0.23935 s | 0.23369 s |
+
+Three requests per run, matching the earlier bounded runs:
+
+| field | Python reference | pinned native fast path |
+|---|---:|---:|
+| `persistent_seconds_per_request` | 0.43668 s | 0.35469 s |
+| `exact_adapter_median_seconds` | 0.18409 s | 0.09643 s |
+
+So the end-to-end bounded rate improves by `1.45x` at seven requests and
+`1.23x` at three, while the adapter window itself improves by `2.21x` and
+`1.91x`.  The end-to-end gain is smaller than the adapter gain because the
+per-request cost also contains the warm CUDA scan and FLINT response, the
+amortized first CUDA response, the stationary/Turing sidecar validation, and
+the byte comparisons against the one-shot reference.
+
+The `exact_adapter_median_seconds` window is wider than the artifact build:
+it also covers the chain commitment, the `PT21BLK1` binding, and
+`_validate_multiplicity`, which re-parses the whole 2.24 MiB block artifact.
+That independent check is deliberately retained.
+
+With the fast path enabled the reported `performance_bottleneck` becomes
+`native_artifact_build_and_python_canonical_revalidation`.  The adapter window
+is still the largest single per-request component (`0.08158 s` against
+`0.04247 s` for the warm junction), but it no longer dominates by four times.
+
+These remain bounded component timings on one resident, repeated synthetic
+fixture.  No source transform, source-sized input/output, or source-scale rate
+was measured, and they do not justify a full-campaign ETA.
+
+## Reproducibility caution: the pinned FLINT lives on volatile storage
+
+Every measurement and every pinned digest above depends on the upstream FLINT
+3.6 build at `/tmp/flint-3.6-install`, whose real object
+`libflint.so.24.0.0` has SHA-256
+`5e7cbb0c68aa9cee8f940f98914600ce7eeef3ef03d30d7ad635ac744cfdaeea` and size
+`69975536`.  That path is volatile storage: it disappears on reboot, after
+which none of the FLINT-dependent digests here, including
+`chain_commitment_sha256`, can be reproduced without rebuilding the same
+upstream and re-pinning it.  This is recorded, not fixed.
+
+Note also that the worker requires the real shared object, not the
+`libflint.so` alias.  The loader pin refuses to follow symbolic links and
+fails with `Too many levels of symbolic links` if the alias is passed.
 
 ## Run and verify
 
@@ -188,6 +295,17 @@ python3 tools/tg_platt_pt21_persistent_worker.py \
   --output-directory /new/empty/directory \
   --requests 7 --pretty
 
+# Optional, opt-in only: both flags are required together.
+python3 tools/tg_platt_pt21_persistent_worker.py \
+  ... \
+  --native-artifact-builder \
+    build/sparkinterval-tg-platt-pt21-native-artifact-builder \
+  --expected-native-artifact-builder-sha256 SHA256 \
+  --output-directory /new/empty/directory \
+  --requests 7 --pretty
+
+TG_PLATT_PT21_NATIVE_ARTIFACT_BUILDER=\
+build/sparkinterval-tg-platt-pt21-native-artifact-builder \
 python3 -m unittest -v \
   tests.test_tg_platt_pt21_persistent_worker \
   tests.test_tg_platt_pt21_bounded_block_chain \
@@ -203,6 +321,10 @@ lake env lean SparkInterval/Tests/PT21StationaryCandidateFilterTest.lean
 The tests include fixed request-frame known answers, malformed-frame
 rejection, 2,003 deterministic directed-filter/exact-reference comparisons,
 source-independent digest known answers, per-request byte equality, independent retained
-replay, and native shard replay.  A one-request persistent CUDA/FLINT run
-under `compute-sanitizer --tool memcheck` reported
+replay, and native shard replay.  They also include a fail-closed check that
+the native artifact builder cannot be half-selected from either the API or the
+CLI, and an end-to-end known answer that runs the same bounded batch with and
+without the fast path and requires all seven retained digests, including
+`chain_commitment_sha256`, to be equal.  A one-request persistent CUDA/FLINT
+run under `compute-sanitizer --tool memcheck` reported
 `ERROR SUMMARY: 0 errors`.

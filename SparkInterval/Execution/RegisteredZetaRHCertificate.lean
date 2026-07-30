@@ -1,7 +1,7 @@
 /- Copyright (c) 2026 Gershon Bialer. All rights reserved.
 SPDX-License-Identifier: MIT -/
 
-import SparkInterval.Execution.SignedResultCertificateComposition
+import SparkInterval.Execution.RegisteredCampaignCertificate
 import SparkInterval.TernaryGoldbach.ZetaRHSourceSemantics
 
 /-!
@@ -12,6 +12,12 @@ result `true` exposes the source-shaped finite-RH claim. The registered program
 may return `false`, which proves nothing. A successful relation retains the
 chunked endpoint, Hardy-Z, and global-count evidence required by the ordinary
 Lean theorem.
+
+This campaign is an instantiation of the generic layer in
+`SparkInterval.Execution.RegisteredCampaignCertificate`: the check is
+`productionCheck` at this invocation and output, and the shared conclusions
+come from `certifyRun`.  Only the campaign-specific `sourceClaim` field is
+named here.
 -/
 
 set_option autoImplicit false
@@ -30,9 +36,8 @@ namespace SignedResultCertificate
 /-- Fail-closed application check for the exact successful PT21 campaign. -/
 def plattTrudgianFiniteRHProductionCheck
     (certificate : SignedResultCertificate) : Bool :=
-  certificate.outcomeCheckForRegisteredInvocation
-      plattTrudgianFiniteRHProductionInvocation &&
-    certificate.resultCertificate == plattTrudgianFiniteRHSuccessOutput
+  certificate.productionCheck plattTrudgianFiniteRHProductionInvocation
+    plattTrudgianFiniteRHSuccessOutput
 
 end SignedResultCertificate
 
@@ -57,24 +62,14 @@ Lean theorem. -/
 theorem certifyPlattTrudgianFiniteRH
     {certificate : SignedResultCertificate}
     (hcheck : certificate.plattTrudgianFiniteRHProductionCheck = true) :
-    CertifiedPlattTrudgianFiniteRH certificate := by
-  simp only [plattTrudgianFiniteRHProductionCheck, Bool.and_eq_true] at hcheck
-  have certified := outcomeCheckForRegisteredInvocation_sound hcheck.1
-  have houtput :
-      certificate.resultCertificate = plattTrudgianFiniteRHSuccessOutput := by
-    simpa using hcheck.2
-  have hsource :=
-    RegisteredInvocation.plattTrudgianFiniteRHProductionV1_sourceClaim
-      certified.run houtput
-  have hexecution := certified.outcome.execution
-  rw [houtput] at hexecution
-  exact {
-    certified := certified
-    resultCertificate_eq := houtput
-    statementResult_eq := certified.outcome.binding.1.trans houtput
-    execution := hexecution
-    sourceClaim := hsource
-  }
+    CertifiedPlattTrudgianFiniteRH certificate :=
+  let run : CertifiedRun certificate plattTrudgianFiniteRHProductionInvocation
+      plattTrudgianFiniteRHSuccessOutput := certifyRun hcheck
+  { certified := run.certified
+    resultCertificate_eq := run.resultCertificate_eq
+    statementResult_eq := run.statementResult_eq
+    execution := run.execution
+    sourceClaim := run.claim RegisteredInvocation.plattTrudgianFiniteRHProductionV1_sourceClaim }
 
 end SignedResultCertificate
 
