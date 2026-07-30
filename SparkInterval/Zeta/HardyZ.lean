@@ -306,6 +306,22 @@ theorem hardyZ_eq_zero_iff (t : ℝ) :
     have h0 : ((hardyZ t : ℝ) : ℂ) = 0 := by rw [hardyZ_ofReal t, h, mul_zero]
     exact_mod_cast h0
 
+/-- `Z` and the real part of the completed zeta differ by a positive factor, so
+a campaign may certify enclosures of either one. -/
+theorem hardyZ_mul_norm_Gammaℝ (t : ℝ) :
+    hardyZ t * ‖Complex.Gammaℝ (criticalPoint t)‖ =
+      (completedRiemannZeta (criticalPoint t)).re := by
+  rw [hardyZ, div_mul_cancel₀]
+  exact (norm_Gammaℝ_criticalPoint_pos t).ne'
+
+theorem hardyZ_pos_iff (t : ℝ) :
+    0 < hardyZ t ↔ 0 < (completedRiemannZeta (criticalPoint t)).re := by
+  rw [hardyZ, lt_div_iff₀ (norm_Gammaℝ_criticalPoint_pos t), zero_mul]
+
+theorem hardyZ_neg_iff (t : ℝ) :
+    hardyZ t < 0 ↔ (completedRiemannZeta (criticalPoint t)).re < 0 := by
+  rw [hardyZ, div_lt_iff₀ (norm_Gammaℝ_criticalPoint_pos t), zero_mul]
+
 /-! ## Continuity -/
 
 theorem continuousAt_completedRiemannZeta_criticalPoint (t : ℝ) :

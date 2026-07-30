@@ -3,6 +3,7 @@ import SparkInterval.Zeta.CriticalLine
 import SparkInterval.Zeta.EndpointCertificate
 import SparkInterval.Zeta.EvenReflectionCertificate
 import SparkInterval.Zeta.HardyZ
+import SparkInterval.Zeta.HardyZTuringCapstone
 import SparkInterval.Zeta.HardyZContract
 import SparkInterval.Zeta.MultiplicityCount
 import SparkInterval.Zeta.PairedTuringClosureCertificate
