@@ -15,3 +15,5 @@ operator-passphrase.txt
 cpu_checker/pt21_ladder/pt21_ladder_bench
 cpu_checker/pt21_ladder/pt21_ladder_bench_ccomp
 cpu_checker/pt21_ladder/*.o
+tmp*.lean
+.out/
