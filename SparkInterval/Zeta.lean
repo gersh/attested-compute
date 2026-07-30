@@ -11,6 +11,7 @@ import SparkInterval.Zeta.StreamingEndpointCertificate
 import SparkInterval.Zeta.StreamingChunkVerifier
 import SparkInterval.Zeta.SymmetricCount
 import SparkInterval.Zeta.TouchingEndpointCertificate
+import SparkInterval.Zeta.TuringMethod
 import SparkInterval.Zeta.TouchingVerifier
 import SparkInterval.Zeta.Verifier
 import SparkInterval.Zeta.ZeroCertificate

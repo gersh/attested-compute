@@ -238,6 +238,51 @@ theorem zetaMultiplicityCountUpperBound_of_lt {N : ℝ → ℝ}
   push_cast at hreal
   linarith
 
+/-! ## Non-vacuity: the canonical distinct-zero counting function
+
+`SymmetricCountFunction` is a hypothesis about an object whose existence is not
+obvious, so this section exhibits a concrete monotone counting function for the
+same rectangles -- the number of *distinct* zeta zeros of half height `t`,
+which Mathlib's compactness/discreteness theorem already makes finite.
+
+The Turing machinery is therefore not vacuous: it applies verbatim to
+`zetaDistinctCount`, at the cost that the analytic input must then be a bound
+on the distinct count rather than on the multiplicity count.  An
+argument-principle proof naturally produces the multiplicity version, which is
+the stronger one, so the multiplicity interface above is the intended target;
+this section exists to show the shape is inhabited. -/
+
+/-- The number of distinct zeta zeros in the closed critical rectangle of half
+height `t`, as a real number. -/
+noncomputable def zetaDistinctCount (t : ℝ) : ℝ :=
+  ((zetaZerosIn (criticalRectangle t)).ncard : ℝ)
+
+theorem criticalRectangle_mono {a b : ℝ} (hab : a ≤ b) :
+    criticalRectangle a ⊆ criticalRectangle b := by
+  intro z hz
+  rw [mem_criticalRectangle] at hz ⊢
+  refine ⟨hz.1, hz.2.1, ?_, ?_⟩ <;> linarith [hz.2.2.1, hz.2.2.2]
+
+theorem zetaDistinctCount_monotone : Monotone zetaDistinctCount := by
+  intro a b hab
+  have hsub : zetaZerosIn (criticalRectangle a) ⊆ zetaZerosIn (criticalRectangle b) :=
+    Set.inter_subset_inter_left _ (criticalRectangle_mono hab)
+  have hle := Set.ncard_le_ncard hsub (zetaZerosIn_finite (isCompact_criticalRectangle b))
+  unfold zetaDistinctCount
+  exact_mod_cast hle
+
+/-- Integer pinning against the distinct-zero count. -/
+theorem zetaZeroCountUpperBound_of_lt_distinct {N : ℝ → ℝ}
+    (hdom : ∀ t, zetaDistinctCount t ≤ N t) {height : ℝ} {bound : ℕ}
+    (hlt : N height < (bound : ℝ) + 1) :
+    ZetaZeroCountUpperBound height bound := by
+  refine ⟨?_⟩
+  have hreal : ((zetaZerosIn (criticalRectangle height)).ncard : ℝ) < (bound : ℝ) + 1 :=
+    lt_of_le_of_lt (hdom height) hlt
+  have hnat : (zetaZerosIn (criticalRectangle height)).ncard < bound + 1 := by
+    exact_mod_cast hreal
+  omega
+
 /-! ## The assembled Turing window -/
 
 /-- Everything a Turing window must supply to pin the zeta zero count at height
