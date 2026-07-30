@@ -220,7 +220,6 @@ theorem Gammaℝ_criticalPoint_polar (t : ℝ) :
     rw [hsplit, Complex.cpow_add _ _ hpi]
     congr 1
     · rw [← Complex.ofReal_cpow Real.pi_pos.le]
-      norm_cast
     · rw [Complex.cpow_def_of_ne_zero hpi, ← Complex.ofReal_log Real.pi_pos.le]
       congr 1
       push_cast
