@@ -12,3 +12,6 @@ __pycache__/
 *-private.pem
 operator-passphrase.txt
 *.sqlite3
+cpu_checker/pt21_ladder/pt21_ladder_bench
+cpu_checker/pt21_ladder/pt21_ladder_bench_ccomp
+cpu_checker/pt21_ladder/*.o

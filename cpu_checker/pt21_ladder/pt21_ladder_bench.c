@@ -311,6 +311,8 @@ int main(int argc, char **argv)
     uint64_t groups = 0;
     int commit_packets = 1;
     int argument;
+    const char *group_path = NULL;
+    FILE *group_file = NULL;
 
     for (argument = 1; argument < argc; ++argument) {
         if (strcmp(argv[argument], "--kat") == 0) {
@@ -318,6 +320,10 @@ int main(int argc, char **argv)
         }
         if (strcmp(argv[argument], "--no-packet-commit") == 0) {
             commit_packets = 0;
+        } else if (strcmp(argv[argument], "--emit-groups") == 0
+                && argument + 1 < argc) {
+            group_path = argv[argument + 1];
+            argument += 1;
         } else if (strcmp(argv[argument], "--blocks") == 0
                 && argument + 1 < argc) {
             blocks = strtoull(argv[argument + 1], NULL, 10);
@@ -341,6 +347,15 @@ int main(int argc, char **argv)
             4157U, 87U);
     }
 
+    if (group_path != NULL) {
+        group_file = fopen(group_path, "wb");
+        if (group_file == NULL) {
+            fprintf(stderr, "cannot open %s\n", group_path);
+            free(packets);
+            return 2;
+        }
+    }
+
     pt21_ladder_start(
         &state, 0U, PT21_SOURCE_LOWER_COUNT, blocks_per_group, commit_packets);
     start = now_seconds();
@@ -356,12 +371,23 @@ int main(int argc, char **argv)
         }
         if (ready != 0) {
             groups += 1;
+            if (group_file != NULL) {
+                (void)fwrite(group_record, 1U,
+                    (size_t)PT21_GROUP_RECORD_BYTES, group_file);
+            }
         }
     }
     elapsed = now_seconds() - start;
     (void)pt21_ladder_finish(&state, group_record, &ready, root);
     if (ready != 0) {
         groups += 1;
+        if (group_file != NULL) {
+            (void)fwrite(group_record, 1U,
+                (size_t)PT21_GROUP_RECORD_BYTES, group_file);
+        }
+    }
+    if (group_file != NULL) {
+        (void)fclose(group_file);
     }
 
     blocks_per_second = (double)blocks / elapsed;
@@ -380,8 +406,15 @@ int main(int argc, char **argv)
     printf(" \"slots_per_second\": %.4g,", blocks_per_second * average_slots);
     printf(" \"campaign_core_hours\": %.4g,",
         (double)PT21_SOURCE_BLOCK_COUNT / blocks_per_second / 3600.0);
-    printf(" \"campaign_wire_terabytes\": %.4g}\n",
+    printf(" \"campaign_wire_terabytes\": %.4g,",
         (double)PT21_SOURCE_BLOCK_COUNT * (double)PT21_PACKET_BYTES / 1.0e12);
+    printf(" \"final_count\": %llu,",
+        (unsigned long long)state.running_count);
+    printf(" \"root\": \"");
+    for (index = 0; index < 32; ++index) {
+        printf("%02x", (unsigned)root[index]);
+    }
+    printf("\"}\n");
 
     free(packets);
     return 0;
