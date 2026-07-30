@@ -131,7 +131,7 @@ silently.
 
 **The ladder does not reduce the amount of work that must be done.  It
 reduces the amount of work the Lean kernel must do, from `1.78e4`
-core-years to seconds, and moves the remainder onto a checker whose
+core-years to four seconds, and moves the remainder onto a checker whose
 compiler is verified.**
 
 ## Measured throughput
@@ -146,12 +146,12 @@ the campaign's average occupancy (4,157 slots/block).
 
 | Build | Mode | blocks/s | MB/s | slots (brackets)/s | Whole campaign, 1 core |
 |---|---|---:|---:|---:|---:|
-| gcc `-O2` | full, packets committed | 51,433 | 171.7 | **2.14e8** | **16.0 h** |
-| **CompCert `-O`** | full, packets committed | **31,975** | 106.8 | **1.33e8** | **25.8 h** |
-| gcc `-O2` | verification only, no packet SHA-256 | 372,490 | 1,243.7 | 1.55e9 | 2.21 h |
-| CompCert `-O` | verification only, no packet SHA-256 | 230,248 | 768.8 | 9.57e8 | 3.58 h |
+| gcc `-O2` | full, packets committed | 51,347 | 171.4 | **2.13e8** | **16.1 h** |
+| **CompCert `-O`** | full, packets committed | **32,067** | 107.1 | **1.33e8** | **25.7 h** |
+| gcc `-O2` | verification only, no packet SHA-256 | 372,246 | 1,242.9 | 1.55e9 | 2.21 h |
+| CompCert `-O` | verification only, no packet SHA-256 | 229,952 | 767.8 | 9.56e8 | 3.58 h |
 
-CompCert costs a factor of `1.61` against gcc.  That is the price of the
+CompCert costs a factor of `1.60` against gcc.  That is the price of the
 verified-compiler story and it is obviously worth paying here.
 
 The comparison that matters:
@@ -159,8 +159,8 @@ The comparison that matters:
 ```text
 Lean kernel, bracket-linear certificate :        22 brackets/s
 CompCert-compiled ladder checker        : 1.33e8 brackets/s
-speedup                                 :   6.0e6 x
-campaign check                          : 1.78e4 core-years  ->  25.8 core-hours
+speedup                                 :   6.1e6 x
+campaign check                          : 1.78e4 core-years  ->  25.7 core-hours
 ```
 
 Roughly seven eighths of the remaining cost is SHA-256 over the 9.9 TB of
@@ -169,24 +169,63 @@ what lets a third party re-derive the summaries from retained bytes, so it
 is worth its 8 core-hours; but the honest breakdown is that the *checking*
 is 3.6 core-hours and the *commitment* is 22.
 
-Against the compute cost of 506--856 core-years, a 25.8 core-hour check is
+Against the compute cost of 506--856 core-years, a 25.7 core-hour check is
 `0.0006%` of the campaign.  Verification is no longer the bottleneck; it
 is a rounding error.
 
-### Level 2/3, the Lean kernel
+### Level 3, the Lean kernel
 
-`tools/benchmark_pt21_ladder.py` emits a literal `List GroupSummary` and
-asks the kernel to reduce `checkCampaign record groups` to `true` by
-`rfl`.  Marginal cost is about **1.4 ms per group record** end to end
-(elaboration plus kernel), so the production 90,530-record ladder is
-roughly **two minutes**, once, in an ordinary `lake build`.
+`tools/benchmark_pt21_ladder.py` emits a literal `List GroupSummary` with
+real SHA-256 digests and asks the kernel to reduce
+`checkCampaign record groups` to `true` by `rfl`.
 
-One performance fact is load-bearing and is recorded in the source: the
-level-2 checker must be written in *closed* form.  A checker that computes
-a state with `runGroups` and then compares the state against the campaign
-record forces the kernel to re-reduce the entire run once per comparison
--- 54 s at 100 records instead of 0.9 s.  `runGroupsTo` carries the
-targets through the recursion so the list is reduced exactly once.
+| Shard records | Wall seconds | records/s |
+|---:|---:|---:|
+| 500 | 1.15 | 434 |
+| 1,500 | 2.30 | 652 |
+| **2,830 (production)** | **4.06** | **697** |
+
+Marginal rate `802` records/s.  **The entire production level-3 ladder is
+four seconds of `lake build`.**
+
+Two performance facts are load-bearing and are recorded in the source,
+because getting either wrong turns four seconds into "does not finish":
+
+1. The level-3 checker must be written in **closed** form.  A checker that
+   computes a state with `runGroups` and then compares that state against
+   the campaign record forces the kernel to re-reduce the entire run once
+   per comparison -- 54 s at 100 records instead of 0.9 s.  `runGroupsTo`
+   carries the targets through the recursion so the list is reduced
+   exactly once.
+2. The campaign record must be **destructured in the definition**, not
+   projected inside it.  If `record.firstBlock` and `record.lowerCount`
+   reach `runGroupsTo` as projections of a constant, the kernel never
+   collapses the running block/count accumulator to a literal, each step
+   re-reduces an ever-longer sum, and the reduction becomes quadratic.
+   Measured at 200 shard records: the projection form did not finish in
+   60 s and grew the heap past six gigabytes; the destructured form takes
+   0.31 s.
+
+For the same reason a digest is carried as a `Nat`, not a `List UInt8`.
+The kernel only range-checks it, and 32 cons cells plus 32 `OfNat`
+applications per record is 30x the cost of one GMP numeral.
+
+### End to end
+
+The full chain runs:
+
+```text
+synthetic block packets
+  -> pt21_ladder_check.c (gcc and CompCert agree byte for byte on the root)
+  -> binary level-2 records
+  -> tools/tg_pt21_ladder_lean.py
+  -> a Lean module whose `checkCampaign ... = true` the kernel accepts
+  -> campaign_windowChain_twoTier
+```
+
+The gcc-compiled and CompCert-compiled checkers produce the *same* 32-byte
+campaign root on the same input, which is a free differential test of the
+compiler boundary.
 
 ## Attestation
 
@@ -289,10 +328,10 @@ Every stage of the pipeline, including the parts that are ugly.
 | # | Stage | Proved | Assumed | Checked by |
 |---|---|---|---|---|
 | 1 | Zeta discreteness, compactness of the critical rectangle | yes | Lean kernel and Mathlib are correct | Lean kernel |
-| 2 | L2/L3 ladder arithmetic: gap-free coverage, telescoping, local closure | yes, `[propext, Quot.sound]` | -- | Lean kernel, ~2 min at production size |
+| 2 | L3/L4 ladder arithmetic: gap-free coverage, telescoping, local closure | yes, `[propext, Quot.sound]` | -- | Lean kernel, 4.06 s at production size |
 | 3 | Ladder semantics: blocks compose to the source claim | yes, `[propext, Classical.choice, Quot.sound]` | -- | Lean kernel |
 | 4 | `GroupRefines`: each group digest commits to a valid window run | **no** | that the attested checker really consumed those packets and produced those summaries | compiled checker + TDX receipt; imported through `accepted_run_certificate_sound` |
-| 5 | L0 packet checks: slot derivation from the bitmap, block ordering, flank weight derivation, Turing ceiling/floor cells | yes, as C code | that the C source says what we think | CompCert-compiled binary, 25.8 core-hours measured; 12 mutation KATs |
+| 5 | L0 packet checks: slot derivation from the bitmap, block ordering, flank weight derivation, Turing ceiling/floor cells | yes, as C code | that the C source says what we think | CompCert-compiled binary, 25.7 core-hours measured; 13 mutation and forgery KATs |
 | 6 | C to assembly semantics | yes, by CompCert's Coq proof | CompCert's assumptions; the assembler, linker, OS, and hardware are outside it | Coq kernel, upstream |
 | 7 | **A sign bit is the true sign of Hardy `Z` at that lattice ordinate** | **no** | the evaluator's directed enclosure was computed correctly, `7.3e13` times | **nothing outside the enclave**; this is the entire empirical content |
 | 8 | The `S(t)` and Gamma/log-pi dyadic intervals contain the real quantities | **no** | Arb's ball arithmetic and Platt's Lemma C.3 constants | not formalized; `SparkInterval/Zeta/PlattLemmaC3.lean` records the source map |
@@ -310,9 +349,9 @@ is one line of Lean.
 
 Before: the formal side could not check the campaign at any price.
 
-After: the formal side checks the campaign in about two minutes of Lean
-kernel time plus 25.8 core-hours of verified-compiler-compiled checking,
-against 506--856 core-years of computing.
+After: the formal side checks the campaign in 4 seconds of Lean kernel
+time plus 25.7 core-hours of verified-compiler-compiled checking, against
+506--856 core-years of computing.
 
 What did not change: nobody outside the enclave re-derives `7.3e13` Hardy
 `Z` signs.  No compression can change that, and no attestation makes it a
@@ -324,13 +363,25 @@ two independent campaigns: two runs agree on all `1.24e13` zeros iff their
 
 ```bash
 cd cpu_checker/pt21_ladder
-make && make test                       # 12 mutation KATs
+make && make test                       # 13 mutation and forgery KATs
 make ccomp
 ./pt21_ladder_bench       --blocks 300000
 ./pt21_ladder_bench_ccomp --blocks 300000
 ./pt21_ladder_bench_ccomp --blocks 300000 --no-packet-commit
 
 cd ../..
-lake build SparkInterval.Zeta.PT21Ladder SparkInterval.Zeta.PT21LadderSemantics
-python3 tools/benchmark_pt21_ladder.py --sizes 1000 5000 20000
+# In a full checkout:
+lake build SparkInterval.Zeta.PT21Ladder SparkInterval.Zeta.PT21LadderGeometry \
+    SparkInterval.Zeta.PT21LadderSemantics
+# In a worktree without its own Mathlib build:
+source tools/pt21_ladder_env.sh /path/to/populated/checkout
+lean SparkInterval/Tests/PT21LadderTest.lean
+python3 tools/benchmark_pt21_ladder.py --sizes 500 1500 2830
+
+# End to end: packets -> compiled checker -> Lean kernel
+cpu_checker/pt21_ladder/pt21_ladder_bench --blocks 20480 \
+    --blocks-per-group 512 --emit-groups /tmp/units.bin
+python3 tools/tg_pt21_ladder_lean.py /tmp/units.bin --root <root> \
+    --module PT21LadderDemo --output /tmp/demo.lean
+lean /tmp/demo.lean
 ```

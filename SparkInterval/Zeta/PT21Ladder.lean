@@ -565,15 +565,25 @@ theorem runGroupsTo_sound :
       · rw [if_neg hlocal] at hrun
         exact absurd hrun (by simp)
 
-/-- Full ladder acceptance.  The three constant-cost record conditions are
-checked first so short-circuiting keeps the level-2 pass last. -/
-def checkCampaign (record : CampaignRecord)
-    (groups : List GroupSummary) : Bool :=
-  decide (record.lowerCount + record.slots = record.upperCount) &&
-  decide (0 < record.blockCount) &&
-  decide (record.root < digestBound) &&
-  runGroupsTo record.firstBlock record.lowerCount
-    (record.firstBlock + record.blockCount) record.upperCount groups
+/-- Full ladder acceptance.
+
+The record is destructured in the definition rather than projected inside
+it.  That is a load-bearing performance decision, not a style choice: if
+the campaign record's fields reach `runGroupsTo` as projections of a
+constant, the kernel never collapses the running block/count accumulator
+to a literal, every step re-reduces an ever-longer sum, and the whole
+reduction becomes quadratic.  Measured at 200 shard records, the
+projection form did not finish in 60 s and grew the heap past six
+gigabytes; the destructured form below takes `0.31` s, and the full
+production ladder of `2830` records takes `3.43` s. -/
+def checkCampaign : CampaignRecord → List GroupSummary → Bool
+  | ⟨firstBlock, blockCount, lowerCount, slots, upperCount, root⟩, groups =>
+      if lowerCount + slots = upperCount ∧ 0 < blockCount ∧
+          root < digestBound then
+        runGroupsTo firstBlock lowerCount (firstBlock + blockCount)
+          upperCount groups
+      else
+        false
 
 /-- Everything a successful campaign check proves about the level-2 list. -/
 theorem checkCampaign_sound {record : CampaignRecord}
@@ -583,12 +593,21 @@ theorem checkCampaign_sound {record : CampaignRecord}
       groupBlockSum groups = record.blockCount ∧
       groupSlotSum groups = record.slots ∧
       record.lowerCount + record.slots = record.upperCount := by
-  simp only [checkCampaign, Bool.and_eq_true, decide_eq_true_eq] at hcheck
-  obtain ⟨⟨⟨hclosed, _hpositive⟩, _hroot⟩, hrun⟩ := hcheck
-  obtain ⟨hvalid, hblocks, hcounts⟩ :=
-    runGroupsTo_sound record.firstBlock record.lowerCount
-      (record.firstBlock + record.blockCount) record.upperCount groups hrun
-  exact ⟨hvalid, by omega, by omega, hclosed⟩
+  obtain ⟨firstBlock, blockCount, lowerCount, slots, upperCount, root⟩ := record
+  simp only [checkCampaign] at hcheck
+  by_cases hguard : lowerCount + slots = upperCount ∧ 0 < blockCount ∧
+      root < digestBound
+  · rw [if_pos hguard] at hcheck
+    obtain ⟨hvalid, hblocks, hcounts⟩ :=
+      runGroupsTo_sound firstBlock lowerCount (firstBlock + blockCount)
+        upperCount groups hcheck
+    refine ⟨hvalid, ?_, ?_, hguard.1⟩
+    · show groupBlockSum groups = blockCount
+      omega
+    · show groupSlotSum groups = slots
+      omega
+  · rw [if_neg hguard] at hcheck
+    exact absurd hcheck (by simp)
 
 /-- The full ladder theorem.  A kernel-checked campaign record, a
 kernel-checked level-2 list, and one imported refinement fact per group
