@@ -70,9 +70,9 @@ structure FixedV2RegisteredIdentityBinding
   sourceTree :
     statement.artifacts.sourceTreeHash =
       implementation.identity.sourceTreeSHA256.value
-  executable :
+  launcherExecutable :
     statement.artifacts.hostExecutableHash =
-      implementation.identity.executableSHA256.value
+      implementation.identity.launcherArtifactSHA256.value
   cpuDeviceMarker :
     statement.artifacts.deviceCubinHash =
       implementation.identity.cpuDeviceMarkerSHA256.value
@@ -112,8 +112,13 @@ theorem closedStatementBinding_of_statementCheck
   have targetAndTrust :
       statement.target = .azureSEVSNPCPU ∧
         statement.trust = .azureSEVSNPConfidentialCompute := by
-    simpa [fixedProductionInvocation,
-      RegisteredInvocation.deploymentCheck] using deployment
+    have hcheck := deployment
+    simp only [fixedProductionInvocation,
+      RegisteredInvocation.deploymentCheck, Bool.and_eq_true] at hcheck
+    obtain ⟨htarget, htrust⟩ := hcheck
+    refine ⟨?_, ?_⟩
+    · revert htarget; cases statement.target <;> decide
+    · revert htrust; cases statement.trust <;> decide
   exact {
     algorithmId := algorithmId.trans identityBound.algorithmId.symm
     algorithmHash := algorithmHash.trans identityBound.algorithmHash.symm
@@ -128,7 +133,7 @@ theorem closedStatementBinding_of_statementCheck
     trust := targetAndTrust.2.trans identityBound.trust.symm
     trustProfileHash := identityBound.trustProfileHash
     sourceTree := identityBound.sourceTree
-    executable := identityBound.executable
+    launcherExecutable := identityBound.launcherExecutable
     cpuDeviceMarker := identityBound.cpuDeviceMarker
     executionClosure := identityBound.executionClosure
   }

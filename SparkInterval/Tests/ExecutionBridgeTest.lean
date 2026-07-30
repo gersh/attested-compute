@@ -125,8 +125,8 @@ example (statement : RunStatement) :
       RegisteredInvocation.helfgottPlattGoldbachProductionV1.resultCheck
         { statement with result := "error" } = false ∧
       RegisteredInvocation.goldbach10Pow27ProductionV1.resultCheck
-        { statement with result := "error" } = false := by
-  rfl
+        { statement with result := "error" } = false :=
+  ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
 
 /-- Every constructor has at least one safe output satisfying its fixed
 `Runs` relation.  Source constructors use their explicit failure branch; this

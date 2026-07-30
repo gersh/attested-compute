@@ -19,7 +19,7 @@ namespace SparkInterval.Tests.AggregateTuringClosure
 open SparkInterval.Dirichlet
 open SparkInterval.Dirichlet.FactoredSmallQSourceRealization
 
-example {N : Nat} [NeZero N] {ids : List Nat}
+noncomputable example {N : Nat} [NeZero N] {ids : List Nat}
     (realization : PrimitiveRosterRealization N ids) :
     Fin ids.length ≃
       {chi : DirichletCharacter Complex N // chi.IsPrimitive} :=

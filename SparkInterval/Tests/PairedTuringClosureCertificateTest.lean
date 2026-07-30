@@ -58,22 +58,26 @@ private def windowInput : TuringWindowInput := {
   rightWeight := 0
 }
 
-private def window : TuringWindowCertificate := {
+/-- Exact-rational `turing_min` certificate for the left flank. -/
+private def lowerWindow : LowerTuringCertificate := {
   input := windowInput
-  lowerQuotient := RatInterval.point 0
-  upperQuotient := RatInterval.point 0
-  lowerCount := 1
-  upperCount := 1
-  isolatedCount := 0
-  leftPositive := true
-  rightPositive := true
+  quotient := RatInterval.point 0
+  count := 1
+}
+
+/-- Exact-rational `turing_max` certificate for the right flank. -/
+private def upperWindow : UpperTuringCertificate := {
+  input := windowInput
+  quotient := RatInterval.point 0
+  count := 1
 }
 
 private def accepted : PairedTuringClosureCertificate := {
   mainStream := mainStream
   leftFlankStream := leftFlankStream
   rightFlankStream := rightFlankStream
-  window := window
+  lowerWindow := lowerWindow
+  upperWindow := upperWindow
   lowerCount := 1
   mainIsolatedSlots := 0
   upperCount := 1
@@ -87,14 +91,17 @@ private def wrongLeftWeight : PairedTuringClosureCertificate := {
 private theorem accepted_check : accepted.check = true := by
   rw [PairedTuringClosureCertificate.check_eq_true]
   norm_num [PairedTuringClosureCertificate.IsValid, accepted, mainStream,
-    mainEvents, leftFlankStream, leftFlankEvents, rightFlankStream, window,
-    windowInput, TuringGridEventCertificate.IsValid,
+    mainEvents, leftFlankStream, leftFlankEvents, rightFlankStream,
+    lowerWindow, upperWindow, windowInput,
+    TuringGridEventCertificate.IsValid,
     TuringGridEventsValidFrom, TuringGridEvent.IsValid,
     turingGridTotalMultiplicity, turingGridLeftWeight,
     turingGridRightWeight, TuringGridEvent.leftMagnitude,
-    TuringGridEvent.rightMagnitude, TuringWindowCertificate.IsValid,
-    TuringWindowCertificate.lowerCeilTarget,
-    TuringWindowCertificate.upperFloorTarget, TuringWindowInput.evaluate?,
+    TuringGridEvent.rightMagnitude,
+    LowerTuringCertificate.IsValid, LowerTuringCertificate.ceilTarget,
+    UpperTuringCertificate.IsValid, UpperTuringCertificate.floorTarget,
+    TuringWindowInput.evaluateLower?, TuringWindowInput.evaluateUpper?,
+    TuringWindowInput.evaluate?,
     TuringWindowInput.logTerm, TuringWindowInput.span,
     TuringWindowInput.leftIntegral, TuringWindowInput.rightIntegral,
     RatInterval.IsValid, RatInterval.point, RatInterval.add, RatInterval.sub,
@@ -102,6 +109,8 @@ private theorem accepted_check : accepted.check = true := by
 
 example : accepted.check = true := accepted_check
 
+/-- A left-flank weight that no longer matches the checked `turing_min`
+input is rejected: the checker is not vacuously true. -/
 example : wrongLeftWeight.check = false := by
   rw [PairedTuringClosureCertificate.check_eq_false]
   intro hvalid
@@ -118,19 +127,20 @@ example : accepted.lowerCount + accepted.mainIsolatedSlots =
 
 example : accepted.mainIsolatedSlots =
       turingGridTotalMultiplicity accepted.mainStream.events ∧
-    accepted.window.input.leftWeight =
+    accepted.lowerWindow.input.leftWeight =
       turingGridLeftWeight accepted.leftFlankStream.events ∧
-    accepted.window.input.rightWeight =
+    accepted.upperWindow.input.rightWeight =
       turingGridRightWeight accepted.rightFlankStream.spanSteps
         accepted.rightFlankStream.events :=
   accepted.binds_stream_arithmetic accepted_check
 
-example (values : accepted.window.input.Realization)
-    (analytic : accepted.window.AnalyticTuringBounds values 1 1) :
+example (lowerValues : accepted.lowerWindow.input.Realization)
+    (upperValues : accepted.upperWindow.input.Realization)
+    (analytic : accepted.AnalyticTuringBounds lowerValues upperValues 1 1) :
     (1 : Nat) = accepted.lowerCount ∧
       (1 : Nat) = accepted.upperCount ∧
-      1 + accepted.mainIsolatedSlots = 1 := by
-  exact accepted.exact_endpoint_counts accepted_check values analytic
-    ⟨by decide⟩
+      1 + accepted.mainIsolatedSlots = 1 :=
+  accepted.exact_endpoint_counts accepted_check lowerValues upperValues
+    analytic ⟨by decide⟩
 
 end SparkInterval.Tests.PairedTuringClosureCertificate
