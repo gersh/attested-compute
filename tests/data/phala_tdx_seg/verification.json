@@ -1,0 +1,153 @@
+{
+  "checks_failed": 0,
+  "checks_passed": 50,
+  "dcap_qvl": {
+    "appraisal": {
+      "advisory_ids": [],
+      "platform_status": {
+        "advisory_ids": [],
+        "status": "UpToDate"
+      },
+      "ppid": "3e306e133b7fdaa7bb79f67634cb520c",
+      "qe_status": {
+        "advisory_ids": [],
+        "status": "UpToDate"
+      },
+      "report": {
+        "TD10": {
+          "mr_config_id": "0137cee7b985b13b3f88585eec9a6b9e9b01e34729d4c93ce75f79fa4354bff2b8000000000000000000000000000000",
+          "mr_owner": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "mr_owner_config": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "mr_seam": "7bf063280e94fb051f5dd7b1fc59ce9aac42bb961df8d44b709c9b0ff87a7b4df648657ba6d1189589feab1d5a3c9a9d",
+          "mr_signer_seam": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "mr_td": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+          "report_data": "53e584409d7572f87f1e00cd8441a35774d697af216021be2cdf8f9fc7233f5d0000000000000000000000000000000000000000000000000000000000000000",
+          "rt_mr0": "027b610ab0555482f8a3868524093bdf3cdbe2539f81dfeeb886864654cb2fe3422f7fc36d4bab6fa46683aad11d1ba7",
+          "rt_mr1": "07e6f51aa763abfe75c3ddfbf4f425fe3f0ceff66d807a75e049303dce9addf68e7218729bd419638af63a370f65878c",
+          "rt_mr2": "a2a58c9a959a4fa44bd6da0c97a2270c051faf12084cfe91ae900e4fdff6cdd4f69a82005e04ee920f231497894d677f",
+          "rt_mr3": "f4afba098b20bc51b9ce259d5beb7bca0581ef6f27891e9ff37350955660fdc355892d90991ab550a6edf3b574a3a2c3",
+          "seam_attributes": "0000000000000000",
+          "td_attributes": "0000001000000000",
+          "tee_tcb_svn": "0b010500000000000000000000000000",
+          "xfam": "0702000000000000"
+        }
+      },
+      "status": "UpToDate"
+    },
+    "binary_sha256": "84bd935e37decbace7a902da2680d7486caca954438bb3196c8da8ed91f26d7b",
+    "exit_status": 0,
+    "strict_exit_status": 1,
+    "strict_stderr": "Getting collateral from https://pccs.phala.network...\nError: Failed to verify quote\n\nCaused by:\n    0: Strict policy validation failed\n    1: Dynamic platform is not allowed by policy"
+  },
+  "event_log": {
+    "digest_convention": "v1",
+    "entries": 30,
+    "replayed_rtmrs": {
+      "0": "027b610ab0555482f8a3868524093bdf3cdbe2539f81dfeeb886864654cb2fe3422f7fc36d4bab6fa46683aad11d1ba7",
+      "1": "07e6f51aa763abfe75c3ddfbf4f425fe3f0ceff66d807a75e049303dce9addf68e7218729bd419638af63a370f65878c",
+      "2": "a2a58c9a959a4fa44bd6da0c97a2270c051faf12084cfe91ae900e4fdff6cdd4f69a82005e04ee920f231497894d677f",
+      "3": "f4afba098b20bc51b9ce259d5beb7bca0581ef6f27891e9ff37350955660fdc355892d90991ab550a6edf3b574a3a2c3"
+    },
+    "rtmr3_bindings": {
+      "app-id": "cd97d16fdc4dc1dd8fc9d5f71acb21f46bcb1b6c",
+      "compose-hash": "37cee7b985b13b3f88585eec9a6b9e9b01e34729d4c93ce75f79fa4354bff2b8",
+      "instance-id": "85695c4e65068e6db0b7bffb5ea105dcc55be2c5",
+      "key-provider": "7b226e616d65223a226b6d73222c226964223a223330353933303133303630373261383634386365336430323031303630383261383634386365336430333031303730333432303030343838343465623432636364663863353266643466313734663336326663623962626431396334356664343866316564656332643866316361323335333665633161373430323162346365653631306330373466383239346434333162326237666565326333396535333333666461663061343532326434336662313539643966227d",
+      "mr-kms": "7eb8f89cf5067da82fe5a8321dd6dbd08681c25165dbd0ab3cefc26bbd028855",
+      "os-image-hash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9"
+    },
+    "rtmr3_boot_chain": [
+      "system-preparing",
+      "app-id",
+      "compose-hash",
+      "instance-id",
+      "boot-mr-done",
+      "mr-kms",
+      "os-image-hash",
+      "key-provider",
+      "storage-fs",
+      "system-ready"
+    ],
+    "rtmr3_post_boot": []
+  },
+  "failed": [],
+  "independent_recomputation": {
+    "algorithm_hash": "ddf877d57c3549dd20e3ba2b846843bb07bd9229537aa38fc54fc67bb0047c10",
+    "campaign": "platt-stronger-range",
+    "manifest_sha256": "6b20f834c1d8e0d8939625713654884d9a082db9acbbcd979c2e0647046ead38",
+    "range": [
+      4,
+      7727065383
+    ],
+    "seconds": 1633.706,
+    "slowest_windows": [
+      [
+        139.489,
+        "bin/w00227"
+      ],
+      [
+        127.544,
+        "bin/w00226"
+      ],
+      [
+        119.453,
+        "bin/w00228"
+      ]
+    ],
+    "windows": 230
+  },
+  "quote": {
+    "bytes": 5010,
+    "mr_config_id": "0137cee7b985b13b3f88585eec9a6b9e9b01e34729d4c93ce75f79fa4354bff2b8000000000000000000000000000000",
+    "mr_seam": "7bf063280e94fb051f5dd7b1fc59ce9aac42bb961df8d44b709c9b0ff87a7b4df648657ba6d1189589feab1d5a3c9a9d",
+    "mr_td": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+    "pck_leaf_subject": "C=US,ST=CA,L=Santa Clara,O=Intel Corporation,CN=Intel SGX PCK Certificate",
+    "qe_mr_enclave": "e5a3a7b5d830c2953b98534c6c59a3a34fdc34e933f7f5898f0a85cf08846bca",
+    "qe_mr_signer": "dc9e2a7c6f948f17474e34a7fc43ed030f7c1563f1babddf6340c82e0e54a8c5",
+    "qe_vendor_id": "939a7233f79c4ca9940a0db3957f0607",
+    "report_data": "53e584409d7572f87f1e00cd8441a35774d697af216021be2cdf8f9fc7233f5d0000000000000000000000000000000000000000000000000000000000000000",
+    "rtmrs": [
+      "027b610ab0555482f8a3868524093bdf3cdbe2539f81dfeeb886864654cb2fe3422f7fc36d4bab6fa46683aad11d1ba7",
+      "07e6f51aa763abfe75c3ddfbf4f425fe3f0ceff66d807a75e049303dce9addf68e7218729bd419638af63a370f65878c",
+      "a2a58c9a959a4fa44bd6da0c97a2270c051faf12084cfe91ae900e4fdff6cdd4f69a82005e04ee920f231497894d677f",
+      "f4afba098b20bc51b9ce259d5beb7bca0581ef6f27891e9ff37350955660fdc355892d90991ab550a6edf3b574a3a2c3"
+    ],
+    "sha256": "a7371e0d8340fccbee4d44abe0a7f42777b8272f69d658a15c05823247073f17",
+    "td_attributes": "0000001000000000",
+    "tee_tcb_svn": "0b010500000000000000000000000000",
+    "tee_type": "0x81",
+    "version": 4,
+    "xfam": "0702000000000000"
+  },
+  "statement": {
+    "algorithm_hash": "ddf877d57c3549dd20e3ba2b846843bb07bd9229537aa38fc54fc67bb0047c10",
+    "algorithm_id": "sparkinterval.leancompcert.platt-stronger-range.v1",
+    "algorithm_sha256": "1d34547d3436a69a1a152f77d1f5db59ff6c98c050dbf11e6b6e2ab9e7ab7f9d",
+    "app_id": "cd97d16fdc4dc1dd8fc9d5f71acb21f46bcb1b6c",
+    "challenge_nonce": "14a52c90d7c9dba154016d8ac25607fc98762136b27bf26d366299d687223348",
+    "compose_hash": "37cee7b985b13b3f88585eec9a6b9e9b01e34729d4c93ce75f79fa4354bff2b8",
+    "input": {
+      "campaign_manifest_bytes": 85644,
+      "campaign_manifest_sha256": "6b20f834c1d8e0d8939625713654884d9a082db9acbbcd979c2e0647046ead38",
+      "claim": "abs (mobiusOverNSum n) <= 1 / (2 * sqrt (n+1))",
+      "compcert_target": "x86_64-linux",
+      "compcert_version": "3.17",
+      "range_hi": 7727065383,
+      "range_lo": 4,
+      "windows": 230
+    },
+    "instance_id": "85695c4e65068e6db0b7bffb5ea105dcc55be2c5",
+    "issued_at": "2026-07-30T20:48:50Z",
+    "kind": "phala-tdx-bound-computation.v1",
+    "output": {
+      "failed_at": -1,
+      "result": "true",
+      "seconds": 1633.706,
+      "window_status_sha256": "70f93676d71cdaa6c67b08d2bef2988028305e252deabc222f8014eb8588da4d",
+      "windows_run": 230,
+      "windows_total": 230
+    }
+  },
+  "statement_sha256": "2db77f3888652e92ca8826a0ec4a4bf278ed923baf9e93ed71193f7946a3f119",
+  "verdict": "PASS"
+}

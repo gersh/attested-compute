@@ -68,6 +68,10 @@ def dryRunReceipt : PhalaTdxReceipt := {
     "sha256:43233eef77b7ad2463aa6b352a7459ffd42b0d1f8b9373858889d8f1bc0c073c"
   quoteHash :=
     "a4ff43ede0e689065ea92fc5b3257696227fedeaa38178c5b663a8adc501880b"
+  -- `tests/data/phala_tdx_dry_run/tdx-quote.NOT-A-QUOTE.bin`: 284 bytes of
+  -- prose saying it is not a quote.  Now that Lean parses quotes, this is
+  -- what makes the dry run fail closed on the quote as well as on authority.
+  quote := ⟨0x4e4f542d412d5444582d51554f54452e20546869732066696c652065786973747320736f20746865206c6f63616c206472792072756e2068617320736f6d657468696e6720746f20686173680a696e2074686520706c6163652077686572652061207265616c20496e74656c205444582071756f746520676f65732e204974206973206e6f7420612071756f74652c20697420776173206e6f740a70726f647563656420627920616e79205444582068617264776172652c20616e64206e6f20646361702d71766c2061707072616973616c206f66206974206578697374732e0a737061726b696e74657276616c2e7068616c612d7464782e6c6f63616c2d6472792d72756e2e706c616365686f6c6465722d71756f74652e76310a, 284⟩
   quoteAppraisalHash :=
     "716f6fce4c97c5a39e47d767b4d0dd6f7b4d96fa4a46054f75e09a1186acd706"
   quoteAppraisalPolicyHash :=
@@ -104,13 +108,28 @@ does for the NIST CAVP vectors. -/
 -- The signed statement names the exact closed registered invocation.
 #guard phalaTdxInvocationCheck .ch25A7BoundaryProductionV1 dryRunReceipt
 
--- The complete acceptance check, and the campaign's production check shape
--- at the dry-run enclave.
-#guard phalaTdxOutcomeCheck .ch25A7BoundaryLocalDryRunV1
+/-! ## And the complete check refuses it, because there is no quote
+
+Before Lean parsed quotes, the dry run passed `phalaTdxOutcomeCheck`: every
+field it could check matched, and the quote entered only as a digest of a
+file nobody looked at.  `Execution/TdxQuoteV4.lean` now reads the retained
+bytes, and the dry-run fixture is 284 bytes of prose saying it is not a
+quote.  So the dry run fails closed twice over -- on attestation authority as
+before, and now on the quote as well.
+
+That is the intended reading of this module: a laptop cannot manufacture a
+TDX quote, and Lean no longer pretends otherwise. -/
+
+#guard !phalaTdxOutcomeCheck .ch25A7BoundaryLocalDryRunV1
   .ch25A7BoundaryProductionV1 dryRunReceipt
 
-#guard phalaTdxProductionCheck .ch25A7BoundaryLocalDryRunV1
+#guard !phalaTdxProductionCheck .ch25A7BoundaryLocalDryRunV1
   .ch25A7BoundaryProductionV1 dryRunReceipt "true"
+
+-- Precisely why: the fixture is far too short to contain a TD report body.
+#guard dryRunReceipt.quote.byteCount < TdxQuoteV4.minimumByteCount
+#guard !TdxQuoteV4.wellFormed dryRunReceipt.quote
+#guard !phalaTdxQuoteCheck .ch25A7BoundaryLocalDryRunV1 dryRunReceipt
 
 /-! ## Tamper cases are rejected -/
 
@@ -166,22 +185,27 @@ literal CH25 Lemma A.7 source claim.  Its single open hypothesis is that the
 signing key carries Intel TDX attestation authority -- which for this stand-in
 key is `false`, and which a real Phala run is exactly what supplies.
 
-The composite check is closed with `native_decide` rather than `decide`.  That
-is a deliberate, disclosed trade: the check performs nineteen SHA-256
+The composite refusal is closed with `native_decide` rather than `decide`.
+That is a deliberate, disclosed trade: the check performs nineteen SHA-256
 evaluations over strings (the canonical payload, its seventeen committed
 fields, and the invocation's source-binding diagnostics), and reducing those
 in the kernel exceeded a 16 GB budget on this machine, while the P-256 part
-alone did not.  Consequently `dryRunAccepted` and everything downstream of it
-carry `Lean.ofReduceBool`.  Nothing in
-`SparkInterval/Certificate/P256.lean`, `Execution/PhalaTdxAttestation.lean`, or
-`Execution/PhalaTdxCampaignCertificate.lean` uses `native_decide`; the addition
-is confined to this test module. -/
+alone did not.  Consequently `dryRunRejected` carries a `native_decide`
+axiom.  Nothing in `SparkInterval/Certificate/P256.lean`,
+`Execution/PhalaTdxAttestation.lean`, `Execution/TdxQuoteV4.lean`, or
+`Execution/PhalaTdxCampaignCertificate.lean` uses `native_decide`; the
+addition is confined to this test module. -/
 
-/-- The container's receipt satisfies the complete campaign check at the
-dry-run enclave.  Adds `Lean.ofReduceBool`; see the note above. -/
-theorem dryRunAccepted :
+/-- **The dry run is refused.**  The container's receipt does not satisfy the
+campaign check, because the file it names as its TDX quote is not one.
+
+This theorem replaces the former `dryRunAccepted`.  The two conditional
+campaign theorems below therefore take acceptance as a hypothesis, which is
+strictly more honest: they say what a real accepted receipt would buy, and
+this theorem says the dry run is not one. -/
+theorem dryRunRejected :
     phalaTdxProductionCheck .ch25A7BoundaryLocalDryRunV1
-      .ch25A7BoundaryProductionV1 dryRunReceipt "true" = true := by
+      .ch25A7BoundaryProductionV1 dryRunReceipt "true" = false := by
   native_decide
 
 /-- **Legacy path.**  The complete campaign conclusion, one hypothesis away,
@@ -190,7 +214,10 @@ mathematics.  Retained for comparison; see `dryRunCampaignFromModel`. -/
 theorem dryRunCampaign
     (authority :
       PhalaTdxEnclave.ch25A7BoundaryLocalDryRunV1.pin.attestationAuthority
-        = true) :
+        = true)
+    (dryRunAccepted :
+      phalaTdxProductionCheck .ch25A7BoundaryLocalDryRunV1
+        .ch25A7BoundaryProductionV1 dryRunReceipt "true" = true) :
     PhalaTdxCertifiedSourceRun .ch25A7BoundaryProductionV1 dryRunReceipt "true"
       SparkInterval.TernaryGoldbach.A7BoundarySourceSemantics.SourceClaim :=
   certifyPhalaTdxSourceRun
@@ -225,7 +252,10 @@ theorem dryRunCampaignFromModel
     (model :
       EnclaveImplementsA7ReferenceModel .ch25A7BoundaryLocalDryRunV1)
     (realization :
-      SparkInterval.TernaryGoldbach.A7BoundaryWireEvidence.RetainedAnalyticRealization) :
+      SparkInterval.TernaryGoldbach.A7BoundaryWireEvidence.RetainedAnalyticRealization)
+    (dryRunAccepted :
+      phalaTdxProductionCheck .ch25A7BoundaryLocalDryRunV1
+        .ch25A7BoundaryProductionV1 dryRunReceipt "true" = true) :
     PhalaTdxCertifiedSourceRun .ch25A7BoundaryProductionV1 dryRunReceipt "true"
       SparkInterval.TernaryGoldbach.A7BoundarySourceSemantics.SourceClaim :=
   certifyCH25A7BoundaryPhalaTdxFromModelAt authority dryRunAccepted model
@@ -246,7 +276,7 @@ theorem dryRunCampaignFromModel
 #print axioms ch25A7BoundaryRuns_of_modelOutput
 #print axioms ch25A7BoundaryPhalaTdxCheck_eq_false
 #print axioms dryRunSignature_kernelChecked
-#print axioms dryRunAccepted
+#print axioms dryRunRejected
 #print axioms dryRunCampaign
 #print axioms dryRunCampaignFromModel
 

@@ -4,6 +4,7 @@ SPDX-License-Identifier: MIT -/
 import SparkInterval.Certificate.P256
 import SparkInterval.Certificate.CanonicalHex
 import SparkInterval.Execution.RegisteredAlgorithm
+import SparkInterval.Execution.TdxQuoteV4
 
 /-!
 # Enclave-signed campaign receipts from a Phala/dstack Intel TDX CVM
@@ -28,15 +29,25 @@ MAA appraises the Azure attestation outside Lean today.  What Lean checks is:
 * that the signed result is in that invocation's canonical result language and
   that its SHA-256 is the signed output digest;
 * that the signed dstack application identity, app-compose hash, image digest,
-  and `dcap-qvl` policy/binary identities are exactly the pinned ones; and
-* that the SHA-256 the enclave placed in the TDX quote's report data is the
-  domain-separated commitment to the pinned public key and this campaign's
-  challenge, so the quote and the signature cannot come from two unrelated
-  parties.
+  and `dcap-qvl` policy/binary identities are exactly the pinned ones;
+* that the retained quote really is a v4 Intel TDX quote, that its
+  `mrconfigid` is the dstack encoding of the **pinned** app-compose hash, and
+  that its report data is the SHA-256 -- **recomputed here** -- of the
+  domain-separated commitment to the pinned public key, this campaign's
+  challenge, and this job's binding; and
+* that the SHA-256 of those exact quote bytes is the `tdx_quote_sha256` the
+  enclave signed, so the signature covers the quote that was parsed.
 
 The `dcap-qvl` appraisal enters only as the SHA-256 of the retained appraisal
 output; retaining that file is an evidence-preservation duty, not a Lean
 obligation.
+
+What changed when the quote parser landed: `reportDataHash` and `composeHash`
+used to be *fields of the receipt* that Lean checked against a computed
+commitment and a pin, with no way to tell whether the quote contained them.
+`Execution/TdxQuoteV4.lean` now reads both out of the quote bytes themselves,
+so "the CPU measured this app-compose document" and "the enclave put this
+commitment in the report data" are machine-checked rather than asserted.
 
 ## Why this does not reuse `RunStatement`/`certifyRun`
 
@@ -247,8 +258,17 @@ structure PhalaTdxReceipt where
   appId : String
   composeHash : Digest
   imageDigest : String
-  /-- SHA-256 of the retained Intel TDX quote.  Lean does not parse it. -/
+  /-- SHA-256 of the retained Intel TDX quote. -/
   quoteHash : Digest
+  /-- **The retained quote itself**, packed big-endian.
+
+  This is what makes `reportDataHash` and `composeHash` checkable rather than
+  asserted.  `phalaTdxQuoteCheck` parses it with
+  `Execution/TdxQuoteV4.lean` and requires its SHA-256 to be `quoteHash`, so
+  the enclave's signature -- which covers `quoteHash` -- covers these exact
+  bytes.  It is deliberately *not* a separate signed field: nothing new is
+  trusted, an existing signed commitment is merely opened. -/
+  quote : SHA256.PackedBytes
   /-- SHA-256 of the retained `dcap-qvl` appraisal output. -/
   quoteAppraisalHash : Digest
   quoteAppraisalPolicyHash : Digest
@@ -359,12 +379,44 @@ def phalaTdxInvocationCheck
   receipt.outputHash == SHA256.digestString receipt.result &&
   decide (invocation.ResultAllowed receipt.result)
 
+/-- **The quote binding.**  Everything the retained TDX quote must itself
+say, read out of its bytes.
+
+Four conditions, none of which was checkable before the quote was parsed:
+
+1. the bytes are a v4 quote from an Intel TDX platform and are long enough to
+   contain a TD report body;
+2. the quote's `mrconfigid` is `01 ‖ composeHash ‖ 0…0` for the **pinned**
+   app-compose hash -- that is, the CPU measured the reviewed configuration;
+3. the quote's report data is exactly the SHA-256, *recomputed here from the
+   pinned public key and this run's challenge and job binding*, with the
+   upper 32 bytes zero; and
+4. the SHA-256 of these exact quote bytes is the `tdx_quote_sha256` the
+   enclave signed.
+
+Condition 3 is the one that closes the statement-to-quote chain: the digest
+is computed, never read from the receipt.  Condition 4 is what stops a
+genuine receipt from being paired with somebody else's genuine quote.
+
+None of this appraises the quote's Intel signature, PCK chain, TCB level, or
+QE identity.  That remains `dcap-qvl`'s job, outside Lean. -/
+def phalaTdxQuoteCheck
+    (enclave : PhalaTdxEnclave) (receipt : PhalaTdxReceipt) : Bool :=
+  TdxQuoteV4.wellFormed receipt.quote &&
+    TdxQuoteV4.quoteBindsCompose receipt.quote enclave.pin.composeHash &&
+      TdxQuoteV4.quoteBindsStatement receipt.quote
+        (SHA256.digestString
+          (phalaTdxReportDataPreimage enclave.pin.enclavePublicKeyHex
+            receipt.challengeNonce receipt.jobBindingHash)) &&
+        receipt.quote.digest == receipt.quoteHash
+
 /-- The complete fail-closed acceptance check for one enclave-signed run. -/
 def phalaTdxOutcomeCheck (enclave : PhalaTdxEnclave)
     (invocation : RegisteredInvocation) (receipt : PhalaTdxReceipt) : Bool :=
   phalaTdxPinCheck enclave receipt &&
     phalaTdxInvocationCheck invocation receipt &&
-      phalaTdxSignatureCheck enclave receipt
+      phalaTdxQuoteCheck enclave receipt &&
+        phalaTdxSignatureCheck enclave receipt
 
 /-- An unpinned enclave public key makes acceptance impossible, whatever the
 rest of the receipt says.  This is what "fail closed until credentials exist"
@@ -384,5 +436,61 @@ theorem phalaTdxOutcomeCheck_ch25A7BoundaryProductionV1_eq_false
     phalaTdxOutcomeCheck .ch25A7BoundaryProductionV1 invocation receipt
       = false :=
   phalaTdxOutcomeCheck_eq_false_of_unpinned_key (by decide)
+
+/-! ## The quote must be a quote, and must be *this* quote
+
+A checker that accepted everything would satisfy every positive statement in
+this module.  These are the refusals. -/
+
+/-- A quote too short to contain a TD report body forces rejection.  This is
+the case a stand-in file, a truncated download, or an empty field falls
+into. -/
+theorem phalaTdxOutcomeCheck_eq_false_of_truncated_quote
+    {enclave : PhalaTdxEnclave} {invocation : RegisteredInvocation}
+    {receipt : PhalaTdxReceipt}
+    (hshort : receipt.quote.byteCount < TdxQuoteV4.minimumByteCount) :
+    phalaTdxOutcomeCheck enclave invocation receipt = false := by
+  simp [phalaTdxOutcomeCheck, phalaTdxQuoteCheck,
+    TdxQuoteV4.wellFormed_eq_false_of_short hshort]
+
+/-- A quote whose measured configuration is not the pinned app-compose
+document forces rejection, however well-formed the rest of the receipt is.
+This is the guard that a different measured code base cannot borrow this
+deployment's identity. -/
+theorem phalaTdxOutcomeCheck_eq_false_of_wrong_mrConfigId
+    {enclave : PhalaTdxEnclave} {invocation : RegisteredInvocation}
+    {receipt : PhalaTdxReceipt}
+    (hmismatch :
+      TdxQuoteV4.mrConfigIdHex receipt.quote ≠
+        TdxQuoteV4.expectedMrConfigIdHex enclave.pin.composeHash) :
+    phalaTdxOutcomeCheck enclave invocation receipt = false := by
+  simp [phalaTdxOutcomeCheck, phalaTdxQuoteCheck,
+    TdxQuoteV4.quoteBindsCompose_eq_false_of_mismatch hmismatch]
+
+/-- A quote whose report data is not the recomputed commitment forces
+rejection.  The digest on the right is computed from the pinned key and this
+run's challenge and job binding; nothing the receipt says about it is
+consulted. -/
+theorem phalaTdxOutcomeCheck_eq_false_of_wrong_reportData
+    {enclave : PhalaTdxEnclave} {invocation : RegisteredInvocation}
+    {receipt : PhalaTdxReceipt}
+    (hmismatch :
+      TdxQuoteV4.reportDataStatementHex receipt.quote ≠
+        SHA256.digestString
+          (phalaTdxReportDataPreimage enclave.pin.enclavePublicKeyHex
+            receipt.challengeNonce receipt.jobBindingHash)) :
+    phalaTdxOutcomeCheck enclave invocation receipt = false := by
+  simp [phalaTdxOutcomeCheck, phalaTdxQuoteCheck,
+    TdxQuoteV4.quoteBindsStatement_eq_false_of_mismatch hmismatch]
+
+/-- A quote whose own SHA-256 is not the signed `tdx_quote_sha256` forces
+rejection.  Without this a genuine receipt could be presented alongside an
+unrelated genuine quote. -/
+theorem phalaTdxOutcomeCheck_eq_false_of_unbound_quote
+    {enclave : PhalaTdxEnclave} {invocation : RegisteredInvocation}
+    {receipt : PhalaTdxReceipt}
+    (hmismatch : receipt.quote.digest ≠ receipt.quoteHash) :
+    phalaTdxOutcomeCheck enclave invocation receipt = false := by
+  simp [phalaTdxOutcomeCheck, phalaTdxQuoteCheck, hmismatch]
 
 end SparkInterval.Execution

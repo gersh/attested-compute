@@ -40,8 +40,14 @@ PHALA_MODULES = frozenset(
         "SparkInterval.Execution.PhalaTdxCampaignCertificate",
         "SparkInterval.Execution.PhalaTdxA7BoundaryCertificate",
         "SparkInterval.Execution.PhalaTdxProd5Evidence",
+        # The leancompcert seg campaign is a Phala TDX consumer: it imports the
+        # operational attestation layer and states its reduction over
+        # `PhalaTdxAttestedEmission`.  It belongs on this list for the same
+        # reason the campaign certificates do.
+        "SparkInterval.Execution.LeanCompCertSegCampaign",
         "SparkInterval.Tests.PhalaTdxDryRunTest",
         "SparkInterval.Tests.PhalaTdxProd5RunTest",
+        "SparkInterval.Tests.PhalaTdxSegEvidenceTest",
     }
 )
 

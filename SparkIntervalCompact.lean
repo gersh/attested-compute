@@ -2,6 +2,10 @@
 SPDX-License-Identifier: MIT -/
 
 import SparkInterval.Certificate.SHA256
+import SparkInterval.Certificate.SHA256Chunked
+import SparkInterval.Certificate.SHA256Packed
+import SparkInterval.Certificate.SHA256Vectors
+import SparkInterval.Execution.TdxQuoteV4
 import SparkInterval.SignQuadrantIntervalMul
 import SparkInterval.DirectedComplexInterval
 import SparkInterval.Execution.CompactArchitectureReceipt

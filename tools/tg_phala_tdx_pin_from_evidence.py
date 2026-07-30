@@ -87,6 +87,11 @@ MODULE_NAME = "SparkInterval.Execution.PhalaTdxProd5Evidence"
 DEFAULT_OUT = ROOT / "SparkInterval/Execution/PhalaTdxProd5Evidence.lean"
 DEFAULT_EVIDENCE = ROOT / "tests/data/phala_tdx_prod5"
 
+TD_REPORT_OFFSET = 48
+TD_REPORT_SIZE = 584
+MR_CONFIG_ID_OFFSET = TD_REPORT_OFFSET + 184
+REPORT_DATA_OFFSET = TD_REPORT_OFFSET + 520
+
 PIN_ID = "sparkinterval.phala-tdx.ch25-a7-boundary.phala-prod5.v1"
 NEGATIVE_PIN_ID = (
     "sparkinterval.phala-tdx.ch25-a7-boundary.prod5-negative-test.v1"
@@ -450,6 +455,44 @@ def load_evidence(evidence_dir: Path) -> dict:
             f"SOUNDNESS: the reference verifier ACCEPTS an {label}",
         )
 
+    # --- the quote itself says what the receipt says it says ---------------
+    #
+    # Lean now parses the quote (`SparkInterval/Execution/TdxQuoteV4.lean`), so
+    # the generator must not emit a pin whose quote disagrees with the signed
+    # fields.  These two checks are the Python mirror of `phalaTdxQuoteCheck`.
+    quote_bytes = (retained / "input/tdx-quote.bin").read_bytes()
+    _require(
+        len(quote_bytes) >= TD_REPORT_OFFSET + TD_REPORT_SIZE,
+        f"the retained quote is {len(quote_bytes)} bytes, too short to "
+        "contain a TD report body",
+    )
+    _require(
+        int.from_bytes(quote_bytes[0:2], "little") == 4
+        and int.from_bytes(quote_bytes[4:8], "little") == 0x81,
+        "the retained quote is not a v4 Intel TDX quote",
+    )
+    measured_report_data = quote_bytes[
+        REPORT_DATA_OFFSET:REPORT_DATA_OFFSET + 64
+    ]
+    _require(
+        measured_report_data[:32].hex() == fields["report_data_sha256"],
+        "the quote's report data is not the signed report-data digest",
+    )
+    _require(
+        measured_report_data[32:] == b"\x00" * 32,
+        "the quote's report data has a nonzero upper half",
+    )
+    measured_config = quote_bytes[
+        MR_CONFIG_ID_OFFSET:MR_CONFIG_ID_OFFSET + 48
+    ]
+    _require(
+        measured_config[0] == 0x01
+        and measured_config[1:33].hex() == compose_hash
+        and measured_config[33:] == b"\x00" * 15,
+        "the quote's mr_config_id does not measure the signed app-compose "
+        "hash",
+    )
+
     return {
         "pin_id": PIN_ID,
         "negative_pin_id": NEGATIVE_PIN_ID,
@@ -461,6 +504,8 @@ def load_evidence(evidence_dir: Path) -> dict:
         "artifact_hash": fields["dcap_qvl_artifact_sha256"],
         "signature": signature,
         "statement_digest": digest,
+        "quote_packed": "0x" + quote_bytes.hex(),
+        "quote_byte_count": len(quote_bytes),
         "fields": fields,
         "tampered_public_key": tampered_key,
         "tampered_signature": tampered_signature,
@@ -573,6 +618,14 @@ def render_module(data: dict) -> str:
             _field("composeHash", fields["compose_hash"], i),
             _field("imageDigest", fields["image_digest"], i),
             _field("quoteHash", fields["tdx_quote_sha256"], i),
+            f"{i}-- The retained quote itself, packed big-endian from\n"
+            f"{i}-- `tests/data/phala_tdx_prod5/retained-evidence/input/"
+            "tdx-quote.bin`.\n"
+            f"{i}-- `phalaTdxQuoteCheck` parses it and requires its SHA-256 to "
+            "be the\n"
+            f"{i}-- `quoteHash` immediately above.\n"
+            f"{i}quote := ⟨{data['quote_packed']}, "
+            f"{data['quote_byte_count']}⟩",
             _field("quoteAppraisalHash", fields["dcap_qvl_output_sha256"], i),
             _field(
                 "quoteAppraisalPolicyHash", fields["dcap_qvl_policy_sha256"], i

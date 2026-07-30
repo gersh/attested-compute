@@ -87,8 +87,47 @@ result bytes.
 4. **The external `dcap-qvl` appraisal.**  Someone ran `dcap-qvl` on the
    retained quote with the pinned policy and it accepted.  Lean verifies only
    that the retained appraisal's SHA-256 is the one committed in the signed
-   statement; it does not parse quotes, PCK certificate chains, TCB levels, or
-   QE identities, and must not be read as having done so.
+   statement.  It does **not** parse PCK certificate chains, TCB levels, or QE
+   identities, and must not be read as having done so: the Intel signature
+   over the quote is appraised outside Lean and stays a pin.
+
+### How this assumption narrowed when the quote parser landed
+
+Assumption 3 used to have to carry two further things that are now checked.
+`phalaTdxOutcomeCheck` calls `phalaTdxQuoteCheck`
+(`Execution/PhalaTdxAttestation.lean`), which reads the retained quote bytes
+with `Execution/TdxQuoteV4.lean` and requires, by kernel-reducible
+computation:
+
+* that the bytes are a v4 quote from an Intel TDX platform and are long
+  enough to contain a TD report body;
+* that the quote's own `mrconfigid` is `01 ‖ composeHash ‖ 0…0` for the
+  **pinned** app-compose hash -- so "the CPU measured the reviewed
+  configuration" is now a parsed fact rather than a receipt field;
+* that the quote's own report data is the SHA-256, **recomputed from the
+  pinned public key and this run's challenge and job binding**, with the upper
+  32 bytes zero -- so "the enclave committed to the pinned key in the quote"
+  is now a parsed fact rather than a receipt field; and
+* that the SHA-256 of those exact quote bytes is the `tdx_quote_sha256` the
+  enclave signed -- so a genuine receipt cannot be presented alongside an
+  unrelated genuine quote.
+
+Before that, `reportDataHash` and `composeHash` were fields of the receipt.
+Lean checked the first against a computed commitment and the second against
+the pin, but had no way to tell whether the *quote* contained either.  A
+receipt assembler who put the right strings in the receipt and any bytes at
+all in the quote file satisfied the old check.
+
+The axiom's statement is unchanged; its premise is strictly stronger, so what
+it assumes about the world is strictly smaller.  Concretely, three former
+failure modes are now build failures instead: a quote from a differently
+measured app-compose document, a quote whose report data does not commit to
+the pinned key, and a quote unrelated to the one whose digest was signed.
+`Certificate/SHA256Vectors.lean` checks the SHA-256 that does this work
+against the FIPS 180-4 vectors, and
+`Tests/PhalaTdxSegEvidenceTest.lean` closes the whole
+statement-to-digest-to-report-data-to-quote chain on real retained evidence
+with `rfl` alone.
 
 ### What this deliberately does *not* assume
 
