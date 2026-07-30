@@ -18,6 +18,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 import unittest
 
 
@@ -33,6 +34,7 @@ from tg_verifier.platt_windowed_scheduler import (  # noqa: E402
     PlattWindowedScheduleError,
     _build_unit_receipt,
     _commit_unit,
+    _lease_path,
     _unit_receipt_path,
     claim_unit,
     create_schedule,
@@ -258,11 +260,31 @@ class SchedulerTestCase(unittest.TestCase):
         self.assertFalse(
             claim_unit(directory, schedule, 0, worker_id="b", lease_seconds=3600)
         )
-        # An expired lease is stealable.
+        # Back-date the claim past its lease; it then becomes stealable, and
+        # only stealable because the receipt is still missing.
+        lease = _lease_path(directory, 0)
+        old = time.time() - 10_000
+        os.utime(lease, (old, old))
+        self.assertFalse(
+            claim_unit(
+                directory,
+                schedule,
+                0,
+                worker_id="b",
+                lease_seconds=3600,
+                steal_expired=False,
+            )
+        )
         self.assertTrue(
-            claim_unit(directory, schedule, 0, worker_id="b", lease_seconds=0 + 1,
-                       steal_expired=True)
-            or claim_unit(directory, schedule, 0, worker_id="b", lease_seconds=1)
+            claim_unit(directory, schedule, 0, worker_id="b", lease_seconds=3600)
+        )
+
+    def test_a_committed_unit_is_never_reclaimed(self) -> None:
+        directory = self._schedule()
+        schedule = load_schedule(directory)
+        run_unit(directory, self.runner, 0)
+        self.assertFalse(
+            claim_unit(directory, schedule, 0, worker_id="late", lease_seconds=3600)
         )
 
     def test_next_unit_respects_the_stride_partition(self) -> None:

@@ -25,11 +25,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import statistics
 import subprocess
 import sys
-import time
 import urllib.parse
 import urllib.request
 from typing import Any
@@ -137,8 +137,7 @@ def calibrate(runner: Path, *, height: int, counts: tuple[int, ...]) -> dict[str
         raise CostModelError(f"runner is not a regular file: {runner}")
     samples: list[tuple[int, float]] = []
     for count in counts:
-        before = time.process_time_ns()
-        started = time.monotonic()
+        usage_before = os.times()
         completed = subprocess.run(
             [str(runner.resolve()), str(PRECISION_BITS), str(height), str(count), str(STEP)],
             check=False,
@@ -147,12 +146,14 @@ def calibrate(runner: Path, *, height: int, counts: tuple[int, ...]) -> dict[str
             stderr=subprocess.PIPE,
             text=True,
         )
-        elapsed = time.monotonic() - started
-        del before
+        usage_after = os.times()
         if completed.returncode != 0:
             raise CostModelError(f"calibration run failed for {count} blocks")
-        usage = os.times()  # noqa: F821  (documented below)
-        del usage
+        # Child user + system CPU, which is far less sensitive to unrelated
+        # load on a shared host than wall clock.
+        elapsed = (usage_after.children_user - usage_before.children_user) + (
+            usage_after.children_system - usage_before.children_system
+        )
         samples.append((count, elapsed))
     mean_x = statistics.fmean(count for count, _ in samples)
     mean_y = statistics.fmean(value for _, value in samples)
@@ -168,7 +169,7 @@ def calibrate(runner: Path, *, height: int, counts: tuple[int, ...]) -> dict[str
         "samples": [{"blocks": count, "elapsed_seconds": value} for count, value in samples],
         "seconds_per_block": slope,
         "invocation_seconds": intercept,
-        "note": "elapsed wall seconds on an otherwise-shared host; single threaded",
+        "note": "child user+system CPU seconds, single threaded",
     }
 
 
@@ -310,9 +311,6 @@ def build_model(
             "operator time and failed-node retries beyond the eviction model",
         ],
     }
-
-
-import os  # noqa: E402  (used by calibrate; kept late to keep the header short)
 
 
 def main(argv: list[str] | None = None) -> int:

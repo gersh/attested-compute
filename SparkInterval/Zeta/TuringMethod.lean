@@ -238,6 +238,120 @@ theorem zetaMultiplicityCountUpperBound_of_lt {N : ℝ → ℝ}
   push_cast at hreal
   linarith
 
+/-! ## Non-vacuity: the canonical distinct-zero counting function
+
+`SymmetricCountFunction` is a hypothesis about an object whose existence is not
+obvious, so this section exhibits a concrete monotone counting function for the
+same rectangles -- the number of *distinct* zeta zeros of half height `t`,
+which Mathlib's compactness/discreteness theorem already makes finite.
+
+The Turing machinery is therefore not vacuous: it applies verbatim to
+`zetaDistinctCount`, at the cost that the analytic input must then be a bound
+on the distinct count rather than on the multiplicity count.  An
+argument-principle proof naturally produces the multiplicity version, which is
+the stronger one, so the multiplicity interface above is the intended target;
+this section exists to show the shape is inhabited. -/
+
+/-- The number of distinct zeta zeros in the closed critical rectangle of half
+height `t`, as a real number. -/
+noncomputable def zetaDistinctCount (t : ℝ) : ℝ :=
+  ((zetaZerosIn (criticalRectangle t)).ncard : ℝ)
+
+theorem criticalRectangle_mono {a b : ℝ} (hab : a ≤ b) :
+    criticalRectangle a ⊆ criticalRectangle b := by
+  intro z hz
+  rw [mem_criticalRectangle] at hz ⊢
+  refine ⟨hz.1, hz.2.1, ?_, ?_⟩ <;> linarith [hz.2.2.1, hz.2.2.2]
+
+theorem zetaDistinctCount_monotone : Monotone zetaDistinctCount := by
+  intro a b hab
+  have hsub : zetaZerosIn (criticalRectangle a) ⊆ zetaZerosIn (criticalRectangle b) :=
+    Set.inter_subset_inter_left _ (criticalRectangle_mono hab)
+  have hle := Set.ncard_le_ncard hsub (zetaZerosIn_finite (isCompact_criticalRectangle b))
+  unfold zetaDistinctCount
+  exact_mod_cast hle
+
+/-- Integer pinning against the distinct-zero count. -/
+theorem zetaZeroCountUpperBound_of_lt_distinct {N : ℝ → ℝ}
+    (hdom : ∀ t, zetaDistinctCount t ≤ N t) {height : ℝ} {bound : ℕ}
+    (hlt : N height < (bound : ℝ) + 1) :
+    ZetaZeroCountUpperBound height bound := by
+  refine ⟨?_⟩
+  have hreal : ((zetaZerosIn (criticalRectangle height)).ncard : ℝ) < (bound : ℝ) + 1 :=
+    lt_of_le_of_lt (hdom height) hlt
+  have hnat : (zetaZerosIn (criticalRectangle height)).ncard < bound + 1 := by
+    exact_mod_cast hreal
+  omega
+
+/-! ## The canonical multiplicity counting function
+
+The multiplicity count is finite, because `riemannZeta` does not vanish on any
+open set, so the canonical real counting function below actually satisfies
+`SymmetricCountFunction`.  The analytic input of a Turing window may therefore
+be stated about the genuine zeta zero count rather than about an unspecified
+dominating function. -/
+
+/-- `riemannZeta` has finite analytic order at every point other than its pole:
+it does not vanish on any neighbourhood, by the identity theorem on the
+connected set `{1}ᶜ` together with `ζ(2) ≠ 0`. -/
+theorem analyticOrderAt_riemannZeta_ne_top {z : ℂ} (hz : z ≠ 1) :
+    analyticOrderAt riemannZeta z ≠ ⊤ := by
+  intro htop
+  have hev : ∀ᶠ w in nhds z, riemannZeta w = 0 := analyticOrderAt_eq_top.mp htop
+  have hmem : z ∈ ({(1 : ℂ)}ᶜ : Set ℂ) := by simpa using hz
+  have heq : Set.EqOn riemannZeta 0 ({(1 : ℂ)}ᶜ : Set ℂ) :=
+    analyticOn_riemannZeta.eqOn_zero_of_preconnected_of_eventuallyEq_zero
+      (isConnected_compl_singleton_of_one_lt_rank (by simp) 1).isPreconnected hmem
+      (by filter_upwards [hev] with w hw using hw)
+  have h2 : riemannZeta 2 = 0 := by
+    have := heq (show (2 : ℂ) ∈ ({(1 : ℂ)}ᶜ : Set ℂ) by norm_num)
+    simpa using this
+  exact riemannZeta_ne_zero_of_one_le_re (by norm_num) h2
+
+theorem zetaZeroMultiplicityCount_ne_top (t : ℝ) :
+    zetaZeroMultiplicityCount t ≠ ⊤ := by
+  classical
+  rw [zetaZeroMultiplicityCount]
+  refine WithTop.sum_ne_top.mpr ?_
+  intro z hz
+  have hzero : riemannZeta z = 0 := (mem_zetaZerosFinset.mp hz).2
+  have hne : z ≠ 1 := by
+    intro h
+    rw [h] at hzero
+    exact riemannZeta_one_ne_zero hzero
+  exact analyticOrderAt_riemannZeta_ne_top hne
+
+theorem zetaZeroMultiplicityCount_monotone : Monotone zetaZeroMultiplicityCount := by
+  classical
+  intro a b hab
+  refine Finset.sum_le_sum_of_subset ?_
+  intro z hz
+  rw [mem_zetaZerosFinset] at hz ⊢
+  exact ⟨criticalRectangle_mono hab hz.1, hz.2⟩
+
+/-- The canonical counting function: total analytic multiplicity of the zeta
+zeros in the closed critical rectangle of half height `t`, as a real number. -/
+noncomputable def zetaMultCount (t : ℝ) : ℝ :=
+  ((zetaZeroMultiplicityCount t).toNat : ℝ)
+
+/-- **The Turing interface is inhabited by the genuine zeta multiplicity
+count.** -/
+theorem symmetricCountFunction_zetaMultCount :
+    SymmetricCountFunction zetaMultCount := by
+  constructor
+  · intro a b hab
+    have hnat : (zetaZeroMultiplicityCount a).toNat ≤ (zetaZeroMultiplicityCount b).toNat :=
+      ENat.toNat_le_toNat (zetaZeroMultiplicityCount_monotone hab)
+        (zetaZeroMultiplicityCount_ne_top b)
+    unfold zetaMultCount
+    exact_mod_cast hnat
+  · intro t m hm
+    have hnat : m ≤ (zetaZeroMultiplicityCount t).toNat := by
+      have := ENat.toNat_le_toNat hm (zetaZeroMultiplicityCount_ne_top t)
+      simpa using this
+    unfold zetaMultCount
+    exact_mod_cast hnat
+
 /-! ## The assembled Turing window -/
 
 /-- Everything a Turing window must supply to pin the zeta zero count at height
