@@ -37,34 +37,43 @@ is a statement about a *count*.
 So a per-block certificate can be four naturals plus a commitment, and the
 bracket ordinates can be discarded.  That is the ladder.
 
-## The four levels
+## The five levels
+
+The geometry is the campaign scheduler's, not a second one invented here:
+`tg_verifier/platt_windowed_scheduler.py` pins `512` blocks per work unit
+and `2048` units per shard.
 
 Full wire layouts are in `cpu_checker/pt21_ladder/FORMAT.md`.  The Lean
-side is `SparkInterval/Zeta/PT21Ladder.lean` (arithmetic) and
-`SparkInterval/Zeta/PT21LadderSemantics.lean` (what it means for
-`riemannZeta`).
+side is `SparkInterval/Zeta/PT21Ladder.lean` (arithmetic),
+`SparkInterval/Zeta/PT21LadderGeometry.lean` (the pinned geometry and the
+two-tier aggregation), and `SparkInterval/Zeta/PT21LadderSemantics.lean`
+(what it means for `riemannZeta`).
 
 | Level | Unit | Count | Wire | Proposition it supports |
 |---|---|---:|---:|---|
 | L0 | block sign packet | 2,966,443,783 | 3,339 B each = **9.9 TB** | this block's slot count, endpoint counts, and Turing cells follow from the published signs |
 | L1 | window summary | 2,966,443,783 | never serialized | `WindowSummary`: `block, lowerCount, slots, upperCount` with `lowerCount + slots = upperCount` |
-| L2 | group summary | 90,530 (32,768 blocks/group) | 88 B each = **7.97 MB** | `GroupSummary`: a valid, gap-free, telescoping run of 32,768 windows exists under this digest |
-| L3 | campaign record | 1 | 88 B | the whole range `[10^10, 3000175333264]` is covered gap-free and `N(end) = N(start) + totalSlots` |
+| L2 | unit summary (512 blocks) | 5,793,836 | 88 B each = **510 MB** | `GroupSummary`: a valid, gap-free, telescoping run of 512 windows exists under this digest |
+| L3 | shard summary (2048 units) | 2,830 | 88 B each = **249 KB** | the same, one tier up: a valid run of 2048 unit summaries exists under this digest |
+| L4 | campaign record | 1 | 88 B | the whole range `[10^10, 3000175333264]` is covered gap-free and `N(end) = N(start) + totalSlots` |
 
-The L2 list is the largest object the Lean kernel ever reads: 90,530
-records, under 8 MB.
+L2 and L3 are the same record type checked by the same function; only the
+digest scheme differs.  **The L3 list is the largest object the Lean
+kernel ever reads: 2,830 records, 249 KB.**
 
 ### What each level still proves
 
-`SparkInterval.Zeta.PT21Ladder.campaign_windowChain` is the aggregation
-theorem.  From
+`SparkInterval.Zeta.PT21Ladder.campaign_windowChain_twoTier` is the
+aggregation theorem.  From
 
-* a kernel-checked `checkCampaign record groups = true`, and
-* one `GroupRefines commit group` fact per level-2 record,
+* a kernel-checked `checkCampaign record shards = true` over 2,830
+  records, and
+* one `ShardRefines unitCommit shardCommit shard` fact per shard,
 
 it produces a `WindowChainValid` over **every** block of the campaign.
-The window list exists only as a `Prop`-level witness: the kernel never
-materializes, hashes, or reduces `2.97e9` records.
+Neither the 5,793,836-unit list nor the 2,966,443,783-window list is ever
+materialized: both are eliminated existentials.  The kernel never hashes
+or reduces either.
 
 `SparkInterval.Zeta.PT21Ladder.criticalLine_of_blocks` then says that
 gap-free consecutive blocks compose: if every block's own certificate puts
@@ -102,8 +111,8 @@ the target proposition is a counting statement.
 
 ### The single trust-transfer point
 
-`GroupRefines` is the one place where trust is transferred rather than
-eliminated:
+`GroupRefines` (and its one-tier-up form `ShardRefines`) is the one place
+where trust is transferred rather than eliminated:
 
 ```lean
 def GroupRefines (commit : List WindowSummary → Digest)
@@ -122,8 +131,8 @@ silently.
 
 **The ladder does not reduce the amount of work that must be done.  It
 reduces the amount of work the Lean kernel must do, from `1.78e4`
-core-years to about two minutes, and moves the remainder onto a checker
-whose compiler is verified.**
+core-years to seconds, and moves the remainder onto a checker whose
+compiler is verified.**
 
 ## Measured throughput
 

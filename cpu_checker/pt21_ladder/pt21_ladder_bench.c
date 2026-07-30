@@ -294,7 +294,7 @@ static int run_kat(void)
 int main(int argc, char **argv)
 {
     uint64_t blocks = 200000;
-    uint32_t blocks_per_group = 32768;
+    uint32_t blocks_per_group = 512;   /* one scheduler work unit */
     uint64_t index;
     uint8_t *packets;
     pt21_ladder_state state;

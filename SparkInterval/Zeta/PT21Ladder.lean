@@ -111,9 +111,22 @@ theorem blockLower_lt_succ (block : Nat) :
   unfold sourceBlockStep
   omega
 
-/-- A 32-byte commitment.  The ladder never computes one; it only compares
-and carries them, so the hash function stays a parameter of the format. -/
-abbrev Digest := List UInt8
+/-- A 32-byte commitment, held as the big-endian natural it encodes.
+
+`Nat` rather than `List UInt8` is a deliberate performance decision.  The
+kernel only ever range-checks a digest; it never inspects bytes.  A
+`List UInt8` literal costs 32 cons cells and 32 `OfNat` applications per
+record; a `Nat` literal is one GMP-accelerated numeral and one
+comparison. -/
+abbrev Digest := Nat
+
+/-- `2 ^ 256`, written out so the checker never recomputes a power. -/
+def digestBound : Nat :=
+  115792089237316195423570985008687907853269984665640564039457584007913129639936
+
+theorem digestBound_eq : digestBound = 2 ^ 256 := by
+  unfold digestBound
+  decide
 
 /-! ## Level 1: one window summary per source block -/
 
@@ -364,7 +377,7 @@ def GroupChainValid : Nat → Nat → List GroupSummary → Prop
   | _, _, [] => True
   | block, count, group :: rest =>
       group.firstBlock = block ∧ group.lowerCount = count ∧
-        0 < group.blockCount ∧ group.digest.length = 32 ∧
+        0 < group.blockCount ∧ group.digest < digestBound ∧
         group.lowerCount + group.slots = group.upperCount ∧
         GroupChainValid (block + group.blockCount) group.upperCount rest
 
@@ -373,7 +386,7 @@ def runGroups : Nat → Nat → List GroupSummary → Option (Nat × Nat)
   | block, count, [] => some (block, count)
   | block, count, group :: rest =>
       if group.firstBlock = block ∧ group.lowerCount = count ∧
-          0 < group.blockCount ∧ group.digest.length = 32 ∧
+          0 < group.blockCount ∧ group.digest < digestBound ∧
           group.lowerCount + group.slots = group.upperCount then
         runGroups (block + group.blockCount) group.upperCount rest
       else
@@ -395,7 +408,7 @@ theorem runGroups_sound :
       intro result hrun
       simp only [runGroups] at hrun
       by_cases hlocal : group.firstBlock = block ∧ group.lowerCount = count ∧
-          0 < group.blockCount ∧ group.digest.length = 32 ∧
+          0 < group.blockCount ∧ group.digest < digestBound ∧
           group.lowerCount + group.slots = group.upperCount
       · rw [if_pos hlocal] at hrun
         obtain ⟨htail, hresult⟩ :=
@@ -421,7 +434,7 @@ theorem runGroups_complete :
   | cons group rest induction =>
       rintro ⟨hfirst, hcount, hpositive, hdigest, hclosed, htail⟩
       have hlocal : group.firstBlock = block ∧ group.lowerCount = count ∧
-          0 < group.blockCount ∧ group.digest.length = 32 ∧
+          0 < group.blockCount ∧ group.digest < digestBound ∧
           group.lowerCount + group.slots = group.upperCount :=
         ⟨hfirst, hcount, hpositive, hdigest, hclosed⟩
       simp only [runGroups, if_pos hlocal]
@@ -498,20 +511,69 @@ structure CampaignRecord where
   root : Digest
   deriving DecidableEq, Repr, Inhabited
 
-/-- Full ladder acceptance: the level-2 list must start where the campaign
-record starts, end where it ends, and account for exactly its blocks and
-slots. -/
+/-- Level-2 checker in *closed* form: a single tail-recursive pass that also
+verifies the campaign endpoints.
+
+This shape matters for kernel performance.  A checker that first computes a
+state with `runGroups` and then compares that state against the campaign
+record forces the kernel to re-reduce the whole run once per comparison; at
+`100` records that costs `54` s, versus `0.9` s here.  The closed form
+carries the targets through the recursion so the level-2 list is reduced
+exactly once. -/
+def runGroupsTo :
+    Nat → Nat → Nat → Nat → List GroupSummary → Bool
+  | block, count, targetBlock, targetCount, [] =>
+      decide (block = targetBlock) && decide (count = targetCount)
+  | block, count, targetBlock, targetCount, group :: rest =>
+      if group.firstBlock = block ∧ group.lowerCount = count ∧
+          0 < group.blockCount ∧ group.digest < digestBound ∧
+          group.lowerCount + group.slots = group.upperCount then
+        runGroupsTo (block + group.blockCount) group.upperCount
+          targetBlock targetCount rest
+      else
+        false
+
+theorem runGroupsTo_sound :
+    ∀ (block count targetBlock targetCount : Nat)
+      (groups : List GroupSummary),
+      runGroupsTo block count targetBlock targetCount groups = true →
+        GroupChainValid block count groups ∧
+          block + groupBlockSum groups = targetBlock ∧
+          count + groupSlotSum groups = targetCount := by
+  intro block count targetBlock targetCount groups
+  induction groups generalizing block count with
+  | nil =>
+      intro hrun
+      simp only [runGroupsTo, Bool.and_eq_true, decide_eq_true_eq] at hrun
+      exact ⟨trivial, by simp [hrun.1], by simp [hrun.2]⟩
+  | cons group rest induction =>
+      intro hrun
+      simp only [runGroupsTo] at hrun
+      by_cases hlocal : group.firstBlock = block ∧ group.lowerCount = count ∧
+          0 < group.blockCount ∧ group.digest < digestBound ∧
+          group.lowerCount + group.slots = group.upperCount
+      · rw [if_pos hlocal] at hrun
+        obtain ⟨htail, hblocks, hcounts⟩ :=
+          induction (block + group.blockCount) group.upperCount hrun
+        refine ⟨⟨hlocal.1, hlocal.2.1, hlocal.2.2.1, hlocal.2.2.2.1,
+          hlocal.2.2.2.2, htail⟩, ?_, ?_⟩
+        · simp only [groupBlockSum_cons]; omega
+        · have hcount := hlocal.2.1
+          have hclosed := hlocal.2.2.2.2
+          simp only [groupSlotSum_cons]
+          omega
+      · rw [if_neg hlocal] at hrun
+        exact absurd hrun (by simp)
+
+/-- Full ladder acceptance.  The three constant-cost record conditions are
+checked first so short-circuiting keeps the level-2 pass last. -/
 def checkCampaign (record : CampaignRecord)
     (groups : List GroupSummary) : Bool :=
-  match runGroups record.firstBlock record.lowerCount groups with
-  | none => false
-  | some (finalBlock, finalCount) =>
-      decide (finalBlock = record.firstBlock + record.blockCount) &&
-      decide (finalCount = record.upperCount) &&
-      decide (groupSlotSum groups = record.slots) &&
-      decide (record.lowerCount + record.slots = record.upperCount) &&
-      decide (0 < record.blockCount) &&
-      decide (record.root.length = 32)
+  decide (record.lowerCount + record.slots = record.upperCount) &&
+  decide (0 < record.blockCount) &&
+  decide (record.root < digestBound) &&
+  runGroupsTo record.firstBlock record.lowerCount
+    (record.firstBlock + record.blockCount) record.upperCount groups
 
 /-- Everything a successful campaign check proves about the level-2 list. -/
 theorem checkCampaign_sound {record : CampaignRecord}
@@ -521,20 +583,12 @@ theorem checkCampaign_sound {record : CampaignRecord}
       groupBlockSum groups = record.blockCount ∧
       groupSlotSum groups = record.slots ∧
       record.lowerCount + record.slots = record.upperCount := by
-  unfold checkCampaign at hcheck
-  cases hrun : runGroups record.firstBlock record.lowerCount groups with
-  | none => rw [hrun] at hcheck; exact absurd hcheck (by simp)
-  | some result =>
-      obtain ⟨finalBlock, finalCount⟩ := result
-      rw [hrun] at hcheck
-      simp only [Bool.and_eq_true, decide_eq_true_eq] at hcheck
-      obtain ⟨⟨⟨⟨⟨hblock, hcount⟩, hslots⟩, hclosed⟩, _hpositive⟩, _hroot⟩ := hcheck
-      obtain ⟨hvalid, hresult⟩ :=
-        runGroups_sound record.firstBlock record.lowerCount groups _ hrun
-      refine ⟨hvalid, ?_, hslots, hclosed⟩
-      have : finalBlock = record.firstBlock + groupBlockSum groups :=
-        congrArg Prod.fst hresult
-      omega
+  simp only [checkCampaign, Bool.and_eq_true, decide_eq_true_eq] at hcheck
+  obtain ⟨⟨⟨hclosed, _hpositive⟩, _hroot⟩, hrun⟩ := hcheck
+  obtain ⟨hvalid, hblocks, hcounts⟩ :=
+    runGroupsTo_sound record.firstBlock record.lowerCount
+      (record.firstBlock + record.blockCount) record.upperCount groups hrun
+  exact ⟨hvalid, by omega, by omega, hclosed⟩
 
 /-- The full ladder theorem.  A kernel-checked campaign record, a
 kernel-checked level-2 list, and one imported refinement fact per group

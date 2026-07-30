@@ -41,13 +41,13 @@ def average_slots_per_block() -> float:
 
 
 def digest_literal(seed: int) -> str:
-    """A realistic 32-byte literal digest.
+    """A realistic 32-byte digest, as the big-endian natural it encodes.
 
-    Production records carry real SHA-256 output, so the benchmark must pay
-    the same elaboration cost for 32 explicit `UInt8` literals per record.
+    Production records carry real SHA-256 output, so the benchmark pays the
+    same elaboration cost the real ladder pays.
     """
     material = hashlib.sha256(str(seed).encode("ascii")).digest()
-    return "[" + ", ".join("0x%02x" % byte for byte in material) + "]"
+    return str(int.from_bytes(material, "big"))
 
 
 def emit_module(count: int, blocks_per_group: int) -> str:

@@ -3,15 +3,21 @@
 Copyright (c) 2026 Gershon Bialer. All rights reserved.
 SPDX-License-Identifier: MIT
 
-Four levels.  Each level names the exact proposition it supports and the
-exact thing it stops supporting.
+Five levels, on the campaign scheduler's pinned geometry
+(`tg_verifier/platt_windowed_scheduler.py`: `512` blocks per unit, `2048`
+units per shard).  Each level names the exact proposition it supports and
+the exact thing it stops supporting.
 
 | Level | Unit | Count at source scale | Wire size | Checked by |
 |---|---|---:|---:|---|
 | L0 | block sign packet | 2,966,443,783 | 3,339 B each, **9.9 TB** | CompCert-compiled `pt21_ladder_check.c` inside the attested run |
 | L1 | window summary | 2,966,443,783 | 32 B each (never serialized) | same checker; exists only as a `Prop` witness in Lean |
-| L2 | group summary | 90,530 at 32,768 blocks/group | 88 B each, **7.97 MB** | the same checker **and** the Lean kernel |
-| L3 | campaign record | 1 | 88 B | the Lean kernel |
+| L2 | unit summary (512 blocks) | 5,793,836 | 88 B each, **510 MB** | the same checker |
+| L3 | shard summary (2048 units) | 2,830 | 88 B each, **249 KB** | the same checker **and the Lean kernel** |
+| L4 | campaign record | 1 | 88 B | the Lean kernel |
+
+L2 and L3 are the *same* record type (`GroupSummary`) checked by the
+*same* function (`runGroupsTo`); only the digest scheme differs.
 
 The L1 level is deliberately never written out.  It is the granularity at
 which the mathematics lives (`WindowSummary` in
@@ -85,7 +91,9 @@ Likewise the two `S(t)` and Gamma/log-pi enclosures are Arb outputs; the
 checker verifies the *integer consequences* of those intervals, not that
 the intervals contain the real quantities.
 
-## L2 -- group summary (88 bytes)
+## L2 / L3 -- group summary (88 bytes)
+
+The same layout serves the unit tier and the shard tier.
 
 | Offset | Width | Field |
 |---:|---:|---|
@@ -107,12 +115,12 @@ block (8) || lowerCount (8) || slots (8) || upperCount (8) || sha256(packet) (32
 
 so it commits to both the level-1 summary and the level-0 packet bytes.
 
-This is the record the Lean kernel reads.  It is exactly
+L3 is the record the Lean kernel reads.  It is exactly
 `SparkInterval.Zeta.PT21Ladder.GroupSummary`; the kernel-side check
 `runGroups` verifies first-block contiguity, count contiguity,
 non-emptiness, digest length, and local closure.
 
-## L3 -- campaign record (88 bytes)
+## L4 -- campaign record (88 bytes)
 
 Same layout, with `first block index = 0`, `block count = 2,966,443,783`,
 and `group digest` replaced by the campaign root: SHA-256 over the

@@ -81,7 +81,8 @@ def check_chain(records: list[dict]) -> None:
 
 
 def digest_literal(digest: bytes) -> str:
-    return "[" + ", ".join("0x%02x" % byte for byte in digest) + "]"
+    """Digests are carried as the big-endian natural they encode."""
+    return str(int.from_bytes(digest, "big"))
 
 
 def emit(records: list[dict], module: str, root_hex: str) -> str:
