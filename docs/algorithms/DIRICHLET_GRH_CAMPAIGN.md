@@ -383,12 +383,19 @@ atom.  It still needs:
    aliasing budget for large even moduli.  It is prose only: nothing there is
    formalized, replayed, or accepted, and it does not close this item;
 4. a source-wide exception and window-shift policy;
-5. theorem-level review of the corrected reflected Turing upper bound.  The
-   executable path now uses Booker upper-at-`+t0` minus lower-at-`-t0`, reflects
-   the negative window to `bar-chi`, includes the source `+2/pi`, and scales
-   Phi by `1/(h*pi)` but staircase/S terms by `1/h`.  The literal common-
-   denominator display still fails the `q=3` KAT, and the corrected candidate
-   remains `production_accept=false` until its analytic/Lean bridge exists; and
+5. a Lean realization of the corrected reflected Turing upper bound.  The
+   analytic half is now written out and checked in
+   [DIRICHLET_TURING_REFLECTED_BOUND.md](DIRICHLET_TURING_REFLECTED_BOUND.md).
+   The executable path evaluates Booker's counting function at `+t0` minus at
+   `-t0`, reflects the negative window to `bar-chi`, and scales Phi by
+   `1/(h*pi)` but staircase/S terms by `1/h`; that asymmetry is derived, is
+   confirmed by Trudgian's independent display (2.3), and matches Platt's own
+   released `find_zeros.cpp`.  The literal common-denominator display is a
+   typesetting erratum (it lands near 86 where the certified `q=3` count is
+   44), and the display's extra `+2h` (`= +2/pi`) is a spurious constant now
+   refuted at six conductor/window rows and no longer included in the bound.
+   Both are retained as audit-only intervals.  The candidate stays
+   `production_accept=false` until the Lean bridge exists; and
 6. a completed source run, independent replay, and Lean realization theorem.
 
 The direct argument-principle FLINT backend remains a rigorous full-domain
