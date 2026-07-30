@@ -110,9 +110,16 @@ Target: `zetaZeroCountUpperBound_of_turing` in
 
 `zetaZeroMultiplicityCount t` is the sum of `analyticOrderAt riemannZeta` over
 the zeros in the box of half height `t`, valued in `ℕ∞`, so an infinite order
-cannot be silently truncated to zero. `zetaDistinctCount_monotone` shows a
-concrete monotone counting function of exactly this shape exists (for the
-distinct count), so the interface is inhabited rather than vacuous.
+cannot be silently truncated to zero.
+
+**This obligation is now discharged for the canonical counting function.**
+`symmetricCountFunction_zetaMultCount` proves `SymmetricCountFunction
+zetaMultCount`, where `zetaMultCount t = (zetaZeroMultiplicityCount t).toNat`,
+using `analyticOrderAt_riemannZeta_ne_top` (`ζ` vanishes on no open set, by the
+identity theorem on the connected `{1}ᶜ` and `ζ(2) ≠ 0`) and
+`zetaZeroMultiplicityCount_monotone`.  Use
+`zeta_zeros_on_criticalLine_of_scan_and_canonical_turing`, which has no
+unspecified counting function at all.
 
 `TuringAnalyticInput N height h` bundles the Riemann-von Mangoldt formula and
 the averaged error bound:
@@ -156,6 +163,8 @@ Proved, base trio only:
   (`SparkInterval/Zeta/TuringMethod.lean`);
 * the composition of the two halves into finite-height RH
   (`SparkInterval/Zeta/HardyZTuringCapstone.lean`);
+* finiteness and monotonicity of the zeta multiplicity count, hence
+  `SymmetricCountFunction zetaMultCount` (`SparkInterval/Zeta/TuringMethod.lean`);
 * the finite-set argument turning matched counts into "all zeros on the line"
   (`SparkInterval/Zeta/CriticalLine.lean`, pre-existing);
 * distinct-count ≤ multiplicity-count (`SparkInterval/Zeta/MultiplicityCount.lean`,
@@ -170,11 +179,7 @@ Owed, in dependency order:
    the Gamma factor on the box boundary (Stirling).
 2. **A Turing/Lehman-type averaged bound** `∫ S ≤ sBound`. This is a legitimate
    citation atom; record it with its paper reference rather than proving it.
-3. **`SymmetricCountFunction` for the actual zeta counting function**: the
-   monotone real function dominating `zetaZeroMultiplicityCount`. The monotone
-   part is easy (`criticalRectangle_mono`); finiteness of the multiplicity sum
-   needs `analyticOrderAt riemannZeta z ≠ ⊤`, i.e. `ζ` is not locally zero.
-4. **The enclosure bridge**: from the campaign's rational interval outputs to
+3. **The enclosure bridge**: from the campaign's rational interval outputs to
    `EnclosesEndpoints hardyZ` and to the reals appearing in `hpin`. This is the
    same bridge the other stages need.
 

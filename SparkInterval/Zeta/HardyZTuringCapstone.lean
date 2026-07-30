@@ -80,6 +80,32 @@ theorem zeta_zeros_on_criticalLine_of_scan_and_turing
   hardyZ_verifyEndpointFamily family hcheck hencloses hlower hupper
     (zetaZeroCountUpperBound_of_turing hN hh input gamma mult hmem hstair hpin)
 
+/-- The capstone specialised to the canonical counting function, so that the
+only remaining analytic object is the Riemann-von Mangoldt input itself.
+
+`zetaMultCount t` is the total analytic multiplicity of the zeta zeros with
+`|Im| ≤ t` in the critical strip; `symmetricCountFunction_zetaMultCount` proves
+it is monotone and finite, so this form has no unspecified counting function at
+all. -/
+theorem zeta_zeros_on_criticalLine_of_scan_and_canonical_turing
+    {height h : ℝ} {count : ℕ} (hh : 0 < h)
+    (family : RationalBracketFamily count)
+    (hcheck : family.check = true)
+    (hencloses : ∀ i, (family.entries i).EnclosesEndpoints hardyZ)
+    (hlower : ∀ i, -height ≤ ((family.entries i).lower : ℝ))
+    (hupper : ∀ i, ((family.entries i).upper : ℝ) ≤ height)
+    (input : TuringAnalyticInput zetaMultCount height h)
+    {n : ℕ} (gamma : Fin n → ℝ) (mult : Fin n → ℝ)
+    (hmem : ∀ i, gamma i ∈ Icc height (height + h))
+    (hstair : ∀ t ∈ Icc height (height + h),
+      zetaMultCount height + ∑ i, (if gamma i < t then mult i else 0) ≤ zetaMultCount t)
+    (hpin :
+      ((∫ t in height..(height + h), input.F t) + input.sBound -
+        ∑ i, mult i * (height + h - gamma i)) / h < (count : ℝ) + 1) :
+    ∀ z ∈ criticalRectangle height, riemannZeta z = 0 → z.re = (1 : ℝ) / 2 :=
+  zeta_zeros_on_criticalLine_of_scan_and_turing hh family hcheck hencloses hlower
+    hupper symmetricCountFunction_zetaMultCount input gamma mult hmem hstair hpin
+
 /-- The same capstone for the touching-endpoint bracket family, which permits
 consecutive brackets to share a closed endpoint. -/
 theorem zeta_zeros_on_criticalLine_of_touching_scan_and_turing
