@@ -209,11 +209,15 @@ principle by winding number, mpmath, `dps = 25`, rectangle
 * pointwise identity check (no additive constant), residual
   `r(T) = N_chi(T) - (1/pi)[T log(q/pi) + 2 Im log Gamma((1/2+a+iT)/2)]`:
 
+  All 19 residuals lie in `[-0.88, +1.44]` with mean `+0.03`; under the printed
+  `+2h` they would have to centre on `+0.637`.
+
   | q | parity | T | winding `N(T)` | `r(T)` |
   |---:|---|---:|---:|---:|
   | 3 | odd | 20.03 / 30.07 / 40.11 / 50.05 / 60.13 | 8 / 16 / 26 / 34 / 46 | -0.271 / -0.180 / +0.823 / -0.881 / +0.632 |
   | 4 | odd | same | 10 / 20 / 28 / 40 / 50 | -0.105 / +1.066 / -0.850 / +0.536 / -0.874 |
-  | 5 | even | same | 12 / 22 / 32 / 42 / — | +0.972 / +1.431 / +0.801 / -0.519 |
+  | 5 | even | same | 12 / 22 / 32 / 42 / 54 | +0.972 / +1.431 / +0.801 / -0.519 / -0.645 |
+  | 7 | odd | 20.03 / 30.07 / 40.11 / 50.05 | 14 / 24 / 36 / 48 | +0.327 / -0.290 / +0.005 / -0.380 |
 
 * Turing-averaged residual `(1/H) ∫_{20}^{60} [N(t) - main(t)] dt`, with the
   ordinate list proved complete by matching `2 × (#sign changes) = winding`:
