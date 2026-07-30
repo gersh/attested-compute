@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Gershon Bialer. All rights reserved.
 # SPDX-License-Identifier: MIT
 
-.PHONY: all local-static lean lean-production probe primitive-conformance expression-conformance python-test tg-test tg-benchmark tg-cdem-abel tg-cdem-chunks h100-offline h100-test test audit audit-production clean
+.PHONY: all local-static lean lean-production probe primitive-conformance expression-conformance python-test tg-test tg-benchmark tg-cdem-abel tg-cdem-chunks h100-offline h100-test test audit audit-production attested-provenance-check clean
 
 CMAKE_BUILD_JOBS ?= 1
 
@@ -90,6 +90,14 @@ audit: lean
 
 audit-production:
 	./tools/audit_axioms.sh
+
+# Opt-in check for the attested-provenance PROTOTYPE described in
+# docs/ATTESTED_PROVENANCE_TRUST_MODEL.md.  It is deliberately not part of
+# `local-static`: the alternative trust model has not been adopted, and the
+# confidential-computing path remains the only route to a Lean theorem.
+attested-provenance-check:
+	python3 -m unittest tests.test_attested_provenance
+	python3 tools/tg_attested_provenance_record.py --summary
 
 clean:
 	@echo "Build outputs are intentionally not removed automatically."

@@ -1,0 +1,184 @@
+{
+  "authority": {
+    "authorizes_lean_theorem": false,
+    "establishes_hardware_evidence": false,
+    "is_confidential_compute_evidence": false,
+    "proves_mathematical_correctness": false,
+    "reaches_accepted_run_certificate_sound": false,
+    "resists_malicious_cloud_host": false
+  },
+  "backend": "attested_provenance_replicated",
+  "campaign_id": "helfgott-platt-goldbach-gpu-v1",
+  "claim": {
+    "algorithm_id": "helfgottPlattGoldbachGpuV1",
+    "completion": "successful",
+    "domain_hash": "74107bc6ce25bcc864a5218d202e8479dac24ad38f22545b9fe02a6aedba9cb5",
+    "input_hash": "70436006059a4eb44d2aef239868311d5b2253c059a795670cab6f47c1745ca1",
+    "merkle_root": "ed2df5658c7593337c4d2ae0690e8e3c97f51b26febaf371dbb559df4ec16777",
+    "output_hash": "5bdb7ee904ecfe6d740264ef2d69b5800c68232428323753aa409a28a809adc1",
+    "parameters_hash": "9b1ae175b46136d7b1b2399732c30316f8ac22be76775c45357e61a16a911f83",
+    "result": "EXAMPLE-ONLY: no campaign was executed to produce this record"
+  },
+  "policy": {
+    "minimum_distinct_implementations": 2,
+    "minimum_distinct_operators": 2,
+    "minimum_distinct_providers": 2,
+    "minimum_replicas": 3,
+    "require_build_provenance_verified": true,
+    "require_github_hosted_build_provenance": true,
+    "require_third_party_replica": true,
+    "require_transparency_log_entry": true
+  },
+  "publication": {
+    "published_at": "2026-07-26T12:00:00Z",
+    "record_sha256": "becfc6b7d76e13d5f61322393a1154b0c0e55504c67c5c96d60cd6e24a13dc6e",
+    "url": "https://example.invalid/sparkinterval/attested-provenance/example"
+  },
+  "record_kind": "sparkinterval.attested-provenance-replication-record.v1",
+  "replicas": [
+    {
+      "build_provenance": {
+        "artifacts": [
+          {
+            "name": "sparkinterval-tg-goldbach-word-owner",
+            "sha256": "8584b4c9e9fe70602ed872c12869a6ba3005b91bd0c904132be041e0c5bdfc26"
+          },
+          {
+            "name": "sparkinterval-worker-closure.tar.gz",
+            "sha256": "7de4620e8ec982587496edb9122fec82aa64d3b73a21f410444ddbbc4c63ae48"
+          }
+        ],
+        "predicate_type": "https://slsa.dev/provenance/v1",
+        "repository": "gersh/gpu_prover",
+        "runner_environment": "github-hosted",
+        "slsa_build_level": "L2",
+        "source_commit": "69ca1e01e67b0bb935b8ad776fbbb65012ebf1a6",
+        "transparency_log": {
+          "bundle_sha256": "ad5331502ee28b22bbfe5897f9fe881d6fa0ccfdc2212a120571e22474ec5ec6",
+          "integrated_time": "2026-07-20T09:15:00Z",
+          "log_index": 100000001
+        },
+        "verification": {
+          "accepted": true,
+          "record_sha256": "932cacde3cad817a52e8c2df1ec968f92949d57b75acd516ee68edcc2b540a00",
+          "tool": "tools/verify_build_provenance.py",
+          "verified_at": "2026-07-20T09:15:00Z"
+        },
+        "workflow_ref": "gersh/gpu_prover/.github/workflows/build-provenance.yml@refs/heads/main"
+      },
+      "execution": {
+        "evidence_sha256": "fc56938cfb0cbffa118d763ec1c91d2309b3ff98b7c0d1bdd239691e27e4a021",
+        "finished_at": "2026-07-21T05:42:00Z",
+        "leaf_count": 65536,
+        "merkle_root": "ed2df5658c7593337c4d2ae0690e8e3c97f51b26febaf371dbb559df4ec16777",
+        "output_hash": "5bdb7ee904ecfe6d740264ef2d69b5800c68232428323753aa409a28a809adc1",
+        "started_at": "2026-07-20T10:00:00Z",
+        "wall_seconds": 71520.0
+      },
+      "implementation_id": "cuda_word_owner_v3",
+      "instance_type": "8xH100-non-confidential-spot",
+      "operator_id": "sparkinterval-owner",
+      "operator_is_third_party": false,
+      "provider_id": "provider-a",
+      "region": "region-a1",
+      "replica_id": "replica-a-cuda"
+    },
+    {
+      "build_provenance": {
+        "artifacts": [
+          {
+            "name": "sqrt218_cpu_checker_v2",
+            "sha256": "60db619e9371a5f5eeb6463c57e9e84ef1197bc8e0dba9bbc91baa52e6c6cba4"
+          },
+          {
+            "name": "sparkinterval-worker-closure.tar.gz",
+            "sha256": "33a5d2f6a207874336ce86d99d3a4a8f374af3f72c6da7f20ce08add2cf7ee85"
+          }
+        ],
+        "predicate_type": "https://slsa.dev/provenance/v1",
+        "repository": "gersh/gpu_prover",
+        "runner_environment": "github-hosted",
+        "slsa_build_level": "L2",
+        "source_commit": "69ca1e01e67b0bb935b8ad776fbbb65012ebf1a6",
+        "transparency_log": {
+          "bundle_sha256": "b5f0a5141311ab0c595a6b4d87d7e12d13d402643ece46c124a28e665f73509f",
+          "integrated_time": "2026-07-20T09:16:00Z",
+          "log_index": 100000002
+        },
+        "verification": {
+          "accepted": true,
+          "record_sha256": "94ca87fffca007ea582850aab5ce74127b82a7610a4ad109343237bcf966b8b6",
+          "tool": "tools/verify_build_provenance.py",
+          "verified_at": "2026-07-20T09:16:00Z"
+        },
+        "workflow_ref": "gersh/gpu_prover/.github/workflows/build-provenance.yml@refs/heads/main"
+      },
+      "execution": {
+        "evidence_sha256": "315e758a6fda44ad25a2e42ab1187a1b42fd20c9a9a14c4d8fd01c51092967c6",
+        "finished_at": "2026-07-24T18:05:00Z",
+        "leaf_count": 65536,
+        "merkle_root": "ed2df5658c7593337c4d2ae0690e8e3c97f51b26febaf371dbb559df4ec16777",
+        "output_hash": "5bdb7ee904ecfe6d740264ef2d69b5800c68232428323753aa409a28a809adc1",
+        "started_at": "2026-07-20T11:00:00Z",
+        "wall_seconds": 371100.0
+      },
+      "implementation_id": "cpu_flint_reference_v1",
+      "instance_type": "96vCPU-general-purpose-spot",
+      "operator_id": "sparkinterval-owner",
+      "operator_is_third_party": false,
+      "provider_id": "provider-b",
+      "region": "region-b1",
+      "replica_id": "replica-b-cpu"
+    },
+    {
+      "build_provenance": {
+        "artifacts": [
+          {
+            "name": "sparkinterval-tg-goldbach-word-owner",
+            "sha256": "8584b4c9e9fe70602ed872c12869a6ba3005b91bd0c904132be041e0c5bdfc26"
+          },
+          {
+            "name": "sparkinterval-worker-closure.tar.gz",
+            "sha256": "7de4620e8ec982587496edb9122fec82aa64d3b73a21f410444ddbbc4c63ae48"
+          }
+        ],
+        "predicate_type": "https://slsa.dev/provenance/v1",
+        "repository": "gersh/gpu_prover",
+        "runner_environment": "github-hosted",
+        "slsa_build_level": "L2",
+        "source_commit": "69ca1e01e67b0bb935b8ad776fbbb65012ebf1a6",
+        "transparency_log": {
+          "bundle_sha256": "dddfe9cdb7e14ea392a384e4704edbe28795096160acb554bfcea18521b132b2",
+          "integrated_time": "2026-07-20T09:17:00Z",
+          "log_index": 100000003
+        },
+        "verification": {
+          "accepted": true,
+          "record_sha256": "80a48dfba3019a5c25ed5679e560cc78467ca52e70ff66f8e66ec648c6b96f34",
+          "tool": "tools/verify_build_provenance.py",
+          "verified_at": "2026-07-20T09:17:00Z"
+        },
+        "workflow_ref": "gersh/gpu_prover/.github/workflows/build-provenance.yml@refs/heads/main"
+      },
+      "execution": {
+        "evidence_sha256": "fc29cb72cb5b5198ae3df4bd761e4efe8c793267e900e4ef3ae642ffcb29998f",
+        "finished_at": "2026-07-23T04:19:00Z",
+        "leaf_count": 65536,
+        "merkle_root": "ed2df5658c7593337c4d2ae0690e8e3c97f51b26febaf371dbb559df4ec16777",
+        "output_hash": "5bdb7ee904ecfe6d740264ef2d69b5800c68232428323753aa409a28a809adc1",
+        "started_at": "2026-07-22T08:30:00Z",
+        "wall_seconds": 71340.0
+      },
+      "implementation_id": "cuda_word_owner_v3",
+      "instance_type": "8xH100-non-confidential-on-demand",
+      "operator_id": "independent-auditor",
+      "operator_is_third_party": true,
+      "provider_id": "provider-c",
+      "region": "region-c1",
+      "replica_id": "replica-c-cuda"
+    }
+  ],
+  "schema_version": 1,
+  "target_profile": "replicated_public_cloud_gpu",
+  "trust_profile": "attested_provenance_replicated"
+}

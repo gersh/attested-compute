@@ -76,6 +76,7 @@ certificate axiom alone supplies the per-run physical-to-formal connection.
 - [Verifier guide](VERIFYING.md)
 - [Correctness claims and proof boundary](CORRECTNESS_CLAIMS.md)
 - [Trust model and execution assumptions](TRUST_MODEL.md)
+- [Attested-provenance trust model (prototype, not adopted)](ATTESTED_PROVENANCE_TRUST_MODEL.md)
 - [Exact CPU/GPU architecture execution boundary](ARCHITECTURE_EXECUTION_BOUNDARY.md)
 - [Compact opaque architecture-run receipt boundary](algorithms/COMPACT_ARCHITECTURE_RECEIPT_BOUNDARY.md)
 - [Static x86 binary-certificate boundary](algorithms/SQRT218_STATIC_BINARY_CERTIFICATE.md)

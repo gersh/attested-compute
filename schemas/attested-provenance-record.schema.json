@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkinterval.invalid/schemas/attested-provenance-record.schema.json",
+  "title": "SparkInterval attested-provenance N-way replication record",
+  "description": "Provenance record for a campaign executed k times on independent non-confidential capacity, where each replica's binaries carry a GitHub/Sigstore build-provenance attestation. This record type sits ALONGSIDE the signed trusted-compute receipt used by the azure_sevsnp_cpu and azure_ncc40ads_h100_v5 backends; it is deliberately NOT a member of that receipt's backend enum and has no path to the Lean accepted-run axiom. It records agreement between independent executions. It is not hardware evidence, not a confidential-compute attestation, and not a mathematical proof.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_kind",
+    "backend",
+    "campaign_id",
+    "target_profile",
+    "trust_profile",
+    "claim",
+    "policy",
+    "replicas",
+    "authority"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "record_kind": {
+      "const": "sparkinterval.attested-provenance-replication-record.v1"
+    },
+    "backend": {"const": "attested_provenance_replicated"},
+    "campaign_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "target_profile": {
+      "enum": ["replicated_public_cloud_cpu", "replicated_public_cloud_gpu"]
+    },
+    "trust_profile": {"const": "attested_provenance_replicated"},
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The agreed result. Every replica must reproduce exactly these bytes; the record does not assert that they are mathematically correct.",
+      "required": [
+        "algorithm_id",
+        "input_hash",
+        "parameters_hash",
+        "domain_hash",
+        "merkle_root",
+        "output_hash",
+        "completion"
+      ],
+      "properties": {
+        "algorithm_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "input_hash": {"$ref": "#/$defs/sha256"},
+        "parameters_hash": {"$ref": "#/$defs/sha256"},
+        "domain_hash": {"$ref": "#/$defs/sha256"},
+        "merkle_root": {"$ref": "#/$defs/sha256"},
+        "output_hash": {"$ref": "#/$defs/sha256"},
+        "result": {"type": "string"},
+        "completion": {"const": "successful"}
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The independence thresholds this record must meet. A record that does not meet its own declared policy is rejected by the validator.",
+      "required": [
+        "minimum_replicas",
+        "minimum_distinct_implementations",
+        "minimum_distinct_operators",
+        "minimum_distinct_providers",
+        "require_third_party_replica",
+        "require_build_provenance_verified",
+        "require_transparency_log_entry",
+        "require_github_hosted_build_provenance"
+      ],
+      "properties": {
+        "minimum_replicas": {"type": "integer", "minimum": 2},
+        "minimum_distinct_implementations": {"type": "integer", "minimum": 2},
+        "minimum_distinct_operators": {"type": "integer", "minimum": 1},
+        "minimum_distinct_providers": {"type": "integer", "minimum": 1},
+        "require_third_party_replica": {"type": "boolean"},
+        "require_build_provenance_verified": {"type": "boolean"},
+        "require_transparency_log_entry": {"type": "boolean"},
+        "require_github_hosted_build_provenance": {
+          "type": "boolean",
+          "description": "Require every replica's binaries to have been built and attested on a GitHub-hosted runner. Provenance signed on a self-hosted runner only says the binary was built on a machine the repository owner controls, which a sceptical third party should discount; it is much weaker than provenance from neutral hosted capacity. Executing a campaign on a self-hosted confidential machine is fine and expected; producing the binaries' provenance there is not."
+        }
+      }
+    },
+    "replicas": {
+      "type": "array",
+      "minItems": 2,
+      "items": {"$ref": "#/$defs/replica"}
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Where the full record and per-replica evidence were published so that a reader can re-derive the comparison independently.",
+      "required": ["record_sha256"],
+      "properties": {
+        "record_sha256": {"$ref": "#/$defs/sha256"},
+        "url": {"type": "string", "minLength": 1},
+        "published_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Explicit negative claims. Every field here must be false: this record type is not permitted to carry authority, and the validator rejects any attempt to set one true.",
+      "required": [
+        "authorizes_lean_theorem",
+        "establishes_hardware_evidence",
+        "is_confidential_compute_evidence",
+        "reaches_accepted_run_certificate_sound",
+        "resists_malicious_cloud_host",
+        "proves_mathematical_correctness"
+      ],
+      "properties": {
+        "authorizes_lean_theorem": {"const": false},
+        "establishes_hardware_evidence": {"const": false},
+        "is_confidential_compute_evidence": {"const": false},
+        "reaches_accepted_run_certificate_sound": {"const": false},
+        "resists_malicious_cloud_host": {"const": false},
+        "proves_mathematical_correctness": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "replica": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "replica_id",
+        "operator_id",
+        "operator_is_third_party",
+        "provider_id",
+        "region",
+        "implementation_id",
+        "build_provenance",
+        "execution"
+      ],
+      "properties": {
+        "replica_id": {"$ref": "#/$defs/identifier"},
+        "operator_id": {"$ref": "#/$defs/identifier"},
+        "operator_is_third_party": {"type": "boolean"},
+        "provider_id": {"$ref": "#/$defs/identifier"},
+        "region": {"type": "string", "minLength": 1},
+        "instance_type": {"type": "string", "minLength": 1},
+        "implementation_id": {"$ref": "#/$defs/identifier"},
+        "build_provenance": {"$ref": "#/$defs/buildProvenance"},
+        "execution": {"$ref": "#/$defs/execution"}
+      }
+    },
+    "buildProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Layer 1 evidence for this replica's binaries. It binds bytes to a source commit and says nothing about the execution recorded beside it.",
+      "required": [
+        "repository",
+        "source_commit",
+        "workflow_ref",
+        "predicate_type",
+        "artifacts",
+        "verification"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$"
+        },
+        "source_commit": {"$ref": "#/$defs/sha1"},
+        "workflow_ref": {"type": "string", "minLength": 1},
+        "predicate_type": {"const": "https://slsa.dev/provenance/v1"},
+        "slsa_build_level": {"enum": ["L1", "L2", "L3"]},
+        "runner_environment": {
+          "enum": ["github-hosted", "self-hosted"],
+          "description": "Where the BUILD ran, not where the campaign ran. `self-hosted` means the provenance was signed on hardware the repository owner controls and must be discounted accordingly."
+        },
+        "transparency_log": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["log_index", "integrated_time"],
+          "properties": {
+            "log_index": {"type": "integer", "minimum": 0},
+            "integrated_time": {"type": "string", "format": "date-time"},
+            "bundle_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "sha256"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "sha256": {"$ref": "#/$defs/sha256"}
+            }
+          }
+        },
+        "verification": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Output summary of tools/verify_build_provenance.py for this replica's artifacts.",
+          "required": ["tool", "accepted", "verified_at"],
+          "properties": {
+            "tool": {
+              "const": "tools/verify_build_provenance.py"
+            },
+            "accepted": {"type": "boolean"},
+            "verified_at": {"type": "string", "format": "date-time"},
+            "record_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What this replica reports having computed. These are the replica's own unattested claims; agreement between replicas is the only evidence the record supplies.",
+      "required": [
+        "started_at",
+        "finished_at",
+        "merkle_root",
+        "output_hash",
+        "leaf_count",
+        "evidence_sha256"
+      ],
+      "properties": {
+        "started_at": {"type": "string", "format": "date-time"},
+        "finished_at": {"type": "string", "format": "date-time"},
+        "merkle_root": {"$ref": "#/$defs/sha256"},
+        "output_hash": {"$ref": "#/$defs/sha256"},
+        "leaf_count": {"type": "integer", "minimum": 1},
+        "evidence_sha256": {"$ref": "#/$defs/sha256"},
+        "wall_seconds": {"type": "number", "minimum": 0},
+        "notes": {"type": "string"}
+      }
+    }
+  }
+}
