@@ -21,6 +21,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import pathlib
 import subprocess
@@ -39,22 +40,30 @@ def average_slots_per_block() -> float:
     return SOURCE_SLOTS / SOURCE_BLOCK_COUNT
 
 
+def digest_literal(seed: int) -> str:
+    """A realistic 32-byte literal digest.
+
+    Production records carry real SHA-256 output, so the benchmark must pay
+    the same elaboration cost for 32 explicit `UInt8` literals per record.
+    """
+    material = hashlib.sha256(str(seed).encode("ascii")).digest()
+    return "[" + ", ".join("0x%02x" % byte for byte in material) + "]"
+
+
 def emit_module(count: int, blocks_per_group: int) -> str:
     """Emit a Lean module holding ``count`` consecutive group summaries."""
     slots_per_group = int(round(average_slots_per_block() * blocks_per_group))
     lines = [
         "import SparkInterval.Zeta.PT21Ladder",
         "",
-        "set_option maxRecDepth 100000",
+        "set_option maxRecDepth 4000000",
         "set_option maxHeartbeats 0",
         "",
         "namespace SparkInterval.Zeta.PT21Ladder.Bench",
         "",
         "open SparkInterval.Zeta.PT21Ladder",
         "",
-        "def digestOf (n : Nat) : Digest :=",
-        "  List.replicate 32 (UInt8.ofNat (n % 256))",
-        "",
+
         "def groups : List GroupSummary := [",
     ]
     entries = []
@@ -66,8 +75,15 @@ def emit_module(count: int, blocks_per_group: int) -> str:
         count_cursor = upper
         entries.append(
             "  { firstBlock := %d, blockCount := %d, lowerCount := %d,"
-            " slots := %d, upperCount := %d, digest := digestOf %d }"
-            % (first_block, blocks_per_group, lower, slots_per_group, upper, index)
+            " slots := %d, upperCount := %d, digest := %s }"
+            % (
+                first_block,
+                blocks_per_group,
+                lower,
+                slots_per_group,
+                upper,
+                digest_literal(index),
+            )
         )
     lines.append(",\n".join(entries))
     lines.append("]")
@@ -78,7 +94,7 @@ def emit_module(count: int, blocks_per_group: int) -> str:
     lines.append("  lowerCount := %d" % SOURCE_LOWER_COUNT)
     lines.append("  slots := %d" % (count * slots_per_group))
     lines.append("  upperCount := %d" % count_cursor)
-    lines.append("  root := digestOf 0")
+    lines.append("  root := %s" % digest_literal(0))
     lines.append("}")
     lines.append("")
     lines.append("theorem ladder_accepts : checkCampaign record groups = true := by")
@@ -123,8 +139,10 @@ def run_case(repo: pathlib.Path, count: int, blocks_per_group: int) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--sizes", type=int, nargs="+", default=[1000, 5000, 20000])
-    parser.add_argument("--blocks-per-group", type=int, default=32768)
+    parser.add_argument("--sizes", type=int, nargs="+", default=[500, 1500, 2830])
+    # Production geometry: one level-3 record is one scheduler shard of
+    # 2048 units of 512 blocks.
+    parser.add_argument("--blocks-per-group", type=int, default=1048576)
     parser.add_argument("--repo", default=str(pathlib.Path(__file__).resolve().parents[1]))
     arguments = parser.parse_args()
 
