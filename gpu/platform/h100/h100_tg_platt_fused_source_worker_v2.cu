@@ -109,8 +109,16 @@ struct Options {
   std::uint64_t block_count = 0U;
   std::uint32_t maximum_chunk_records = 4096U;
   std::uint32_t reanchor_blocks = 256U;
-  std::uint32_t event_ring_blocks = 8U;
-  std::uint32_t event_replay_threads = 8U;
+  // Zero selects the measured host-scaled default resolved in
+  // `resolve_replay_pool`.  A nonzero value is an explicit operator pin and
+  // is used exactly as given.
+  std::uint32_t event_ring_blocks = 0U;
+  std::uint32_t event_replay_threads = 0U;
+  // Diagnostic only.  When selected the worker records extra in-stream CUDA
+  // events and host clocks so the per-window cost can be attributed to a
+  // stage.  It never changes a launch, a copy, an artifact byte, or a
+  // fail-closed decision; it only adds measurement.
+  bool stage_profile = false;
   std::optional<sparkinterval::Sha256Digest> expected_stream_sha256;
   std::optional<std::string> event_stream_output;
   std::optional<sparkinterval::Sha256Digest> producer_sha256;
@@ -180,6 +188,7 @@ Options parse_options(int argc, char** argv) {
         "usage: fused-source-worker-v2 STREAM FIRST_BLOCK BLOCK_COUNT "
         "[--max-chunk-records=N] [--reanchor-blocks=N] "
         "[--event-ring-blocks=N] [--event-replay-threads=N] "
+        "[--stage-profile] "
         "--expected-stream-sha256=HEX "
         "[--event-stream-output=PATH --producer-sha256=HEX]"
 #ifdef SPARKINTERVAL_PT21_INLINE_STATIONARY_QUALIFICATION
@@ -226,6 +235,8 @@ Options parse_options(int argc, char** argv) {
         throw std::runtime_error("event replay threads is outside range");
       }
       result.event_replay_threads = static_cast<std::uint32_t>(parsed);
+    } else if (argument == "--stage-profile") {
+      result.stage_profile = true;
     } else if (const auto value = after("--expected-stream-sha256=")) {
       result.expected_stream_sha256 = parse_sha256(*value);
     } else if (const auto value = after("--event-stream-output=")) {
@@ -1089,6 +1100,113 @@ struct ReplayRingSlot {
 #endif
 };
 
+// The replay ring holds one pinned capture per in-flight window.  One slot is
+// about 2.0 MB, so the pool is bounded by both the core count and a fixed
+// pinned-memory ceiling; the worker never sizes itself from an unbounded
+// runtime value.
+constexpr std::uint32_t kMaximumReplayLanes = 128U;
+constexpr std::uint32_t kMaximumReplayRingBlocks = 1024U;
+constexpr std::uint64_t kReplayRingPinnedCeilingBytes = 768ULL << 20U;
+// Measured on the GB10 reference host: one independent host replay costs
+// about 40 ms of CPU while one fused window costs about 95 ms of device
+// time, so a single lane cannot keep up once the device gets faster.  The
+// pool therefore follows the core count instead of a fixed eight.
+constexpr std::uint32_t kSubmissionReservedCores = 1U;
+constexpr std::uint32_t kFallbackReplayLanes = 8U;
+
+struct ReplayPool {
+  std::uint32_t ring_blocks = 0U;
+  std::uint32_t lanes = 0U;
+  bool auto_scaled = false;
+  std::uint32_t detected_cores = 0U;
+};
+
+// Resolving the pool is pure host policy: it changes how many windows may be
+// in flight and how many lanes rerun the exact replay, never what any lane
+// computes.  Ordered commit still publishes every block in campaign order.
+ReplayPool resolve_replay_pool(const Options& options,
+                               std::uint64_t slot_pinned_bytes) {
+  ReplayPool pool;
+  const unsigned int detected = std::thread::hardware_concurrency();
+  pool.detected_cores = static_cast<std::uint32_t>(
+      std::min<unsigned int>(detected, kMaximumReplayLanes * 4U));
+  pool.auto_scaled = options.event_replay_threads == 0U ||
+                     options.event_ring_blocks == 0U;
+  std::uint32_t lanes = options.event_replay_threads;
+  if (lanes == 0U) {
+    lanes = detected > kSubmissionReservedCores
+                ? static_cast<std::uint32_t>(detected) -
+                      kSubmissionReservedCores
+                : kFallbackReplayLanes;
+    lanes = std::min(lanes, kMaximumReplayLanes);
+    lanes = std::max(lanes, 1U);
+  }
+  std::uint32_t ring = options.event_ring_blocks;
+  if (ring == 0U) {
+    // One slot per lane keeps every lane fed; the extra slots let the
+    // submission thread stay ahead of the slowest lane instead of blocking
+    // on the next free slot the moment a lane finishes.
+    const std::uint64_t widened =
+        static_cast<std::uint64_t>(lanes) + (lanes / 2U) + 2U;
+    ring = static_cast<std::uint32_t>(
+        std::min<std::uint64_t>(widened, kMaximumReplayRingBlocks));
+  }
+  if (slot_pinned_bytes != 0U) {
+    const std::uint64_t affordable =
+        kReplayRingPinnedCeilingBytes / slot_pinned_bytes;
+    if (affordable == 0U) {
+      throw std::runtime_error(
+          "one event replay capture exceeds the pinned-memory ceiling");
+    }
+    ring = static_cast<std::uint32_t>(
+        std::min<std::uint64_t>(ring, affordable));
+  }
+  ring = std::max(ring, 1U);
+  pool.ring_blocks = ring;
+  pool.lanes = std::min(lanes, ring);
+  return pool;
+}
+
+// Diagnostic in-stream stage marks.  Eight marks bracket the seven device
+// stages the worker issues for one window, so the wall cost of a window can
+// be attributed without guessing.  `cudaEventRecord` on the worker's own
+// stream does not synchronize the host and does not reorder the stages.
+constexpr std::size_t kStageMarks = 8U;
+constexpr std::uint64_t kMaximumProfiledBlocks = 8192U;
+constexpr std::string_view kStageNames[kStageMarks - 1U] = {
+    "gamma_record_h2d",  "gamma_synthesize", "dd_accumulator",
+    "dd_transform",      "required_audit",   "event_scan_device",
+    "replay_capture_d2h"};
+
+// Wall time inside a CUDA call also contains driver back pressure, which is
+// not host work.  Thread CPU time separates the two: it is what one
+// submission thread genuinely spends and therefore what bounds the window
+// rate a single ordered producer can sustain.
+double thread_cpu_seconds() {
+  timespec now{};
+  if (::clock_gettime(CLOCK_THREAD_CPUTIME_ID, &now) != 0) return 0.0;
+  return static_cast<double>(now.tv_sec) +
+         static_cast<double>(now.tv_nsec) * 1e-9;
+}
+
+struct HostStageClocks {
+  // Submission thread.
+  double slot_stall_seconds = 0.0;
+  double issue_seconds = 0.0;
+  // Host CPU spent inside each stage's launch/copy calls, in the same order
+  // as `kStageNames`.  This is the serial cost one submission thread pays per
+  // window and is the host ceiling on window rate.
+  std::array<double, kStageMarks - 1U> issue_stage_seconds{};
+  double submission_cpu_seconds = 0.0;
+  // Replay pool, summed over every lane.
+  double replay_seconds = 0.0;
+  double lane_device_wait_seconds = 0.0;
+  double commit_wait_seconds = 0.0;
+  double commit_seconds = 0.0;
+  std::uint64_t replay_ready_on_entry = 0U;
+  std::uint64_t replay_calls = 0U;
+};
+
 int run(const Options& options) {
   require_target_device();
   const auto wall_started = std::chrono::steady_clock::now();
@@ -1128,6 +1246,11 @@ int run(const Options& options) {
   cudaStream_t stream = nullptr;
   cudaEvent_t started = nullptr;
   cudaEvent_t stopped = nullptr;
+  const bool profile_stages =
+      options.stage_profile && options.block_count <= kMaximumProfiledBlocks;
+  std::vector<cudaEvent_t> stage_marks;
+  HostStageClocks host_clocks;
+  ReplayPool pool;
   try {
     accumulator = pda::create_source_workspace(
         options.first_block, options.block_count, options.reanchor_blocks);
@@ -1141,10 +1264,18 @@ int run(const Options& options) {
     CUDA_CHECK(cudaMalloc(&device_digest, sizeof(*device_digest)));
     CUDA_CHECK(cudaMalloc(&device_maximum_radius,
                           sizeof(*device_maximum_radius)));
-    replay_ring.resize(options.event_ring_blocks);
-    for (std::size_t slot = 0U; slot < replay_ring.size(); ++slot) {
+    // Size the ring from one real capture so the pinned-memory ceiling is
+    // applied to the measured slot size rather than to an assumed one.
+    replay_ring.resize(1U);
+    replay_ring[0].capture = pes::create_replay_capture(event_scanner);
+    pool = resolve_replay_pool(
+        options, pes::replay_capture_pinned_bytes(replay_ring[0].capture));
+    replay_ring.resize(pool.ring_blocks);
+    for (std::size_t slot = 1U; slot < replay_ring.size(); ++slot) {
       replay_ring[slot].capture =
           pes::create_replay_capture(event_scanner);
+    }
+    for (std::size_t slot = 0U; slot < replay_ring.size(); ++slot) {
       free_replay_slots.push_back(slot);
     }
     CUDA_CHECK(cudaMemset(device_invalid, 0, sizeof(*device_invalid)));
@@ -1155,6 +1286,14 @@ int run(const Options& options) {
     CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
     CUDA_CHECK(cudaEventCreate(&started));
     CUDA_CHECK(cudaEventCreate(&stopped));
+    if (profile_stages) {
+      stage_marks.resize(
+          static_cast<std::size_t>(options.block_count) * kStageMarks,
+          nullptr);
+      for (cudaEvent_t& mark : stage_marks) {
+        CUDA_CHECK(cudaEventCreate(&mark));
+      }
+    }
     if (options.event_stream_output.has_value()) {
       event_output = std::make_unique<EventStreamOutput>(
           *options.event_stream_output,
@@ -1242,12 +1381,32 @@ int run(const Options& options) {
             pending_replay_slots.pop_front();
           }
           ReplayRingSlot& slot = replay_ring[slot_index];
-#ifdef SPARKINTERVAL_PT21_INLINE_STATIONARY_QUALIFICATION
-          const auto inline_replay_started =
+          const bool ready_on_entry =
+              profile_stages && pes::replay_capture_ready(slot.capture);
+          const auto lane_clock_started = std::chrono::steady_clock::now();
+          if (profile_stages) {
+            // Diagnostic-only: separate the lane's wait for the device from
+            // the exact host replay itself by sleeping until the capture is
+            // ready.  `replay_captured` still performs its own authoritative
+            // `cudaEventSynchronize`; this only moves the wait outside the
+            // measured region.  It is never on the default path.
+            // Bounded so a cancelled or already-failed run still falls
+            // through to the authoritative blocking synchronize below.
+            for (std::uint32_t poll = 0U; poll < 200000U; ++poll) {
+              if (pes::replay_capture_ready(slot.capture)) break;
+              const timespec pause{0, 500000};
+              ::nanosleep(&pause, nullptr);
+            }
+          }
+          const auto replay_clock_started =
               std::chrono::steady_clock::now();
+#ifdef SPARKINTERVAL_PT21_INLINE_STATIONARY_QUALIFICATION
+          const auto inline_replay_started = replay_clock_started;
 #endif
           const pes::ReplayReport replay =
               pes::replay_captured(slot.capture);
+          const auto replay_clock_stopped =
+              std::chrono::steady_clock::now();
 #ifdef SPARKINTERVAL_PT21_INLINE_STATIONARY_QUALIFICATION
           const double inline_replay_seconds =
               std::chrono::duration<double>(
@@ -1313,6 +1472,7 @@ int run(const Options& options) {
                   std::chrono::steady_clock::now() -
                   block_turing_started).count();
 #endif
+          const auto commit_wait_started = std::chrono::steady_clock::now();
           {
             std::unique_lock lock(replay_mutex);
             replay_condition.wait(lock, [&]() {
@@ -1320,6 +1480,7 @@ int run(const Options& options) {
                      slot.logical_block <= options.first_block + records;
             });
             if (replay_cancelled) return;
+            const auto commit_started = std::chrono::steady_clock::now();
             if (slot.logical_block != options.first_block + records) {
               throw std::runtime_error(
                   "event replay ring is not gap-free and ordered");
@@ -1387,6 +1548,23 @@ int run(const Options& options) {
 #endif
             ++records;
             free_replay_slots.push_back(slot_index);
+            if (profile_stages) {
+              // The commit region already owns `replay_mutex`, so these
+              // accumulations need no separate synchronization.
+              host_clocks.replay_seconds += std::chrono::duration<double>(
+                  replay_clock_stopped - replay_clock_started).count();
+              host_clocks.lane_device_wait_seconds +=
+                  std::chrono::duration<double>(
+                      replay_clock_started - lane_clock_started).count();
+              host_clocks.commit_wait_seconds +=
+                  std::chrono::duration<double>(
+                      commit_started - commit_wait_started).count();
+              host_clocks.commit_seconds += std::chrono::duration<double>(
+                  std::chrono::steady_clock::now() - commit_started).count();
+              host_clocks.replay_ready_on_entry +=
+                  ready_on_entry ? 1U : 0U;
+              ++host_clocks.replay_calls;
+            }
           }
           replay_condition.notify_all();
         }
@@ -1401,9 +1579,7 @@ int run(const Options& options) {
         replay_condition.notify_all();
       }
     };
-    const std::uint32_t replay_thread_count =
-        std::min(options.event_replay_threads,
-                 options.event_ring_blocks);
+    const std::uint32_t replay_thread_count = pool.lanes;
     replay_threads.reserve(replay_thread_count);
     for (std::uint32_t index = 0U; index < replay_thread_count; ++index) {
       replay_threads.emplace_back(replay_worker);
@@ -1430,13 +1606,35 @@ int run(const Options& options) {
         if (logical_block != options.first_block + enqueued) {
           throw std::runtime_error("V2 Gamma and source block order differs");
         }
+        const auto stall_started = std::chrono::steady_clock::now();
         const std::size_t replay_slot_index = acquire_replay_slot();
+        const auto issue_started = std::chrono::steady_clock::now();
+        cudaEvent_t* const marks =
+            profile_stages
+                ? stage_marks.data() +
+                      static_cast<std::size_t>(enqueued) * kStageMarks
+                : nullptr;
+        double host_clock = 0.0;
+        auto mark = [&](std::size_t index) {
+          if (marks != nullptr) {
+            CUDA_CHECK(cudaEventRecord(marks[index], stream));
+            const double now = thread_cpu_seconds();
+            if (index != 0U) {
+              host_clocks.issue_stage_seconds[index - 1U] +=
+                  now - host_clock;
+            }
+            host_clock = now;
+          }
+        };
+        mark(0U);
         CUDA_CHECK(cudaMemcpyAsync(device_record, &chunk.records[offset],
                                    sizeof(*device_record),
                                    cudaMemcpyHostToDevice, stream));
+        mark(1U);
         pgd::launch_synthesize(
             device_record,
             {device_gamma, 1U, pw::kBucketCount, logical_block}, stream);
+        mark(2U);
         const pda::SourceWindowView skn =
             pda::run_next_source_window(accumulator, stream);
         if (skn.logical_block != logical_block ||
@@ -1444,14 +1642,18 @@ int run(const Options& options) {
             skn.row_stride != pw::kBucketCount) {
           throw std::runtime_error("V2 Gamma and DD accumulator diverged");
         }
+        mark(3U);
         pdt::run_source_window(transform, device_gamma,
                                skn.device_skn_rows, stream);
+        mark(4U);
         audit_required<<<128U, 256U, 0U, stream>>>(
             pdt::device_required_samples(transform), device_invalid,
             device_ambiguous, device_digest, device_maximum_radius);
         CUDA_CHECK(cudaGetLastError());
+        mark(5U);
         pes::scan_source_required_samples(
             event_scanner, pdt::device_required_samples(transform), stream);
+        mark(6U);
         ReplayRingSlot& replay_slot = replay_ring[replay_slot_index];
         replay_slot.logical_block = logical_block;
 #ifdef SPARKINTERVAL_PT21_BLOCK_STAGE_QUALIFICATION
@@ -1471,6 +1673,7 @@ int run(const Options& options) {
           replay_condition.notify_all();
           throw;
         }
+        mark(7U);
         // Every sample and the scanner's full bounded arrays are copied before
         // the next same-stream workspace reuse.  The CPU thread waits on the
         // per-slot event and reruns the exact fixed-integer replay while CUDA
@@ -1481,7 +1684,17 @@ int run(const Options& options) {
         }
         replay_condition.notify_one();
         ++enqueued;
+        if (profile_stages) {
+          const auto issued = std::chrono::steady_clock::now();
+          host_clocks.slot_stall_seconds += std::chrono::duration<double>(
+              issue_started - stall_started).count();
+          host_clocks.issue_seconds +=
+              std::chrono::duration<double>(issued - issue_started).count();
+        }
       }
+    }
+    if (profile_stages) {
+      host_clocks.submission_cpu_seconds = thread_cpu_seconds();
     }
     CUDA_CHECK(cudaEventRecord(stopped, stream));
     const auto replay_drain_started = std::chrono::steady_clock::now();
@@ -1510,6 +1723,28 @@ int run(const Options& options) {
     CUDA_CHECK(cudaEventSynchronize(stopped));
     float milliseconds = 0.0F;
     CUDA_CHECK(cudaEventElapsedTime(&milliseconds, started, stopped));
+    std::array<double, kStageMarks - 1U> stage_seconds{};
+    double stage_gap_seconds = 0.0;
+    if (profile_stages) {
+      for (std::uint64_t window = 0U; window < options.block_count;
+           ++window) {
+        const cudaEvent_t* const marks =
+            stage_marks.data() +
+            static_cast<std::size_t>(window) * kStageMarks;
+        for (std::size_t stage = 0U; stage + 1U < kStageMarks; ++stage) {
+          float elapsed = 0.0F;
+          CUDA_CHECK(cudaEventElapsedTime(&elapsed, marks[stage],
+                                          marks[stage + 1U]));
+          stage_seconds[stage] += static_cast<double>(elapsed) / 1000.0;
+        }
+        if (window + 1U < options.block_count) {
+          float elapsed = 0.0F;
+          CUDA_CHECK(cudaEventElapsedTime(
+              &elapsed, marks[kStageMarks - 1U], marks[kStageMarks]));
+          stage_gap_seconds += static_cast<double>(elapsed) / 1000.0;
+        }
+      }
+    }
     unsigned long long invalid = 0U;
     unsigned long long ambiguous = 0U;
     unsigned long long digest = 0U;
@@ -1748,12 +1983,55 @@ int run(const Options& options) {
     std::cout << ",\"event_scanner_workspace_device_bytes\":"
               << pes::workspace_device_bytes(event_scanner)
               << ",\"event_result_ring_blocks\":"
-              << options.event_ring_blocks
+              << replay_ring.size()
+              << ",\"event_result_ring_auto_scaled\":"
+              << (pool.auto_scaled ? "true" : "false")
+              << ",\"host_cores_detected\":" << pool.detected_cores
               << ",\"event_result_ring_pinned_host_bytes\":"
               << replay_ring_pinned_bytes
               << ",\"event_replay_cpu_thread_count\":"
-              << replay_threads.size()
-              << ",\"python_adapter_used_for_event_stage\":false"
+              << replay_threads.size();
+    if (profile_stages) {
+      const double windows = static_cast<double>(options.block_count);
+      std::cout << ",\"stage_profile\":{\"windows\":" << options.block_count
+                << ",\"device_stage_seconds_per_window\":{";
+      double device_total = 0.0;
+      for (std::size_t stage = 0U; stage + 1U < kStageMarks; ++stage) {
+        device_total += stage_seconds[stage];
+        std::cout << (stage == 0U ? "" : ",") << '"' << kStageNames[stage]
+                  << "\":" << stage_seconds[stage] / windows;
+      }
+      std::cout << "},\"host_issue_stage_seconds_per_window\":{";
+      for (std::size_t stage = 0U; stage + 1U < kStageMarks; ++stage) {
+        std::cout << (stage == 0U ? "" : ",") << '"' << kStageNames[stage]
+                  << "\":" << host_clocks.issue_stage_seconds[stage] /
+                                  windows;
+      }
+      std::cout << "},\"device_marked_total_seconds_per_window\":"
+                << device_total / windows
+                << ",\"device_between_window_gap_seconds_per_window\":"
+                << stage_gap_seconds / windows
+                << ",\"host_submit_slot_stall_seconds_per_window\":"
+                << host_clocks.slot_stall_seconds / windows
+                << ",\"host_submit_issue_seconds_per_window\":"
+                << host_clocks.issue_seconds / windows
+                << ",\"host_submit_thread_total_cpu_seconds\":"
+                << host_clocks.submission_cpu_seconds
+                << ",\"host_replay_cpu_seconds_per_window\":"
+                << host_clocks.replay_seconds / windows
+                << ",\"host_replay_lane_device_wait_seconds_per_window\":"
+                << host_clocks.lane_device_wait_seconds / windows
+                << ",\"host_commit_wait_seconds_per_window\":"
+                << host_clocks.commit_wait_seconds / windows
+                << ",\"host_commit_seconds_per_window\":"
+                << host_clocks.commit_seconds / windows
+                << ",\"host_replay_capture_ready_on_entry\":"
+                << host_clocks.replay_ready_on_entry
+                << ",\"host_replay_calls\":" << host_clocks.replay_calls
+                << ",\"replay_lane_count\":" << replay_threads.size()
+                << ",\"diagnostic_only\":true}";
+    }
+    std::cout << ",\"python_adapter_used_for_event_stage\":false"
               << ",\"pt21_native_block_records_emitted\":false"
               << ",\"flint_to_mathlib_proved\":false"
               << ",\"gaussian_sinc_interpolation_complete\":false"
@@ -1777,6 +2055,10 @@ int run(const Options& options) {
     stopped = nullptr;
     cudaEventDestroy(started);
     started = nullptr;
+    for (cudaEvent_t& mark : stage_marks) {
+      if (mark != nullptr) cudaEventDestroy(mark);
+      mark = nullptr;
+    }
     for (ReplayRingSlot& slot : replay_ring) {
       pes::ReplayCapture* capture = slot.capture;
       slot.capture = nullptr;
@@ -1822,6 +2104,10 @@ int run(const Options& options) {
 #endif
     if (stopped != nullptr) cudaEventDestroy(stopped);
     if (started != nullptr) cudaEventDestroy(started);
+    for (cudaEvent_t& mark : stage_marks) {
+      if (mark != nullptr) cudaEventDestroy(mark);
+      mark = nullptr;
+    }
     for (ReplayRingSlot& slot : replay_ring) {
       pes::ReplayCapture* capture = slot.capture;
       slot.capture = nullptr;

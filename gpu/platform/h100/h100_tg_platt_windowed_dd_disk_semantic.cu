@@ -8,8 +8,13 @@
 // local residual disk.  This is a precision/width experiment, not yet a
 // proved CUDA-to-Lean refinement.
 
+#include <algorithm>
 #include <cstdio>
+#include <exception>
 #include <memory>
+#include <stdexcept>
+#include <thread>
+#include <vector>
 
 #include "sparkinterval/tg_platt_dd_transform.hpp"
 
@@ -213,6 +218,15 @@ LoadedSourcePacket106 load_source_packet106(const std::string& path) {
 // floor keeps the experimental enclosure fail-closed at the underflow edge.
 constexpr double kDDFloor = 0x0.0000000000001p-1022;
 
+// Exact small multiples of the least positive subnormal.  Every value k*eta
+// with k < 2^52 is a subnormal binary64 number, so these literals are the
+// exactly-rounded results of the directed additions they replace below; they
+// are written as hexadecimal significands to keep that exactness auditable.
+constexpr double kDDTwoFloors = 0x0.0000000000002p-1022;
+constexpr double kDDFiveFloors = 0x0.0000000000005p-1022;
+static_assert(kDDTwoFloors == 2.0 * kDDFloor);
+static_assert(kDDFiveFloors == 5.0 * kDDFloor);
+
 __device__ __forceinline__ TwoSumResult dd_two_sum(double a, double b) {
   const double sum = __dadd_rn(a, b);
   const double virtual_b = __dsub_rn(sum, a);
@@ -233,13 +247,31 @@ __device__ __forceinline__ double dd_error_add(double bound, double value) {
 
 // Compress four exact binary64 summands into two limbs.  The returned error
 // bounds the exact signed residual discarded by the compression.
+// The compression loop below used to open with dd_two_sum(0.0, terms[0]).
+// That first step is an exact identity for every finite t, and peeling it
+// removes six binary64 operations per call without moving a single output bit:
+//
+//   s  = fl(0 + t)                                    (kept verbatim below)
+//   vb = fl(s - 0) = s
+//   r  = fl( fl(0 - fl(s - vb)) + fl(t - vb) )
+//      = fl( fl(0 - (+0))      + fl(t - s)  )
+//      = fl( (+0) + fl(t - s) ).
+//
+// If t is not -0 then fl(0 + t) == t and fl(t - s) == +0, so r == +0.  If t
+// is -0 then s == +0 and fl(t - s) == -0, and round-to-nearest gives
+// fl((+0) + (-0)) == +0, so r == +0 again.  The residual is therefore always
+// +0, its directed error charge __dadd_ru(error, |+0|) leaves the strictly
+// positive running bound unchanged, and the remaining floor charge folds into
+// an exact subnormal constant.  The `0.0 + t` addition is deliberately NOT
+// removed: it is not the identity on t == -0, and the sign of a zero limb is
+// observable in the published sample bytes.
 __device__ __forceinline__ DDResult dd_add_center(DD a, DD b) {
   const TwoSumResult high = dd_two_sum(a.hi, b.hi);
-  double low = 0.0;
-  double error = kDDFloor;
-  const double terms[] = {high.residual, a.lo, b.lo};
+  double low = __dadd_rn(0.0, high.residual);
+  double error = kDDTwoFloors;
+  const double terms[] = {a.lo, b.lo};
 #pragma unroll
-  for (int index = 0; index < 3; ++index) {
+  for (int index = 0; index < 2; ++index) {
     const TwoSumResult next = dd_two_sum(low, terms[index]);
     low = next.sum;
     error = dd_error_add(error, next.residual);
@@ -262,10 +294,15 @@ __device__ __forceinline__ DDResult dd_mul_center(DD a, DD b) {
   const TwoSumResult products[] = {
       dd_two_product(a.hi, b.hi), dd_two_product(a.hi, b.lo),
       dd_two_product(a.lo, b.hi), dd_two_product(a.lo, b.lo)};
-  double low = 0.0;
-  double error = __dmul_ru(4.0, kDDFloor);
+  // Same peeled identity as dd_add_center: dd_two_sum(0.0, products[0].residual)
+  // yields {fl(0 + r), +0}, so the running low limb keeps its exact `0.0 + r`
+  // add while the two error charges collapse.  The retired initializer was
+  // __dmul_ru(4.0, kDDFloor) followed by __dadd_ru(., |+0|) and
+  // __dadd_ru(., kDDFloor), i.e. exactly five copies of the least positive
+  // subnormal.
+  double low = __dadd_rn(0.0, products[0].residual);
+  double error = kDDFiveFloors;
   const double terms[] = {
-      products[0].residual,
       products[1].sum,
       products[1].residual,
       products[2].sum,
@@ -274,7 +311,7 @@ __device__ __forceinline__ DDResult dd_mul_center(DD a, DD b) {
       products[3].residual,
   };
 #pragma unroll
-  for (int index = 0; index < 7; ++index) {
+  for (int index = 0; index < 6; ++index) {
     const TwoSumResult next = dd_two_sum(low, terms[index]);
     low = next.sum;
     error = dd_error_add(error, next.residual);
@@ -615,21 +652,63 @@ DDDisk combine_dd_enclosures(DDRealEnclosure re, DDRealEnclosure im) {
   return {re.center, im.center, mpfr_get_d(radius.value, MPFR_RNDU)};
 }
 
+// Split [0, count) into contiguous chunks over hardware threads and run `body`
+// on each index.  Every table entry below is a pure, deterministic function of
+// its own index computed with per-thread MPFR scratch at a fixed precision and
+// a fixed rounding mode, so the partition changes only the wall time, never a
+// table byte.  A single thread is used whenever the loop is small or the
+// hardware concurrency is unknown, and the first exception is rethrown after
+// every worker has joined.
+template <typename Body>
+void parallel_index_loop(std::uint32_t count, Body body) {
+  unsigned workers = std::thread::hardware_concurrency();
+  if (workers == 0U) workers = 1U;
+  workers = std::min<unsigned>(workers, 32U);
+  if (count < 4096U) workers = 1U;
+  if (workers <= 1U) {
+    body(0U, count);
+    return;
+  }
+  std::vector<std::thread> threads;
+  std::vector<std::exception_ptr> failures(workers);
+  threads.reserve(workers);
+  const std::uint32_t span = (count + workers - 1U) / workers;
+  for (unsigned worker = 0; worker < workers; ++worker) {
+    const std::uint32_t begin = static_cast<std::uint32_t>(worker) * span;
+    const std::uint32_t end = std::min(count, begin + span);
+    if (begin >= end) continue;
+    threads.emplace_back([&failures, worker, begin, end, &body]() {
+      try {
+        body(begin, end);
+      } catch (...) {
+        failures[worker] = std::current_exception();
+      }
+    });
+  }
+  for (std::thread& thread : threads) thread.join();
+  for (const std::exception_ptr& failure : failures) {
+    if (failure) std::rethrow_exception(failure);
+  }
+}
+
 std::vector<DDDisk> initialize_dd_positive_roots(std::uint32_t max_length) {
   std::vector<DDDisk> roots(max_length / 2U);
   const std::uint32_t log_length = exact_log2(max_length);
-  MpfrValue turn, sine_lo, sine_hi, cosine_lo, cosine_hi;
-  for (std::uint32_t index = 0; index < max_length / 2U; ++index) {
-    mpfr_set_ui(turn.value, index, MPFR_RNDN);
-    mpfr_div_2ui(turn.value, turn.value, log_length - 1U, MPFR_RNDN);
-    mpfr_sinpi(sine_lo.value, turn.value, MPFR_RNDD);
-    mpfr_sinpi(sine_hi.value, turn.value, MPFR_RNDU);
-    mpfr_cospi(cosine_lo.value, turn.value, MPFR_RNDD);
-    mpfr_cospi(cosine_hi.value, turn.value, MPFR_RNDU);
-    roots[index] = combine_dd_enclosures(
-        mpfr_interval_to_dd(cosine_lo.value, cosine_hi.value),
-        mpfr_interval_to_dd(sine_lo.value, sine_hi.value));
-  }
+  parallel_index_loop(
+      max_length / 2U, [&](std::uint32_t begin, std::uint32_t end) {
+        MpfrValue turn, sine_lo, sine_hi, cosine_lo, cosine_hi;
+        for (std::uint32_t index = begin; index < end; ++index) {
+          mpfr_set_ui(turn.value, index, MPFR_RNDN);
+          mpfr_div_2ui(turn.value, turn.value, log_length - 1U, MPFR_RNDN);
+          mpfr_sinpi(sine_lo.value, turn.value, MPFR_RNDD);
+          mpfr_sinpi(sine_hi.value, turn.value, MPFR_RNDU);
+          mpfr_cospi(cosine_lo.value, turn.value, MPFR_RNDD);
+          mpfr_cospi(cosine_hi.value, turn.value, MPFR_RNDU);
+          roots[index] = combine_dd_enclosures(
+              mpfr_interval_to_dd(cosine_lo.value, cosine_hi.value),
+              mpfr_interval_to_dd(sine_lo.value, sine_hi.value));
+        }
+      });
   return roots;
 }
 
@@ -650,10 +729,13 @@ std::vector<DDDisk> initialize_dd_stage_reciprocals(std::uint32_t stages) {
 
 std::vector<DDDisk> initialize_dd_two_pi_t(std::uint32_t length) {
   std::vector<DDDisk> result(length);
+  parallel_index_loop(length, [&](std::uint32_t begin, std::uint32_t end) {
   MpfrValue pi_lo, pi_hi, t, lower, upper;
+  // mpfr_const_pi is correctly rounded at this precision, so each worker's
+  // directed pi bounds are the same two numbers the serial loop used.
   mpfr_const_pi(pi_lo.value, MPFR_RNDD);
   mpfr_const_pi(pi_hi.value, MPFR_RNDU);
-  for (std::uint32_t index = 0; index < length; ++index) {
+  for (std::uint32_t index = begin; index < end; ++index) {
     const std::int64_t signed_index = static_cast<std::int64_t>(index) -
                                       static_cast<std::int64_t>(length / 2U);
     mpfr_set_si(t.value, -signed_index, MPFR_RNDN);
@@ -670,6 +752,7 @@ std::vector<DDDisk> initialize_dd_two_pi_t(std::uint32_t length) {
         mpfr_interval_to_dd(lower.value, upper.value);
     result[index] = {value.center, {0.0, 0.0}, value.radius};
   }
+  });
   return result;
 }
 
@@ -2152,6 +2235,11 @@ struct Workspace {
   DDDisk reciprocal_length{};
   DDDisk omega{};
   std::uint64_t allocated_bytes = 0U;
+  // A batch slot borrows the immutable root/constant tables from the slot that
+  // built them.  Only the owner releases them.  Nothing else about the slot is
+  // shared: every scratch buffer, the sample array and the validation word stay
+  // private, so a slot executes exactly the run_source_window kernel sequence.
+  bool owns_tables = true;
 };
 
 static_assert(sizeof(DDDisk) == sizeof(platt_windowed::ComplexDisk106));
@@ -2174,8 +2262,10 @@ void release_storage(Workspace* workspace, cudaError_t* first_error) {
       *first_error = status;
     }
   };
-  release(workspace->two_pi_t);
-  release(workspace->stage_reciprocals);
+  if (workspace->owns_tables) {
+    release(workspace->two_pi_t);
+    release(workspace->stage_reciprocals);
+  }
   release(workspace->gamma_rows);
   release(workspace->G_negative);
   release(workspace->G_positive);
@@ -2186,8 +2276,10 @@ void release_storage(Workspace* workspace, cudaError_t* first_error) {
   release(workspace->half_spectrum);
   release(workspace->hermi_pre);
   release(workspace->hermi_fft);
-  release(workspace->root_center_norms);
-  release(workspace->roots);
+  if (workspace->owns_tables) {
+    release(workspace->root_center_norms);
+    release(workspace->roots);
+  }
   release(workspace->samples);
   release(workspace->input_failure_flags);
 }
@@ -2201,6 +2293,31 @@ void allocate(Workspace* workspace, T** pointer, std::uint64_t count) {
   }
   CUDA_CHECK(cudaMalloc(pointer, count * sizeof(T)));
   workspace->allocated_bytes += count * sizeof(T);
+}
+
+// Every per-window scratch buffer, in the exact sizes run_source_window
+// indexes.  Batch slots call this and then borrow the immutable tables, so a
+// slot and a standalone workspace present byte-identical storage geometry.
+void allocate_window_scratch(Workspace* workspace) {
+  constexpr std::uint32_t length = platt_windowed::kBucketCount;
+  constexpr std::uint32_t stages = platt_windowed::kTaylorTerms;
+  constexpr std::uint32_t reduced_length = 2U * length;
+  constexpr std::uint64_t row_cells =
+      static_cast<std::uint64_t>(stages) * length;
+  allocate(workspace, &workspace->gamma_rows, row_cells);
+  allocate(workspace, &workspace->G_negative, row_cells);
+  allocate(workspace, &workspace->G_positive, row_cells);
+  allocate(workspace, &workspace->S_positive, row_cells);
+  allocate(workspace, &workspace->products, row_cells);
+  allocate(workspace, &workspace->convolutions, row_cells);
+  allocate(workspace, &workspace->retained, length / 2U);
+  allocate(workspace, &workspace->half_spectrum, reduced_length + 1U);
+  allocate(workspace, &workspace->hermi_pre, reduced_length);
+  allocate(workspace, &workspace->hermi_fft, reduced_length);
+  allocate(workspace, &workspace->samples, kSourceSampleCount);
+  allocate(workspace, &workspace->input_failure_flags, 1U);
+  CUDA_CHECK(cudaMemset(workspace->input_failure_flags, 0,
+                        sizeof(*workspace->input_failure_flags)));
 }
 
 }  // namespace
@@ -2220,8 +2337,6 @@ Workspace* create_source_workspace() {
   constexpr std::uint32_t length = platt_windowed::kBucketCount;
   constexpr std::uint32_t stages = platt_windowed::kTaylorTerms;
   constexpr std::uint32_t reduced_length = 2U * length;
-  constexpr std::uint64_t row_cells =
-      static_cast<std::uint64_t>(stages) * length;
 
   std::unique_ptr<Workspace> workspace(new Workspace{});
   try {
@@ -2238,21 +2353,9 @@ Workspace* create_source_workspace() {
 
     allocate(workspace.get(), &workspace->two_pi_t, length);
     allocate(workspace.get(), &workspace->stage_reciprocals, stages);
-    allocate(workspace.get(), &workspace->gamma_rows, row_cells);
-    allocate(workspace.get(), &workspace->G_negative, row_cells);
-    allocate(workspace.get(), &workspace->G_positive, row_cells);
-    allocate(workspace.get(), &workspace->S_positive, row_cells);
-    allocate(workspace.get(), &workspace->products, row_cells);
-    allocate(workspace.get(), &workspace->convolutions, row_cells);
-    allocate(workspace.get(), &workspace->retained, length / 2U);
-    allocate(workspace.get(), &workspace->half_spectrum,
-             reduced_length + 1U);
-    allocate(workspace.get(), &workspace->hermi_pre, reduced_length);
-    allocate(workspace.get(), &workspace->hermi_fft, reduced_length);
     allocate(workspace.get(), &workspace->roots, roots.size());
     allocate(workspace.get(), &workspace->root_center_norms, roots.size());
-    allocate(workspace.get(), &workspace->samples, kSourceSampleCount);
-    allocate(workspace.get(), &workspace->input_failure_flags, 1U);
+    allocate_window_scratch(workspace.get());
 
     CUDA_CHECK(cudaMemcpy(workspace->two_pi_t, two_pi_t.data(),
                           two_pi_t.size() * sizeof(DDDisk),
@@ -2763,6 +2866,237 @@ QualificationRequiredSampleView device_qualification_required_samples(
 
 std::uint64_t workspace_device_bytes(const Workspace* workspace) {
   return workspace == nullptr ? 0U : workspace->allocated_bytes;
+}
+
+// ---------------------------------------------------------------------------
+// Batched, multi-stream driver.
+//
+// A BatchWorkspace is `slots` independent transform workspaces plus one
+// nonblocking stream and one device input staging pair per slot.  Slot 0 owns
+// the immutable root/constant tables and every other slot borrows them, so the
+// 32,768-root MPFR table is built exactly once no matter how many slots are
+// requested.  Each slot then executes the unmodified run_source_window kernel
+// sequence on its own stream against its own scratch: no buffer, no validation
+// word and no sample array is shared, so batching cannot change a single
+// output bit relative to running the same windows one at a time.
+// ---------------------------------------------------------------------------
+
+struct BatchWorkspace {
+  std::vector<Workspace*> slots;
+  std::vector<cudaStream_t> streams;
+  std::vector<DDDisk*> gamma_inputs;
+  std::vector<DDDisk*> skn_inputs;
+  std::uint64_t allocated_bytes = 0U;
+  std::uint32_t next_slot = 0U;
+};
+
+namespace {
+
+void destroy_batch_storage(BatchWorkspace* batch) {
+  if (batch == nullptr) return;
+  for (cudaStream_t stream : batch->streams) {
+    if (stream != nullptr) {
+      cudaStreamSynchronize(stream);
+      cudaStreamDestroy(stream);
+    }
+  }
+  batch->streams.clear();
+  for (DDDisk* pointer : batch->gamma_inputs) cudaFree(pointer);
+  for (DDDisk* pointer : batch->skn_inputs) cudaFree(pointer);
+  batch->gamma_inputs.clear();
+  batch->skn_inputs.clear();
+  // Release borrowers first so the table owner outlives every reference.
+  for (std::size_t index = batch->slots.size(); index-- > 0U;) {
+    Workspace* slot = batch->slots[index];
+    if (slot == nullptr) continue;
+    cudaError_t ignored = cudaSuccess;
+    release_storage(slot, &ignored);
+    delete slot;
+  }
+  batch->slots.clear();
+}
+
+}  // namespace
+
+BatchWorkspace* create_source_batch_workspace(std::uint32_t slots) {
+  if (slots == 0U || slots > kMaximumBatchSlots) {
+    throw std::invalid_argument(
+        "PT21 DD transform batch slot count is out of range");
+  }
+  constexpr std::uint64_t skn_cells =
+      static_cast<std::uint64_t>(platt_windowed::kTaylorTerms) *
+      platt_windowed::kBucketCount;
+  std::unique_ptr<BatchWorkspace> batch(new BatchWorkspace{});
+  try {
+    Workspace* const owner = create_source_workspace();
+    batch->slots.push_back(owner);
+    batch->allocated_bytes += owner->allocated_bytes;
+    for (std::uint32_t index = 1U; index < slots; ++index) {
+      std::unique_ptr<Workspace> slot(new Workspace{});
+      slot->owns_tables = false;
+      slot->two_pi_t = owner->two_pi_t;
+      slot->stage_reciprocals = owner->stage_reciprocals;
+      slot->roots = owner->roots;
+      slot->root_center_norms = owner->root_center_norms;
+      slot->reciprocal_length = owner->reciprocal_length;
+      slot->omega = owner->omega;
+      allocate_window_scratch(slot.get());
+      batch->allocated_bytes += slot->allocated_bytes;
+      batch->slots.push_back(slot.release());
+    }
+    for (std::uint32_t index = 0U; index < slots; ++index) {
+      cudaStream_t stream = nullptr;
+      CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
+      batch->streams.push_back(stream);
+      DDDisk* gamma = nullptr;
+      DDDisk* skn = nullptr;
+      CUDA_CHECK(cudaMalloc(
+          &gamma, platt_windowed::kBucketCount * sizeof(DDDisk)));
+      batch->gamma_inputs.push_back(gamma);
+      batch->allocated_bytes +=
+          platt_windowed::kBucketCount * sizeof(DDDisk);
+      CUDA_CHECK(cudaMalloc(&skn, skn_cells * sizeof(DDDisk)));
+      batch->skn_inputs.push_back(skn);
+      batch->allocated_bytes += skn_cells * sizeof(DDDisk);
+    }
+    CUDA_CHECK(cudaDeviceSynchronize());
+  } catch (...) {
+    destroy_batch_storage(batch.get());
+    throw;
+  }
+  return batch.release();
+}
+
+void destroy_batch_workspace(BatchWorkspace* batch) {
+  if (batch == nullptr) return;
+  destroy_batch_storage(batch);
+  delete batch;
+}
+
+std::uint32_t batch_slot_count(const BatchWorkspace* batch) {
+  return batch == nullptr
+             ? 0U
+             : static_cast<std::uint32_t>(batch->slots.size());
+}
+
+std::uint64_t batch_workspace_device_bytes(const BatchWorkspace* batch) {
+  return batch == nullptr ? 0U : batch->allocated_bytes;
+}
+
+namespace {
+
+void check_batch_slot(const BatchWorkspace* batch, std::uint32_t slot) {
+  if (batch == nullptr || slot >= batch->slots.size()) {
+    throw std::out_of_range("PT21 DD transform batch slot is out of range");
+  }
+}
+
+}  // namespace
+
+cudaStream_t batch_slot_stream(const BatchWorkspace* batch,
+                               std::uint32_t slot) {
+  check_batch_slot(batch, slot);
+  return batch->streams[slot];
+}
+
+Workspace* batch_slot_workspace(BatchWorkspace* batch, std::uint32_t slot) {
+  check_batch_slot(batch, slot);
+  return batch->slots[slot];
+}
+
+platt_windowed::ComplexDisk106* batch_slot_device_gamma(
+    BatchWorkspace* batch, std::uint32_t slot) {
+  check_batch_slot(batch, slot);
+  return reinterpret_cast<platt_windowed::ComplexDisk106*>(
+      batch->gamma_inputs[slot]);
+}
+
+platt_windowed::ComplexDisk106* batch_slot_device_skn(
+    BatchWorkspace* batch, std::uint32_t slot) {
+  check_batch_slot(batch, slot);
+  return reinterpret_cast<platt_windowed::ComplexDisk106*>(
+      batch->skn_inputs[slot]);
+}
+
+const platt_windowed::RealDisk106* batch_slot_device_samples(
+    const BatchWorkspace* batch, std::uint32_t slot) {
+  check_batch_slot(batch, slot);
+  return device_samples(batch->slots[slot]);
+}
+
+const platt_windowed::RealDisk106* batch_slot_device_required_samples(
+    const BatchWorkspace* batch, std::uint32_t slot) {
+  check_batch_slot(batch, slot);
+  return device_required_samples(batch->slots[slot]);
+}
+
+const std::uint32_t* batch_slot_device_input_failure_flags_qualification(
+    const BatchWorkspace* batch, std::uint32_t slot) {
+  check_batch_slot(batch, slot);
+  return device_input_failure_flags_qualification(batch->slots[slot]);
+}
+
+std::uint32_t batch_run_window(
+    BatchWorkspace* batch,
+    const platt_windowed::ComplexDisk106* deviceGamma0,
+    const platt_windowed::ComplexDisk106* deviceSknRows) {
+  if (batch == nullptr || batch->slots.empty()) {
+    throw std::runtime_error("PT21 DD transform batch is empty");
+  }
+  const std::uint32_t slot = batch->next_slot;
+  batch->next_slot =
+      (slot + 1U) % static_cast<std::uint32_t>(batch->slots.size());
+  run_source_window(batch->slots[slot], deviceGamma0, deviceSknRows,
+                    batch->streams[slot]);
+  return slot;
+}
+
+std::uint32_t batch_upload_and_run_window(
+    BatchWorkspace* batch,
+    const platt_windowed::ComplexDisk106* hostGamma0,
+    const platt_windowed::ComplexDisk106* hostSknRows) {
+  if (batch == nullptr || batch->slots.empty()) {
+    throw std::runtime_error("PT21 DD transform batch is empty");
+  }
+  if (hostGamma0 == nullptr || hostSknRows == nullptr) {
+    throw std::runtime_error(
+        "PT21 DD transform batch upload received a null host input");
+  }
+  constexpr std::uint64_t skn_cells =
+      static_cast<std::uint64_t>(platt_windowed::kTaylorTerms) *
+      platt_windowed::kBucketCount;
+  const std::uint32_t slot = batch->next_slot;
+  batch->next_slot =
+      (slot + 1U) % static_cast<std::uint32_t>(batch->slots.size());
+  // The slot stream is the only writer of this slot's staging buffers, so the
+  // upload is automatically ordered behind the previous window that read them.
+  CUDA_CHECK(cudaMemcpyAsync(
+      batch->gamma_inputs[slot], hostGamma0,
+      platt_windowed::kBucketCount * sizeof(DDDisk),
+      cudaMemcpyHostToDevice, batch->streams[slot]));
+  CUDA_CHECK(cudaMemcpyAsync(
+      batch->skn_inputs[slot], hostSknRows, skn_cells * sizeof(DDDisk),
+      cudaMemcpyHostToDevice, batch->streams[slot]));
+  run_source_window(
+      batch->slots[slot],
+      reinterpret_cast<const platt_windowed::ComplexDisk106*>(
+          batch->gamma_inputs[slot]),
+      reinterpret_cast<const platt_windowed::ComplexDisk106*>(
+          batch->skn_inputs[slot]),
+      batch->streams[slot]);
+  return slot;
+}
+
+void batch_synchronize_slot(BatchWorkspace* batch, std::uint32_t slot) {
+  check_batch_slot(batch, slot);
+  CUDA_CHECK(cudaStreamSynchronize(batch->streams[slot]));
+}
+
+void batch_synchronize(BatchWorkspace* batch) {
+  if (batch == nullptr) return;
+  for (cudaStream_t stream : batch->streams) {
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+  }
 }
 
 }  // namespace sparkinterval::tg::platt_dd_transform
