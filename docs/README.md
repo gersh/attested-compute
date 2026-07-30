@@ -109,6 +109,8 @@ certificate axiom alone supplies the per-run physical-to-formal connection.
 - [Source-scale FLINT Platt zeta-RH campaign](algorithms/PLATT_ZETA_FLINT_CAMPAIGN.md)
 - [Exact five-phase PT21 Azure CPU materialization route](algorithms/PLATT_PT21_AZURE_CPU_MATERIALIZER.md)
 - [Pinned Platt PT21 windowed source campaign and H100 work model](algorithms/PLATT_PT21_WINDOWED_SOURCE_CAMPAIGN.md)
+- [PT21 windowed work-unit schedule and measured CPU cost](algorithms/PLATT_PT21_WORK_UNIT_SCHEDULER.md)
+- [Closing the zeta interval below 10^10](algorithms/PLATT_SUB_1E10_PREFIX.md)
 - [Bounded PT21 CPU/FLINT stationary-point fallback](algorithms/PLATT_PT21_STATIONARY_RESOLVER.md)
 - [Bounded PT21 CUDA/FLINT Turing-to-native block chain](algorithms/PLATT_PT21_BOUNDED_BLOCK_CHAIN.md)
 - [Bounded PT21 persistent CUDA/FLINT/Arb worker](algorithms/PLATT_PT21_PERSISTENT_WORKER.md)

@@ -17,6 +17,47 @@ Nothing here changes the trust boundary.  Every artifact still reports
 `source_claim_ready=false`.  Hardy-Z realization, the analytic Turing inputs,
 and the interval below `10^10` remain separate obligations.
 
+## Getting a runner at all
+
+The campaign document's build command assumes a FLINT 3.6 prefix already
+exists.  Producing one from the pinned checkout on a bare Ubuntu 24.04 host,
+without root, needed three things that are worth writing down because the Azure
+image will need them too:
+
+* `libgmp-dev` headers live under `/usr/include/aarch64-linux-gnu/`, which the
+  compiler finds by default, but `libmpfr-dev` is not installed.  `apt-get
+  download libmpfr-dev libmpfr6` plus `dpkg -x` into a local prefix is enough;
+  pass that prefix through `CPPFLAGS`/`LDFLAGS` to FLINT's `configure` and
+  through `--mpfr-prefix` to `fetch_platt_pt21_windowed.py`.
+* FLINT ships `configure.ac`, not `configure`, so `./bootstrap.sh` must run
+  first.  It needs `libtool`, `libtool-bin`, and `libltdl-dev`.  Extracted to a
+  local prefix, `libtoolize` still hard-codes `/usr/share/libtool`; the
+  supported override is the `_lt_pkgdatadir` environment variable, and the
+  directory it points at must contain `build-aux/`, `libltdl/`, and `m4/`.
+* `tools/fetch_flint_platt.py --build` calls `./configure` directly and
+  therefore cannot be used until `bootstrap.sh` has run.  Use it for
+  `--verify-only`, which is the part that matters, and drive the build
+  separately.
+
+With that done the documented command works unmodified and both retained known
+answers pass:
+
+```bash
+python3 tools/fetch_platt_pt21_windowed.py build/upstream/djplatt-code \
+  --build build/platt-pt21/arb-zeta \
+  --flint-prefix build/upstream/flint-3.6-install \
+  --mpfr-prefix build/upstream/mpfr-prefix/usr --test --pretty
+```
+
+```text
+[10000000000, 10000001008]   -> 3399 zeros
+[3000000000000, 3000000001008] -> 4314 zeros
+runner sha256 96a3648eafb9cdeb1b3b9c0016491052225502822bf95ba1798366d61aa3cb1c
+```
+
+The build report records the interpolation correction identities, so a binary
+built without the Appendix C radius cannot be mistaken for this one.
+
 ## Measured basis
 
 All of the arithmetic below rests on two numbers obtained by regressing runner
@@ -55,10 +96,20 @@ of useful work per block means even a one-block work unit would waste only
 what sizes the work unit; preemption and receipt volume are.
 
 The 8-block figure reproduces the `43.03` s / `5.37875` s per block recorded in
-the campaign document, so the two measurements agree to `0.2%`.  These runs
-shared the host with an unrelated compile, and single-threaded user CPU time is
-only weakly sensitive to that, but a few percent of memory-bandwidth
-contamination cannot be excluded.
+the campaign document, to `0.2%`.  Two further regressions through the tool's
+own `--calibrate` path, which measures child user+system CPU rather than
+`/usr/bin/time`, were run *concurrently with each other* to see how much
+memory-bandwidth contention costs.  They returned `5.35843` and `5.45513` s per
+block.  So four independent regressions on a busy shared host span
+
+```text
+5.3584 -- 5.4551 s per block  =  503.8 -- 512.9 core-years,
+```
+
+a `1.8%` spread that is entirely accounted for by contention.  The `5.36917`
+used below is the quietest of them; a reader who prefers the pessimistic end
+should read every dollar figure as `1.8%` higher.  Contamination at that scale
+does not move any decision this document supports.
 
 ## Work unit
 
