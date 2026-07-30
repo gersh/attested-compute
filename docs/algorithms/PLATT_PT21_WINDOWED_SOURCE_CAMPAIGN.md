@@ -10,9 +10,18 @@ zero-isolator API to rediscover trillions of zeros one small index batch at a
 time.
 
 This route is implemented and has real known-answer runs, but it is not yet a
-complete Azure proof run.  The CPU source campaign is still millions of core
-hours, the full H100 port is unfinished, the interval below `10^10` needs its
-own accepted artifact, and no production attestation/receipt exists.
+complete Azure proof run.  The full H100 port is unfinished and no production
+attestation/receipt exists.
+
+Two things once listed here as open are now settled and have their own notes.
+The CPU cost is `4,424,804` core-hours, or `504.8` core-years, from a regression
+against the corrected binary rather than a round number; see
+[`PLATT_PT21_WORK_UNIT_SCHEDULER.md`](PLATT_PT21_WORK_UNIT_SCHEDULER.md) for
+the measurement, the preemption-tolerant work-unit design, and the price band.
+The interval below `10^10` still needs its own accepted artifact, but the
+choice is no longer open: see
+[`PLATT_SUB_1E10_PREFIX.md`](PLATT_SUB_1E10_PREFIX.md), which measures the
+prefix at `0.54%` of the campaign.
 
 ## Upstream source and licensing boundary
 
@@ -148,9 +157,17 @@ the registered trusted-compute review boundary.
 On the local DGX Spark ARM CPU, eight consecutive source-height blocks took
 `43.03 s`, or `5.37875 s/block`, with about `281 MB` peak RSS.  Straight
 scaling gives approximately `4.43 million` one-core hours for the high range.
-This is consistent with the roughly `7.5 million` core-hours reported for the
-original computation and explains why merely deploying the CPU executable to
-Azure is not sufficient.
+
+A later 1/2/4/8/16-block regression against the corrected binary refines this
+to `5.36917 s` marginal per block plus `0.337 s` per runner invocation, and
+confirms that the rate does not vary with height (`5.71 s` for one block at
+`3*10^12`).  The exact totals, the work-unit design that makes the campaign
+survive spot preemption, and the Azure price band are in
+[`PLATT_PT21_WORK_UNIT_SCHEDULER.md`](PLATT_PT21_WORK_UNIT_SCHEDULER.md).  The
+`504.8` core-years there is `59%` of the roughly `7.5 million` core-hours
+reported for the original computation; that note explains why the two figures
+are consistent rather than in conflict.  Neither number makes merely deploying
+the CPU executable to Azure a finished proof run.
 
 The published loop performs, per logical block:
 
