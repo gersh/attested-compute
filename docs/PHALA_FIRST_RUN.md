@@ -9,24 +9,31 @@ Phala account. The local dry run is
 `tests/test_phala_tdx_first_run.py`; if it passes, the only missing
 ingredients are the ones marked **NEEDS PHALA** below.
 
-**Status after the first real run (2026-07-27).** A run on real Phala TDX
-hardware got through the whole attestation: key derivation, the TDX quote,
-the `dcap-qvl` appraisal, every pinned platform measurement, and the RTMR3
-event-log replay proving the quote attests our app-compose hash. It then
-failed in the campaign container with
+**Status: DONE. The run happened and its receipt is pinned (2026-07-27).**
+Phala Cloud prod5, CVM `a7-e2e`, app id `8428181231415b81042d93de854c0d82b1dab95b`,
+image `sha256:4e6029a3…c774f`. The prelude derived the key, fetched the TDX
+quote, appraised it with the pinned `dcap-qvl v0.6.1` (`Quote verified`, TCB
+`UpToDate`, no advisories), matched every pinned platform measurement, and
+replayed the RTMR3 event log to prove the quote attests *our* app-compose
+hash. The campaign then ran the A.7 replay, emitted `true`, and signed the
+canonical statement. Campaign exit status 0.
 
-```
-/workspace/staging/input/job-scope.env: No such file or directory
-```
+Its retained evidence is committed at `tests/data/phala_tdx_prod5/`, its pin
+and receipt literals are machine-derived from that evidence into
+`SparkInterval/Execution/PhalaTdxProd5Evidence.lean`, and
+`SparkInterval/Tests/PhalaTdxProd5RunTest.lean` drives it through the Lean
+checks: `phalaTdxOutcomeCheck` is `true` on the real receipt, and the Lean
+kernel itself verifies the enclave's ECDSA P-256 signature over the real
+statement digest. Sections 6 and 7 below are now a *repeat* procedure, not a
+first-time one.
 
-because the staging volume was a **tmpfs-backed named volume**, and such a
-volume is not shared between containers: each container that mounts it gets
-its own fresh, empty tmpfs. That was verified directly, with a two-container
-test in which the reader ran as UID 0 and still saw an empty directory. The
-layout below is the fix, and section 4e explains it. The parts of the run
-that succeeded have not been re-run since, so **the current layout has never
-executed on TDX hardware either**; what it has is a local end-to-end test that
-drives the committed compose entry point verbatim.
+**Earlier attempt, for the record.** The run before it got through the whole
+attestation and then failed in the campaign container with
+`/workspace/staging/input/job-scope.env: No such file or directory`, because
+the staging volume was a **tmpfs-backed named volume**, and such a volume is
+not shared between containers: each container that mounts it gets its own
+fresh, empty tmpfs. Section 4e explains the fix, which is what the successful
+run used.
 
 **Be clear about what "exercised locally" means for the in-CVM prelude.** Its
 dstack guest-agent interaction is exercised against an in-process mock
@@ -507,25 +514,57 @@ it is the primary record. The `dcap-qvl` binary is identified by the digest in
 
 ## 6. Pin the enclave identity in Lean
 
-**This is the trust-boundary review event.** Edit
-`PhalaTdxEnclave.pin .ch25A7BoundaryProductionV1` in
-`SparkInterval/Execution/PhalaTdxAttestation.lean`, filling in:
+**This is the trust-boundary review event.** Do not transcribe anything. A
+130-character public key that a human retyped is exactly how the wrong enclave
+gets pinned, and a wrong pin is not a build failure -- it is a silently trusted
+stranger. Instead:
 
-| Field | Value |
-| --- | --- |
-| `appId` | the dstack app id |
-| `composeHash` | SHA-256 of the measured `app-compose.json` |
-| `imageDigest` | `sha256:<registry image digest>` from step 1 |
-| `enclavePublicKeyHex` | the uncompressed SEC1 P-256 public key derived by dstack, 130 hex digits |
-| `quoteAppraisalPolicyHash` | SHA-256 of `dcap-qvl-policy.json` |
-| `quoteAppraisalArtifactHash` | SHA-256 of the `dcap-qvl` binary |
+```
+cp -r ./retained-evidence ./run-scope.txt tests/data/phala_tdx_<run>/
+python3 tools/tg_phala_tdx_pin_from_evidence.py \
+    --evidence-dir tests/data/phala_tdx_<run> \
+    --out SparkInterval/Execution/PhalaTdx<Run>Evidence.lean
+```
 
-`attestationAuthority` is already `true` for this constructor; today the empty
-`enclavePublicKeyHex` is what makes every check fail closed
-(`phalaTdxOutcomeCheck_ch25A7BoundaryProductionV1_eq_false` proves it).
+The generator re-derives every literal from the retained bytes and **refuses
+to emit anything** unless: the campaign exited 0 with no missing evidence;
+every manifest digest matches the file; the enclave's signature verifies over
+the recomputed canonical statement; the quote's report data is the
+domain-separated commitment to that key, this challenge and this job binding;
+the signed file digests are the retained files; the run scope matches the
+challenge, job binding and issue time chosen *before* the run; the app id and
+app-compose hash agree across the receipt, `job-scope.env`, the prelude
+summary and the RTMR3 event-log replay; the prelude ran with measurements
+pinned and nothing unpinned; the appraisal is `UpToDate` with no advisories;
+and `dcap-qvl` reported `Quote verified`.
 
-**Preconditions for promoting a receipt to this pin.** Do not fill any field
-above unless all of the following hold, and record that you checked them:
+Then add the enclave identity to the closed inductive in
+`SparkInterval/Execution/PhalaTdxAttestation.lean`, copying the generated
+record into its `pin` case. The generated module carries
+
+```lean
+theorem phalaTdx<Run>_pin_eq_generated :
+    PhalaTdxEnclave.<constructor>.pin = PhalaTdx<Run>.pin := by decide
+```
+
+so a mistyped digit in that hand edit is a build failure. `prod5` is the
+worked example: `ch25A7BoundaryPhalaProd5V1`, and
+`tests/test_phala_tdx_prod5_pin.py` asserts the committed module is exactly
+what the generator produces from the committed evidence.
+
+Setting `attestationAuthority := true` remains the deliberate human act. It is
+scoped to one deployment -- that app id, that app-compose hash, that image
+digest, that appraisal policy and binary -- and licenses nothing else.
+
+`ch25A7BoundaryProductionV1` keeps its empty `enclavePublicKeyHex` and stays
+unreachable (`phalaTdxOutcomeCheck_ch25A7BoundaryProductionV1_eq_false`); the
+prod5 identity was added alongside it rather than filling it in, so no existing
+guard was weakened.
+
+**Preconditions for promoting a receipt to this pin.** The generator enforces
+the first three mechanically and refuses without them; the last two are human
+judgement it cannot make. Do not pin unless all of the following hold, and
+record that you checked them:
 
 * the retained `dcap-qvl-policy.json` has `first_run_measurement_discovery`
   set to `false` and **no** remaining `TODO:` value;
@@ -548,38 +587,71 @@ reaching a campaign theorem, and the dry-run test depends on it.
 
 ## 7. Close the campaign theorem
 
-Transcribe the receipt's `signed_fields` into a `PhalaTdxReceipt` literal —
-`SparkInterval/Tests/PhalaTdxDryRunTest.lean` shows the field-by-field mapping —
-and apply:
+The generated module already carries the `PhalaTdxReceipt` literal, so nothing
+is transcribed here either. `SparkInterval/Tests/PhalaTdxProd5RunTest.lean` is
+the worked example; the supported reduction is
 
 ```lean
-theorem myRun : CertifiedCH25A7BoundaryPhalaTdx productionReceipt :=
-  certifyCH25A7BoundaryPhalaTdx rfl (by decide +kernel)
+theorem prod5Campaign
+    (model : EnclaveImplementsA7ReferenceModel .ch25A7BoundaryPhalaProd5V1)
+    (realization : …RetainedAnalyticRealization) :
+    PhalaTdxCertifiedSourceRun .ch25A7BoundaryProductionV1 receipt "true" …
+  certifyCH25A7BoundaryPhalaTdxFromModelAt prod5_authority
+    prod5ProductionAccepted model realization
 ```
 
-The `rfl` discharges `attestationAuthority = true` once the production pin is
-installed.
+`prod5_authority` is `rfl`: the attestation premise that a laptop cannot
+supply is *discharged* by the reviewed pin, which is the whole point of doing
+the run. The two remaining premises are not about attestation -- they are
+enclave/reference-model agreement and the FLINT/Arb-to-Mathlib realization.
 
-On the second argument: closing the whole check with `decide +kernel` is the
-right target but was **not achievable within a 16 GB budget** on the machine
-used for the dry run. The P-256 verification alone kernel-reduces in about
-6.6 s; what exceeds the budget is the nineteen in-kernel SHA-256 evaluations
-over strings that the composite check performs. Options, in order of
-preference:
+**How the acceptance check is closed, and what that costs.** Measured on a
+20-core x86-64 host with 119 GB of RAM, Lean 4.32.0:
 
-1. run the kernel check on a machine with a larger `-M` budget, and record
-   the measurement;
-2. split the proof so the P-256 verification is kernel-checked separately
-   (`dryRunSignature_kernelChecked` in the dry-run test is the pattern) and
-   only the SHA-256 conjuncts use `native_decide`;
-3. use `native_decide` for the whole check, accepting
-   `Lean.ofReduceBool` in the theorem's axiom set.
+| statement | tactic | wall | peak RSS |
+| --- | --- | --- | --- |
+| `P256.verifyDigestHex key digest sig = true` | `decide +kernel` | ~4 s | ~1.1 GB over baseline |
+| `receipt.statementDigest = <literal>` | `decide +kernel` | ~126 s | ~34 GB |
+| `phalaTdxOutcomeCheck … = true` | `native_decide` | ~9 ms | negligible |
+| `phalaTdxOutcomeCheck … = true` | `decide +kernel` | 1209 s | 42.9 GB |
 
-Whichever is chosen, run `#print axioms` on the resulting theorem and record
-it. Expect `phalaTdxAttestedEmission_sound` plus the base trio, plus a native
-reduction axiom if option 2 or 3 was used. `phalaTdxAttestedRun_sound` must
-**not** appear: reaching it means the campaign was instantiated through the
-legacy generic layer, which assumes the mathematics instead of proving it.
+The repository builds its Lean libraries under
+`weakLeanArgs = ["-j1", "-M8192"]`, so the 34 GB reduction cannot live in the
+build. The split actually used is: the P-256 verification and the three P-256
+refusals are **kernel-checked** in the committed test module (base trio only),
+the composite `phalaTdxOutcomeCheck` statements use `native_decide`, and the
+full kernel reduction of everything -- including the statement digest -- lives
+in `proof_build/ch25_a7_phala_tdx/prod5_kernel_full_check.lean`, which is not
+part of any `lean_lib` and is run deliberately:
+
+```
+lake env lean -j1 -M110000 \
+  proof_build/ch25_a7_phala_tdx/prod5_kernel_full_check.lean
+```
+
+It has been run, and it closes: `EXIT=0`, both `#print axioms` reporting the
+base trio and nothing else. It wants ~43 GB of *genuinely free* physical
+memory, not merely a large `-M`; the 1209 s above was measured with about
+19 GB tied up by an unrelated process, so most of it was swap I/O at ~25% CPU.
+
+On Lean 4.32 a `native_decide` proof does not use `Lean.ofReduceBool`; it gets
+a named per-declaration axiom `<theorem>._native.native_decide.ax_1_1` whose
+statement is `decide (<the proposition>) = true`. Run `#print axioms` on the
+resulting theorem and record it. Expect `phalaTdxAttestedEmission_sound` plus
+the base trio, plus that native axiom if `native_decide` was used.
+`phalaTdxAttestedRun_sound` must **not** appear: reaching it means the campaign
+was instantiated through the legacy generic layer, which assumes the
+mathematics instead of proving it.
+
+**Negative tests are part of closing the theorem, not an extra.** A verifier
+that accepted everything would satisfy the positive theorem too. The committed
+module states, as theorems, that `phalaTdxOutcomeCheck` returns `false` for an
+altered signature, an altered enclave public key, an altered statement (via
+`issuedAt`, the one signed field nothing but the signature inspects), an
+altered app-compose hash, an altered app id, and the receipt presented under a
+different pinned identity. Note that `attestationAuthority` is **not** an input
+to `phalaTdxOutcomeCheck`: it gates the axiom, as the
+`authority : … = true` premise, not the check.
 
 ---
 

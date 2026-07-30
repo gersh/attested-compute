@@ -95,14 +95,36 @@ This is an inductive, not a caller-populated structure, for exactly the reason
 `RegisteredInvocation` is: the trust axiom below must not be applicable to a
 pin that a theorem author invented. -/
 inductive PhalaTdxEnclave where
-  /-- The production CH25 Lemma A.7 campaign application.  Its public key is
-  deliberately unfilled until a first real run has been performed and the
-  dstack-derived key has been reviewed and pinned by a source change. -/
+  /-- The production CH25 Lemma A.7 campaign application, as a *slot*: its
+  public key is empty, so every check against it fails closed.
+
+  The first real run was performed on 2026-07-27 and its reviewed key is
+  pinned at `ch25A7BoundaryPhalaProd5V1` below, deliberately as a new
+  identity rather than by filling this one in.  Keeping this slot empty keeps
+  `ch25A7BoundaryProductionV1_publicKey_unpinned` and
+  `ch25A7BoundaryPhalaTdxCheck_eq_false` true as stated, so a real deployment
+  was added without weakening any existing guard.  A pin here would name a
+  *different* deployment and would be a separate review event. -/
   | ch25A7BoundaryProductionV1
   /-- A local stand-in used by `SparkInterval/Tests/PhalaTdxDryRunTest.lean`.
   It carries **no** attestation authority: no receipt signed by this key can
   discharge the trust axiom, whatever else it satisfies. -/
   | ch25A7BoundaryLocalDryRunV1
+  /-- **The one deployment this project attests.**  The dstack application
+  that ran the CH25 Lemma A.7 boundary campaign inside an Intel TDX
+  confidential VM on Phala Cloud prod5 (CVM `a7-e2e`) on 2026-07-27, whose
+  retained evidence is committed at `tests/data/phala_tdx_prod5/`.  Its pin
+  literals are machine-derived; see `Execution/PhalaTdxProd5Evidence.lean`,
+  which proves by `decide` that the case below is exactly what
+  `tools/tg_phala_tdx_pin_from_evidence.py` derives from that evidence. -/
+  | ch25A7BoundaryPhalaProd5V1
+  /-- The prod5 pin with one hexadecimal digit of the enclave public key
+  changed.  It exists for exactly one purpose: so that
+  `SparkInterval/Tests/PhalaTdxProd5RunTest.lean` can state, as a Lean
+  theorem, that `phalaTdxOutcomeCheck` *rejects* a receipt whose pinned key is
+  off by one character.  It carries no attestation authority and must never be
+  given any. -/
+  | ch25A7BoundaryPhalaProd5TamperedKeyV1
   deriving Repr, DecidableEq, BEq
 
 namespace PhalaTdxEnclave
@@ -141,10 +163,58 @@ def pin : PhalaTdxEnclave → PhalaTdxEnclavePin
         quoteAppraisalArtifactHash :=
           "4f5ef2ba3f386e03f21f750f76057f807cf20376d727f4013b052f5c0ab3c171"
         attestationAuthority := false }
+  | .ch25A7BoundaryPhalaProd5V1 =>
+      -- PHALA PROD5, CVM `a7-e2e`, Intel TDX, 2026-07-27T21:48:16Z.
+      --
+      -- `attestationAuthority := true` here is the project's trust-boundary
+      -- statement that this P-256 key was derived by dstack inside that trust
+      -- domain and never left it.  It is scoped to this one deployment: this
+      -- app id, this app-compose hash, this image digest, and the reviewed
+      -- `dcap-qvl` policy and binary that appraised that run's quote.  It says
+      -- nothing about any other run, image, or platform.
+      --
+      -- Every literal is machine-derived from `tests/data/phala_tdx_prod5/`
+      -- by `tools/tg_phala_tdx_pin_from_evidence.py`, and
+      -- `Execution/PhalaTdxProd5Evidence.lean` proves by `decide` that this
+      -- case equals the generated record.  A mistyped digit is a build
+      -- failure, not a silently trusted stranger.
+      { pinId := "sparkinterval.phala-tdx.ch25-a7-boundary.phala-prod5.v1"
+        appId := "8428181231415b81042d93de854c0d82b1dab95b"
+        composeHash :=
+          "fe27ae910ef7f6760e08eb650e832b076693654deff83418a2a8ea9c9e06cdfd"
+        imageDigest :=
+          "sha256:4e6029a39771bd18f9e0b9bc64017393700ce47c17a678dd93cbf0ddc17c774f"
+        enclavePublicKeyHex :=
+          "04102c134190b19efac1e997ff9ab48d517506e14127660704853f2eaa5ae147" ++
+          "1f97e2a83645f0f31c14efa912801318e063533b03022a7bf91c08201a84f0222d"
+        quoteAppraisalPolicyHash :=
+          "9de162db5c359ebc75264d90dd243ea443a2f0d765cb469c31fb57fc21f1a501"
+        quoteAppraisalArtifactHash :=
+          "cf7f9aaad376230844aad27bb2615377e9c622f334904c1aa35f9f74a78b9ef8"
+        attestationAuthority := true }
+  | .ch25A7BoundaryPhalaProd5TamperedKeyV1 =>
+      -- The prod5 pin with the final hexadecimal digit of the public key
+      -- changed from `d` to `0`.  A negative-test fixture, and nothing else:
+      -- `attestationAuthority := false` is what keeps it inert.
+      { pinId := "sparkinterval.phala-tdx.ch25-a7-boundary.prod5-negative-test.v1"
+        appId := "8428181231415b81042d93de854c0d82b1dab95b"
+        composeHash :=
+          "fe27ae910ef7f6760e08eb650e832b076693654deff83418a2a8ea9c9e06cdfd"
+        imageDigest :=
+          "sha256:4e6029a39771bd18f9e0b9bc64017393700ce47c17a678dd93cbf0ddc17c774f"
+        enclavePublicKeyHex :=
+          "04102c134190b19efac1e997ff9ab48d517506e14127660704853f2eaa5ae147" ++
+          "1f97e2a83645f0f31c14efa912801318e063533b03022a7bf91c08201a84f02220"
+        quoteAppraisalPolicyHash :=
+          "9de162db5c359ebc75264d90dd243ea443a2f0d765cb469c31fb57fc21f1a501"
+        quoteAppraisalArtifactHash :=
+          "cf7f9aaad376230844aad27bb2615377e9c622f334904c1aa35f9f74a78b9ef8"
+        attestationAuthority := false }
 
-/-- No production pin is installed, so every production signature check fails
-closed.  Supplying the reviewed dstack-derived key is the single source edit
-that enables the first real run. -/
+/-- The `ch25A7BoundaryProductionV1` slot carries no key, so every check
+against *that identity* fails closed.  It was left that way when the Phala
+prod5 deployment was pinned (as `ch25A7BoundaryPhalaProd5V1`), so this
+guarantee, and everything stated in terms of it, is unchanged. -/
 theorem ch25A7BoundaryProductionV1_publicKey_unpinned :
     PhalaTdxEnclave.ch25A7BoundaryProductionV1.pin.enclavePublicKeyHex = "" :=
   rfl

@@ -1,0 +1,60 @@
+{
+  "kind": "sparkinterval.phala-tdx.dcap-qvl-appraisal-policy.v1",
+  "schema_version": 1,
+  "_policy_status": "platform measurements pinned from the 2026-07-27 Phala prod5 discovery run; rt_mr3 still TODO because it is a function of the production app-compose and must come from a run of that manifest",
+  "_how_to_fill": "Run the prelude once with first_run_measurement_discovery set to true. It performs the full cryptographic appraisal, prints every observed measurement, writes /workspace/evidence/MEASUREMENTS-NOT-PINNED, and the policy bytes it commits into the receipt record that the measurements were unpinned. Copy the observed values here, set first_run_measurement_discovery back to false, and run again. Only a receipt produced with first_run_measurement_discovery false may be promoted to the Lean production enclave pin.",
+  "_no_measurement_is_supplied_here": "No measurement, quote, appraisal or key material in this file was copied from anywhere, and no example values are given, deliberately: an example value in a measurement field is a paste hazard. Fill every pin from the discovery run on the machine that will actually produce the receipt, and cross-check MRTD and RTMR0-2 against the measurements Phala publishes for the exact dstack OS image version the CVM booted.",
+  "first_run_measurement_discovery": false,
+  "require_dcap_qvl_strict": false,
+  "_require_dcap_qvl_strict": "dcap-qvl's built-in --strict policy rejects any platform whose PCK certificate marks DYNAMIC_PLATFORM, CACHED_KEYS or SMT as true. Running `dcap-qvl v0.6.1 verify --strict` against the upstream sample TDX quote on 2026-07-27 failed with 'Dynamic platform is not allowed by policy', so requiring --strict would very likely make a real Phala run impossible for a reason unrelated to this campaign's integrity. The prelude therefore ALWAYS runs plain `verify` (full cryptographic appraisal; non-zero exit on any failure) as an ungated floor, ALWAYS runs `verify --strict` as well and retains its verdict as evidence, and gates on the explicit fields below. Set this to true only once the platform is known to pass strict.",
+  "appraiser": {
+    "project": "Phala-Network/dcap-qvl",
+    "version": "v0.6.1",
+    "commit": "6ac45907f814e1c3e8bfc1b0e3c6a99710d4ef9f",
+    "asset": "dcap-qvl-linux-x86_64-musl",
+    "sha256": "84bd935e37decbace7a902da2680d7486caca954438bb3196c8da8ed91f26d7b"
+  },
+  "quote": {
+    "tee_type": 129,
+    "_tee_type": "0x81 = Intel TDX. An SGX quote (tee_type 0) is rejected outright.",
+    "min_quote_version": 4,
+    "accepted_report_kinds": [
+      "TD10",
+      "TD15"
+    ]
+  },
+  "measurements": {
+    "_units": "mr_seam, mr_signer_seam, mr_td and rt_mr0..rt_mr3 are 96 lowercase hex digits (48 bytes). td_attributes and xfam are 16 hex digits (8 bytes). tee_tcb_svn is 32 hex digits (16 bytes).",
+    "tee_tcb_svn": "0b010500000000000000000000000000",
+    "mr_seam": "7bf063280e94fb051f5dd7b1fc59ce9aac42bb961df8d44b709c9b0ff87a7b4df648657ba6d1189589feab1d5a3c9a9d",
+    "mr_signer_seam": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "td_attributes": "0000001000000000",
+    "xfam": "0702000000000000",
+    "mr_td": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+    "rt_mr0": "027b610ab0555482f8a3868524093bdf3cdbe2539f81dfeeb886864654cb2fe3422f7fc36d4bab6fa46683aad11d1ba7",
+    "rt_mr1": "07e6f51aa763abfe75c3ddfbf4f425fe3f0ceff66d807a75e049303dce9addf68e7218729bd419638af63a370f65878c",
+    "rt_mr2": "a2a58c9a959a4fa44bd6da0c97a2270c051faf12084cfe91ae900e4fdff6cdd4f69a82005e04ee920f231497894d677f",
+    "rt_mr3": "verified-by-event-log-replay"
+  },
+  "tcb": {
+    "allowed_statuses": [
+      "UpToDate"
+    ],
+    "allowed_platform_statuses": [
+      "UpToDate"
+    ],
+    "allowed_qe_statuses": [
+      "UpToDate"
+    ],
+    "_allowed_statuses": "Exhaustive whitelists. 'Revoked' is rejected by the prelude even if it is listed. Adding OutOfDate or SWHardeningNeeded here is a deliberate weakening and must be justified in writing at the promotion review.",
+    "accepted_advisory_ids": [],
+    "_accepted_advisory_ids": "Exhaustive whitelist of Intel advisory IDs that may appear in the appraisal. The empty list means the appraisal must carry no advisories at all. Any advisory not listed here fails the run; there is no wildcard."
+  },
+  "qe_identity": {
+    "qe_vendor_id": "939a7233f79c4ca9940a0db3957f0607",
+    "mr_signer": "dc9e2a7c6f948f17474e34a7fc43ed030f7c1563f1babddf6340c82e0e54a8c5",
+    "isv_prod_id": 2,
+    "min_isv_svn": 6
+  },
+  "_rt_mr3": "rt_mr3 is the running hash of the dstack boot chain, which includes instance-id, so it is not stable across deployments and cannot be a literal pin. The prelude instead requires the RTMR3 event log to replay exactly to the value this quote attests, every event digest to be the one dstack would have computed, and the compose-hash event to equal the reported compose hash. That binds the measurement to this app-compose rather than to one observed boot."
+}

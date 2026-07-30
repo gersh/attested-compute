@@ -1,0 +1,16 @@
+{
+  "kind": "sparkinterval.leancompcert-seg-campaign-pin.v1",
+  "mode": "plattstrong",
+  "range": [
+    4,
+    7727065383
+  ],
+  "windows": 230,
+  "total_integers": 7727065380,
+  "manifest_sha256": "6b20f834c1d8e0d8939625713654884d9a082db9acbbcd979c2e0647046ead38",
+  "manifest_bytes": 85644,
+  "canonical_definition": "sparkinterval.registered-algorithm.v1\nname=platt-stronger-range\nproducer=leancompcert\nprogram=Ports.ArraySegSieve.mobiusProgram\nreduced-family=MathExtras.Reductions.PlattStrongerRangeNatFamily\nrange=[4,7727065383]\nwindows=230\nmanifest-sha256=6b20f834c1d8e0d8939625713654884d9a082db9acbbcd979c2e0647046ead38\nmanifest-bytes=85644\ncompcert-version=3.17\ncompcert-target=x86_64-linux\nlink=static-freestanding-no-libc\nsemantics=AProgram.evalCC_compile\nsuccess=every-window-exit-status-zero\noutput=false-or-true\n",
+  "canonical_definition_bytes": 505,
+  "algorithm_hash": "ddf877d57c3549dd20e3ba2b846843bb07bd9229537aa38fc54fc67bb0047c10",
+  "binary_bytes_total": 2093896
+}

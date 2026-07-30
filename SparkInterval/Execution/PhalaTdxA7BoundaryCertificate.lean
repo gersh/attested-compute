@@ -8,9 +8,17 @@ import SparkInterval.TernaryGoldbach.A7BoundaryWireEvidence
 /-!
 # Phala/dstack TDX bridge for CH25 Lemma A.7
 
-Nothing here is installed: `PhalaTdxEnclave.ch25A7BoundaryProductionV1`'s
-public key is unpinned, so `ch25A7BoundaryPhalaTdxCheck` is `false` for every
-receipt until a reviewed first run supplies it.
+Nothing is installed *at this identity*: `PhalaTdxEnclave`
+`.ch25A7BoundaryProductionV1`'s public key is still empty, so
+`ch25A7BoundaryPhalaTdxCheck` is `false` for every receipt.
+
+The first real run **has** happened, on Phala prod5 (2026-07-27), and its
+reviewed key is pinned at `PhalaTdxEnclave.ch25A7BoundaryPhalaProd5V1`.  It
+reaches the campaign conclusion through
+`certifyCH25A7BoundaryPhalaTdxFromModelAt`, the enclave-generic form of the
+supported reduction below; see `SparkInterval/Tests/PhalaTdxProd5RunTest.lean`.
+The empty slot was left empty on purpose, so that every guard already stated
+about it stays true as written.
 
 ## Two paths, and which one to use
 

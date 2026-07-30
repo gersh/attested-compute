@@ -39,7 +39,9 @@ PHALA_MODULES = frozenset(
         "SparkInterval.Execution.PhalaTdxOperationalAttestation",
         "SparkInterval.Execution.PhalaTdxCampaignCertificate",
         "SparkInterval.Execution.PhalaTdxA7BoundaryCertificate",
+        "SparkInterval.Execution.PhalaTdxProd5Evidence",
         "SparkInterval.Tests.PhalaTdxDryRunTest",
+        "SparkInterval.Tests.PhalaTdxProd5RunTest",
     }
 )
 

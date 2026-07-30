@@ -1,0 +1,15 @@
+sparkinterval.registered-algorithm.v1
+name=platt-stronger-range
+producer=leancompcert
+program=Ports.ArraySegSieve.mobiusProgram
+reduced-family=MathExtras.Reductions.PlattStrongerRangeNatFamily
+range=[4,7727065383]
+windows=230
+manifest-sha256=6b20f834c1d8e0d8939625713654884d9a082db9acbbcd979c2e0647046ead38
+manifest-bytes=85644
+compcert-version=3.17
+compcert-target=x86_64-linux
+link=static-freestanding-no-libc
+semantics=AProgram.evalCC_compile
+success=every-window-exit-status-zero
+output=false-or-true

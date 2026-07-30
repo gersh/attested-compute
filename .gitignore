@@ -12,3 +12,8 @@ __pycache__/
 *-private.pem
 operator-passphrase.txt
 *.sqlite3
+
+# Generated leancompcert campaign trees (regenerate with
+# proof_build/leancompcert_tdx/build_seg_campaign.py); the reviewed manifest
+# and pin are committed under tests/data/ instead.
+/campaign/
