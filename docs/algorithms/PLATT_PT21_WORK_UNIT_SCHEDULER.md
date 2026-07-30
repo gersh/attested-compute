@@ -310,8 +310,7 @@ overhead is
 
 Even at a punishing one-hour mean time to eviction it is `5.7%`.  This is the
 payoff from checkpointing inside the unit: without it, a `0.76`-core-hour unit
-re-run from scratch would cost roughly `3%` at twelve hours and `35%` at one
-hour.
+re-run from scratch would cost `3.3%` at twelve hours and `50%` at one hour.
 
 Prices are US East, Linux, `Consumption`, captured and re-verified live on
 2026-07-30:

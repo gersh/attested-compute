@@ -122,9 +122,9 @@ is a strong independent check on the retained known-answer geometry.  The
 And the cost is small.  At a flat `8.65` s per block,
 
 ```text
-(10^10 - 5040) / 1008 = 9,920,630 blocks
-9,920,630 * 8.65 s     = 8.582e7 s
-                       = 23,839 core-hours
+(10^10 - 5040) / 1008 = 9,920,629 blocks
+9,920,629 * 8.65 s     = 8.581e7 s
+                       = 23,837 core-hours
                        = 2.72 core-years
 ```
 
