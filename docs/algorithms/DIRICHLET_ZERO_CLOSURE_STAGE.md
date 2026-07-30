@@ -82,6 +82,17 @@ threshold. The arithmetic formula is executable, but `production_accept`
 remains false unless a separate reviewed theorem discharges that condition.
 It must not be replaced by an unreviewed guessed threshold.
 
+[DIRICHLET_INTERPOLATION_UNIFORM_BOUND.md](DIRICHLET_INTERPOLATION_UNIFORM_BOUND.md)
+derives, on paper, a candidate explicit threshold
+`t0 + N/(2B) >= 2 exp(pi/2 + 1/3) - 3/2` together with an unconditional
+fallback constant, and records two discrepancies with the implementation in
+`tg_verifier/dirichlet_postprocess.py`: the hard-coded `2^(5/4) sqrt(pi)
+exp(1/6)` understates the derived budget by up to a factor `1.44703` for
+`t0 < 10.36463` at production parameters, and the unchecked condition
+`N(N+1) >= 4 B^2 h^2` inside Lemma 6.6 fails for the module's own unit-test
+parameters. That document is unreviewed prose; it changes no constant, no code
+and no flag, and `production_accept` stays false.
+
 The accepted-manuscript parameter KAT uses the actual primitive odd-character
 case `q=3` at source height `10^8/3`. The implemented Lemmas 8.4--8.7 budgets
 sum to about `8.4123e-8`, strictly below the manuscript's `8.6e-8` claim. This
