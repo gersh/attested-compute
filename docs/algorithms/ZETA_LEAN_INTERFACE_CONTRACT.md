@@ -170,18 +170,59 @@ Proved, base trio only:
 * distinct-count ≤ multiplicity-count (`SparkInterval/Zeta/MultiplicityCount.lean`,
   pre-existing).
 
-Owed, in dependency order:
+Also proved, base trio only (2026-07-30):
 
-1. **Argument principle for the completed zeta on a rectangle**, giving
-   `TuringAnalyticInput.counting_le` with the explicit `F`. Mathlib has the
-   entire `completedRiemannZeta₀`, the functional equation, `Gammaℝ`, and
-   `MeromorphicOn.divisor`; what is missing is the winding-number evaluation of
-   the Gamma factor on the box boundary (Stirling).
-2. **A Turing/Lehman-type averaged bound** `∫ S ≤ sBound`. This is a legitimate
-   citation atom; record it with its paper reference rather than proving it.
-3. **The enclosure bridge**: from the campaign's rational interval outputs to
-   `EnclosesEndpoints hardyZ` and to the reals appearing in `hpin`. This is the
-   same bridge the other stages need.
+* **The argument principle for `ξ` on the critical rectangle**
+  (`SparkInterval/Zeta/XiArgumentPrinciple.lean`):
+  `rectangleIntegral_logDeriv_riemannXi` says the normalized boundary integral
+  of `ξ'/ξ` over `∂([0,1] × [-T,T])` equals `zetaMultCount T`, under the single
+  hypothesis `GoodHeight T` (no zeta zero in the strip has ordinate `±T`).
+  `countable_not_goodHeight` shows the exceptional set of heights is countable.
+  The generic rectangle argument principle is vendored from
+  PrimeNumberTheoremAnd (`vendor/PrimeNumberTheoremAnd`, five sorry-free
+  modules, Apache-2.0); the zeta-side content — `ξ` entire, no zeros off the
+  open strip, `ζ` nonvanishing on the imaginary axis, and equality of analytic
+  multiplicities of `ξ` and `ζ` inside the strip — is in
+  `SparkInterval/Zeta/RiemannXi.lean`.
+* **The good-height bridge** (`SparkInterval/Zeta/TuringGoodHeights.lean`):
+  `turingAnalyticInput_of_good_heights` builds a `TuringAnalyticInput` from a
+  counting identity that holds only off a countable set. With `S := N - F` the
+  `counting_le` field is an equality, so the entire mathematical content sits in
+  `s_integral_le`, and no statement about `N` at bad ordinates is ever needed.
+* **The enclosure bridge** (`SparkInterval/Zeta/HardyZEnclosureBridge.lean`):
+  `hardyZ t = Re (e^{iθ(t)} ζ(1/2+it))` and its imaginary part vanishes, so a
+  certified rectangular complex enclosure of the evaluator's output yields
+  `EnclosesEndpoints hardyZ` from its real part
+  (`hardyZ_verifyEndpointFamily_of_rotatedZeta`). For a completed-zeta evaluator
+  only signs transfer, so a sign-only end-to-end route is provided
+  (`hardyZ_verifyStrictSignBrackets`).
+* **Dirichlet conjugation symmetry** (`SparkInterval/Zeta/DirichletConj.lean`):
+  `DirichletCharacter.LFunction_conj` and `completedLFunction_conj`, for all `s`
+  including `s = 1`, proved at the Hurwitz level. This is the missing Mathlib
+  ingredient of §5 and is upstreamable.
+* **The averaged `S` bound as a cited hypothesis**
+  (`SparkInterval/Zeta/TuringSBoundCitation.lean`): Trudgian 2011 Theorem 2.2,
+  `|∫_{t₁}^{t₂} S| ≤ 2.067 + 0.059 log t₂` for `t₂ > t₁ > 168π`, stated as a
+  `Prop` (never an axiom) with its convention translation, and numerically
+  verified over 328157 windows without a violation
+  (`tools/verify_turing_sbound_citation.py`).
+
+Owed:
+
+1. **Evaluation of the boundary integral.** The argument principle now gives the
+   count as `∮ ξ'/ξ`; turning that into `F t + S t` with `F = θ(t)/π + 1`
+   requires splitting `logDeriv ξ = logDeriv (s(s-1)/2) + logDeriv Gammaℝ +
+   logDeriv ζ` and evaluating the `Gammaℝ` winding by Stirling. This is the one
+   remaining analytic gap for `counting_le`.
+   ⚠ `riemannSiegelTheta` as defined in `HardyZ.lean` uses `Complex.arg`, the
+   *principal* branch; it agrees with the continuous `θ` only for `t ≤ 10.59…`
+   (at `t = 1000` they differ by exactly `415·2π`). It is correct for its actual
+   use there, where only `exp(iθ)` appears, but it **must not** be substituted
+   into a Riemann–von Mangoldt statement. A continuous branch is needed.
+2. **The averaged bound as a theorem** rather than the cited `Prop` above, if a
+   citation atom is not acceptable.
+3. **The enclosure bridge at the wire level**: connecting the campaign's actual
+   certificate format to `enclosesEndpoints_of_rotatedZeta_re`.
 
 ## 5. Dirichlet L-functions
 
