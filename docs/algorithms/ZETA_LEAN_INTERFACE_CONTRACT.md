@@ -209,8 +209,10 @@ principle by winding number, mpmath, `dps = 25`, rectangle
 * pointwise identity check (no additive constant), residual
   `r(T) = N_chi(T) - (1/pi)[T log(q/pi) + 2 Im log Gamma((1/2+a+iT)/2)]`:
 
-  All 19 residuals lie in `[-0.88, +1.44]` with mean `+0.03`; under the printed
-  `+2h` they would have to centre on `+0.637`.
+  All 19 residuals lie in `[-0.88, +1.44]` with mean `+0.084`; under the
+  printed `+2h` they would have to centre on `+0.637`.  Pointwise `S` is not
+  small, so this table alone is only suggestive; the averaged test below is the
+  decisive one.
 
   | q | parity | T | winding `N(T)` | `r(T)` |
   |---:|---|---:|---:|---:|
