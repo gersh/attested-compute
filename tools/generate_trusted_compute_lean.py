@@ -68,6 +68,7 @@ REGISTERED_INVOCATIONS = (
     "goldbach10Pow27ProductionV1",
     "helfgottSqrt218ProductionV1",
     "helfgottSqrt218FixedProductionV2",
+    "plattStrongerRangeLiveProductionV1",
 )
 SQRT218_FIXED_V2_INVOCATION = "helfgottSqrt218FixedProductionV2"
 
@@ -974,6 +975,46 @@ def registered_invocation_expected(
             "target": "azure_sevsnp_cpu",
             "trust": "azure_sevsnp_confidential_compute",
         }
+    elif invocation == "plattStrongerRangeLiveProductionV1":
+        definition = (
+            "sparkinterval.registered-algorithm.v1\n"
+            "name=platt-stronger-range-live\n"
+            "producer=leancompcert\n"
+            "program=Ports.ArraySegSieve.mobiusLiveProgram\n"
+            "reduced-family=MathExtras.Reductions.PlattStrongerRangeNatFamily\n"
+            "range=[5,7727068586]\n"
+            "windows=10\n"
+            "manifest-sha256=6c67c2a900889087d3c1f88eed9caecf4e08ba0c40ab23e83ef316ff0d7ef0a9\n"
+            "manifest-bytes=4528\n"
+            "compcert-version=3.17\n"
+            "compcert-target=x86_64-linux\n"
+            "link=static-freestanding-no-libc\n"
+            "semantics=AProgram.evalCC_compile\n"
+            "success=every-window-exit-status-zero\n"
+            "output=false-or-true\n"
+        )
+        input_text = (
+            '{"campaign":"platt-stronger-range-live-v1",'
+            '"campaign_manifest_sha256":'
+            '"6c67c2a900889087d3c1f88eed9caecf4e08ba0c40ab23e83ef316ff0d7ef0a9",'
+            '"range_hi":7727068586,"range_lo":5}'
+        )
+        parameters = (
+            '{"accumulator_bits":78,"budget":"ceil(n/2^17)+1",'
+            '"chain":"two-limb-carry","test":"every-integer",'
+            '"threshold":"floor(2^78/ceil(sqrt(n+1)))"}'
+        )
+        domain = (
+            '{"claim":"platt-stronger-little-mertens-live",'
+            '"source_lower":5,"source_upper":7727068586}'
+        )
+        algorithm_id = "sparkinterval.leancompcert.platt-stronger-range-live.v1"
+        result = "true"
+        # Target-polymorphic, like ``cubicSumDivThree20000V1``.  The real
+        # deployment restriction for this campaign is the pinned Intel TDX
+        # enclave image on the Phala path, which does not go through the
+        # ``RunStatement`` target/trust enumeration at all.
+        deployment = {}
     else:
         raise ReceiptError(f"unsupported registered invocation: {invocation!r}")
     digest = lambda text: hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -1022,6 +1063,10 @@ def registered_invocation_backend(invocation: str) -> str | None:
         return "azure_sevsnp_cpu"
     if invocation == SQRT218_FIXED_V2_INVOCATION:
         return "azure_sevsnp_cpu"
+    if invocation == "plattStrongerRangeLiveProductionV1":
+        # No mandatory backend: the campaign's identity is its pinned enclave
+        # image on the Phala TDX path, not a trusted-compute backend name.
+        return None
     raise ReceiptError(f"unsupported registered invocation: {invocation!r}")
 
 
@@ -2034,6 +2079,68 @@ theorem exactMathematicalResult :
 #print axioms applicationResult
 #print axioms exactMathematicalResult
 '''
+        elif registered_invocation == "plattStrongerRangeLiveProductionV1":
+            registered_source = f'''
+/-- Registry-fixed execution semantics recovered from the accepted run. -/
+theorem registeredRun :
+    RegisteredInvocation.plattStrongerRangeLiveProductionV1.Runs
+      certificate.statement.result :=
+  producedOutcome.registered .plattStrongerRangeLiveProductionV1 (by
+    simp [RegisteredInvocation.certificateBindingCheck,
+      RegisteredInvocation.receiptCheck,
+      RegisteredInvocation.statementCheck,
+      RegisteredInvocation.resultCheck,
+      RegisteredInvocation.ResultAllowed,
+      RegisteredInvocation.sourceBindingDiagnosticCheck,
+      RegisteredInvocation.inputHashDiagnosticCheck,
+      RegisteredInvocation.canonicalInput,
+      RegisteredAlgorithm.algorithmHashDiagnosticCheck,
+      RegisteredAlgorithm.metadataHashesDiagnosticCheck,
+      RegisteredAlgorithm.canonicalDefinition,
+      RegisteredAlgorithm.canonicalParameters,
+      RegisteredAlgorithm.canonicalDomain,
+      RegisteredInvocation.artifactCheck,
+      RegisteredInvocation.deploymentCheck,
+      RegisteredInvocation.canonicalInputHash,
+      RegisteredAlgorithm.algorithmId,
+      RegisteredAlgorithm.algorithmHash,
+      RegisteredAlgorithm.canonicalParametersHash,
+      RegisteredAlgorithm.canonicalDomainHash,
+      RunClaim.toStatement, certificate, statement, claim, evidence,
+      {registry_entry},
+      {registered_value_theorems}])
+
+/-- **This campaign's registered relation has no mathematical content, and
+neither does this theorem.**
+
+leancompcert proves that *compilation* is faithful -- the Lean `Program`, the
+C it lowers to, and the CompCert-produced x86_64 all agree.  It does not prove
+that `mobiusLiveProgram` computes `Σ_(m≤n) μ(m)/m`, nor that a zero exit
+status means the little-Mertens threshold inequality holds.  So the strongest
+honest conclusion available from an accepted run is the canonical result
+language, which is exactly what is stated here.
+
+The mathematical claim `|Σ_(m≤n) μ(m)/m| ≤ 1/(2√(n+1))` on `[5, 7727068586]`
+requires a separate, explicitly stated realisation premise on the attestation
+path.  It is deliberately *not* derived here, and the name
+`exactMathematicalResult` below is a fixed generator alias rather than a claim
+that a mathematical result was obtained. -/
+theorem applicationResult :
+    certificate.statement.result = "false" ∨
+      certificate.statement.result = "true" :=
+  RegisteredInvocation.resultAllowed_of_runs registeredRun
+
+/-- Stable generator alias.  See the warning on `applicationResult`: this is
+the result language, not a theorem about Möbius partial sums. -/
+theorem exactMathematicalResult :
+    certificate.statement.result = "false" ∨
+      certificate.statement.result = "true" :=
+  applicationResult
+
+#print axioms registeredRun
+#print axioms applicationResult
+#print axioms exactMathematicalResult
+'''
     elif registered_invocation is not None:
         raise ReceiptError(
             f"unsupported registered invocation: {registered_invocation!r}"
@@ -2067,6 +2174,11 @@ theorem exactMathematicalResult :
             "import SparkInterval.Execution.RegisteredSqrt218Certificate\n",
         SQRT218_FIXED_V2_INVOCATION:
             "import SparkInterval.Execution.RegisteredSqrt218FixedV2Certificate\n",
+        # No `Registered...Certificate` adapter exists for this campaign, and
+        # none should: there is no source-claim theorem to adapt.  The closed
+        # registry itself is the only extra module the generated file needs.
+        "plattStrongerRangeLiveProductionV1":
+            "import SparkInterval.Execution.RegisteredAlgorithm\n",
     }.get(registered_invocation, "")
     return f'''import SparkInterval.Audit.TrustedComputeCertificates
 {registered_import}

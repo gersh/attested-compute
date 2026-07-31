@@ -76,6 +76,13 @@ class ProductionDeploymentCandidateTests(unittest.TestCase):
             - {
                 "cubicSumDivThree20000V1",
                 "h100FormalPtxConstantOneV1",
+                # Carries no reviewed `RunStatement` deployment pin, and needs
+                # none: its artifacts are pinned by enclave image digest on
+                # the Phala TDX path, and its `Runs` has no mathematical
+                # conjunct for an unpinned statement to unlock.  Its Lean
+                # `artifactCheck`/`receiptCheck`/`deploymentCheck` are exactly
+                # those of the two entries above.
+                "plattStrongerRangeLiveProductionV1",
             },
         )
 

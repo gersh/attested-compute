@@ -1,0 +1,57 @@
+{
+  "app_id": "4b69f1ec45055992958b38b1adf1855c5a66522f",
+  "challenge_nonce": "b0cbd8dd12737db3c413e317dd12aa131e838d6f69a38e2f3a962745bfed5beb",
+  "compose_hash": "30952cf5e9feb272beeb59a0724296475c4a110adf7b84c10ac971969cd5b26e",
+  "dcap_qvl": {
+    "asset": "dcap-qvl-linux-x86_64-musl",
+    "commit": "6ac45907f814e1c3e8bfc1b0e3c6a99710d4ef9f",
+    "sha256": "84bd935e37decbace7a902da2680d7486caca954438bb3196c8da8ed91f26d7b",
+    "strict_passed": false,
+    "version": "v0.6.1"
+  },
+  "dstack_key_path": "sparkinterval/platt-stronger-range-live/enclave-signing-key/v1",
+  "dstack_key_purpose": "sparkinterval.phala-tdx-attested-run.v1",
+  "enclave_public_key": "043729776ad63a1f3aa02f671ac1b94f7422dd98ec3ab8d86f6ab8a50fecadb050c64f4d3ff1aa49c1d4bf8f345cba86fc231788af0da106753b4b5eb2409af054",
+  "image_digest": "sha256:e58fd209cb294db396633c3645d15a01e5717a0d4fe914e25d5b892c3adbab54",
+  "input_sha256": {
+    "dcap-qvl-appraisal.json": "9cfa89ac03bcaf61b4b2f588ac5db55c6b50efbcaace8c05431e3401125bf79f",
+    "dcap-qvl-artifact.sha256": "cf7f9aaad376230844aad27bb2615377e9c622f334904c1aa35f9f74a78b9ef8",
+    "dcap-qvl-policy.json": "9de162db5c359ebc75264d90dd243ea443a2f0d765cb469c31fb57fc21f1a501",
+    "registered-input.json": "6b9fbeae694703c0fabad05eef9319ff7ef064a9832ad668cd1c4b45dac2e97a",
+    "tdx-quote.bin": "937c1b0ac15bf8e99fa8074b8b7ea1f6e838a37eb003e84582d0adb35a640038"
+  },
+  "issued_at": "2026-07-31T03:51:34Z",
+  "job_binding_sha256": "cff727a32cba7fc3a729f7cc10ed614a2ef43df44eb68f862613d1fe65953bc7",
+  "kind": "sparkinterval.phala-tdx-prelude-summary.v1",
+  "measurements_pinned": true,
+  "observed": {
+    "advisory_ids": [],
+    "measurements": {
+      "mr_seam": "7bf063280e94fb051f5dd7b1fc59ce9aac42bb961df8d44b709c9b0ff87a7b4df648657ba6d1189589feab1d5a3c9a9d",
+      "mr_signer_seam": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "mr_td": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+      "rt_mr0": "027b610ab0555482f8a3868524093bdf3cdbe2539f81dfeeb886864654cb2fe3422f7fc36d4bab6fa46683aad11d1ba7",
+      "rt_mr1": "07e6f51aa763abfe75c3ddfbf4f425fe3f0ceff66d807a75e049303dce9addf68e7218729bd419638af63a370f65878c",
+      "rt_mr2": "a2a58c9a959a4fa44bd6da0c97a2270c051faf12084cfe91ae900e4fdff6cdd4f69a82005e04ee920f231497894d677f",
+      "rt_mr3": "29c12b8afca34f9519bdc01e846131c390c94bc5597f9267a4cd0619446a6bda9c6cb645eabdf9344d92fa51e8c6fd08",
+      "td_attributes": "0000001000000000",
+      "tee_tcb_svn": "0b010500000000000000000000000000",
+      "xfam": "0702000000000000"
+    },
+    "qe_identity": {
+      "isv_prod_id": 2,
+      "isv_svn": 6,
+      "mr_enclave": "e5a3a7b5d830c2953b98534c6c59a3a34fdc34e933f7f5898f0a85cf08846bca",
+      "mr_signer": "dc9e2a7c6f948f17474e34a7fc43ed030f7c1563f1babddf6340c82e0e54a8c5",
+      "qe_vendor_id": "939a7233f79c4ca9940a0db3957f0607"
+    },
+    "report_data_padded_hex": "7b0bead771470e63d8bdd7cde4d96ba99635656e488ac00c7da51a47723a43900000000000000000000000000000000000000000000000000000000000000000",
+    "tcb": {
+      "platform_status.status": "UpToDate",
+      "qe_status.status": "UpToDate",
+      "status": "UpToDate"
+    }
+  },
+  "report_data_sha256": "7b0bead771470e63d8bdd7cde4d96ba99635656e488ac00c7da51a47723a4390",
+  "unpinned": []
+}

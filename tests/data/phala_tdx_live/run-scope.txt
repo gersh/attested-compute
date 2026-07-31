@@ -1,0 +1,5 @@
+challenge=b0cbd8dd12737db3c413e317dd12aa131e838d6f69a38e2f3a962745bfed5beb
+job_binding=cff727a32cba7fc3a729f7cc10ed614a2ef43df44eb68f862613d1fe65953bc7
+issued_at=2026-07-31T03:51:34Z
+image_permanent=ghcr.io/gersh/sparkinterval-platt-live-phala-tdx@sha256:e58fd209cb294db396633c3645d15a01e5717a0d4fe914e25d5b892c3adbab54
+image_deployed=ttl.sh/sparkinterval-platt-live-028c2b24-ca9c-43dd-9a35-1447a8b9fce1@sha256:e58fd209cb294db396633c3645d15a01e5717a0d4fe914e25d5b892c3adbab54

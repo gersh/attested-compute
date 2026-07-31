@@ -1,0 +1,1596 @@
+#!/usr/bin/env python3
+# Copyright (c) 2026 Gershon Bialer. All rights reserved.
+# SPDX-License-Identifier: MIT
+
+"""In-CVM prelude for the `platt-stronger-range-live` Phala/dstack TDX campaign.
+
+This is the A.7 prelude
+(``proof_build/ch25_a7_phala_tdx/prelude_phala_tdx_inputs.py``) with exactly
+one structural change: there is **no artifact to fetch**.  The A.7 campaign
+replays a 1.5 MB retained FLINT/Arb boundary file that has to be downloaded
+into the CVM; this campaign's whole subject matter -- ten freestanding
+CompCert-compiled executables and the manifest that pins them -- is inside the
+measured image, so the only network use here is the pinned ``dcap-qvl``
+download.  Everything else, including every refusal, is unchanged.
+
+This runs INSIDE the confidential VM, BEFORE
+``proof_build/leancompcert_tdx/run_seg_campaign.sh``.  That entry point
+deliberately creates none of its own non-secret inputs: it requires all five of
+them to already exist and refuses to run otherwise.  This script is what
+creates them, in the only order the quote permits:
+
+    derive key -> commit to the public key in report data -> fetch the quote
+    -> appraise the quote -> write the registered input -> hand over
+
+If any step fails this script exits non-zero and writes no job-scope file, and
+the campaign service -- which waits on
+``depends_on: condition: service_completed_successfully`` -- never starts.  A
+failed appraisal therefore cannot be followed by a receipt.
+
+Two modes
+---------
+
+``--derive-key-only`` is the second mode, and it exists because a tmpfs-backed
+*named* Docker volume is not shared between containers: each mounting
+container gets its own empty tmpfs.  The first real Phala TDX run proved that
+the hard way -- the campaign container found an empty staging directory.  The
+inputs must therefore travel on an ordinary (disk-backed) shared volume, and
+the signing key must never be written to it.
+
+So the key is not handed over at all.  The prelude derives it, uses it only to
+compute the public key that goes into the quote's report data, and lets it
+fall out of scope; nothing is written.  The campaign container then re-derives
+the *same* key from the same dstack socket, because ``GetKey`` is a
+deterministic HKDF of the app key and the derivation path.  That determinism
+is not assumed: ``--derive-key-only`` refuses unless the key it derives
+reproduces both the public key and the report-data commitment the prelude
+recorded in ``prelude-summary.json``, which is the value the TDX quote
+attests.  A non-deterministic or differently-scoped key therefore fails
+closed, before any receipt exists.
+
+``--derive-key-only`` additionally refuses to write the key anywhere but a
+tmpfs, checked against ``/proc/self/mountinfo``.  There is no environment
+variable that relaxes that.
+
+What this script is NOT
+-----------------------
+
+It is not attestation evidence and it proves nothing by itself.  It arranges
+for evidence to exist and to be internally consistent.  The evidence is the
+retained quote, the retained ``dcap-qvl`` appraisal, and the enclave-signed
+receipt whose public key is pinned in Lean.
+
+Verified upstream facts this script depends on
+----------------------------------------------
+
+All of the following were read out of pinned upstream sources, not guessed:
+
+* dstack v0.5.3 (``Dstack-TEE/dstack`` @ ``910c0ae3``):
+  - the guest agent's internal RPC listens on ``unix:/var/run/dstack.sock``
+    (``guest-agent/dstack.toml``, section ``[internal]``) and mounts the
+    ``DstackGuest`` service at ``/`` (``guest-agent/src/main.rs``), so the
+    methods are ``POST /Info``, ``POST /GetKey``, ``POST /GetQuote``;
+  - a request is answered in JSON when its ``Content-Type`` is
+    ``application/json`` (``ra-rpc/src/rocket_helper.rs``), and ``bytes``
+    fields are lowercase hex on the wire (``sdk/curl/api.md``,
+    ``sdk/python/src/dstack_sdk/dstack_client.py``);
+  - ``GetKey{path, purpose}`` returns ``key`` = the 32 raw bytes of
+    ``HKDF-SHA256(salt="RATLS", ikm=app key, info=path)``
+    (``guest-agent/src/rpc_service.rs::get_key`` via ``ra-tls/src/kdf.rs``);
+    the SAME 32 bytes are what dstack's own
+    ``derive_ecdsa_key_pair_from_bytes`` feeds to ``p256::SecretKey``, so
+    interpreting them as a **P-256** scalar is exactly dstack's own use of
+    that KDF output, and it is deterministic in the app key and the path;
+  - ``GetQuote{report_data}`` takes at most 64 bytes, zero-pads on the right,
+    and echoes the padded value back (``rpc_service.rs::get_quote``);
+  - RTMR3 events are extended as
+    ``sha384(event_type_le_u32 || b":" || event || b":" || payload)`` with
+    ``event_type = 0x08000001`` (``cc-eventlog/src/lib.rs``,
+    ``tdx-attest/src/lib.rs``), and dstack extends ``app-id`` and
+    ``compose-hash`` into RTMR3 at boot
+    (``dstack-util/src/system_setup.rs::measure_app_info``);
+  - an RTMR is replayed as ``sha384(previous || digest_padded_to_48)`` from 48
+    zero bytes (``sdk/python/src/dstack_sdk/dstack_client.py::replay_rtmr``).
+* dcap-qvl v0.6.1 (``Phala-Network/dcap-qvl`` @ ``6ac45907``): CLI shape and
+  output schema, recorded in ``specifications/DCAP_QVL_0_6_1_UPSTREAM.json``.
+
+The guest-agent interaction in the A.7 original was written against an
+in-process mock; it has since been executed on real Intel TDX hardware, on
+Phala Cloud prod5 on 2026-07-27, and the retained evidence of that run is
+committed at ``tests/data/phala_tdx_prod5/``.  Every fact this file asserts
+about ``/Info``, ``/GetKey`` and ``/GetQuote`` -- including that ``GetKey`` is
+deterministic across containers in one CVM -- was confirmed there.
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import binascii
+import hashlib
+import http.client
+import json
+import os
+from pathlib import Path
+import re
+import socket
+import stat
+import subprocess
+import sys
+import time
+import urllib.request
+
+
+# --------------------------------------------------------------------------
+# Pins.  None of these is configurable at run time.
+# --------------------------------------------------------------------------
+
+# The registered input, byte for byte.  It is `canonicalInput` for
+# `RegisteredInvocation.plattStrongerRangeLiveProductionV1` in
+# `SparkInterval/Execution/RegisteredAlgorithm.lean`, and the SHA-256 of these
+# exact bytes is the `input_hash` the enclave signs and Lean checks against
+# `canonicalInputHash`.  It names the campaign manifest by digest a second
+# time -- the first is inside `canonicalDefinition`, hence inside
+# `algorithmHash` -- so a substituted campaign fails both checks.
+REGISTERED_INPUT = (
+    b'{"campaign":"platt-stronger-range-live-v1","campaign_manifes'
+    b't_sha256":"6c67c2a900889087d3c1f88eed9caecf4e08ba0c40ab23e83'
+    b'ef316ff0d7ef0a9","range_hi":7727068586,"range_lo":5}'
+)
+
+# specifications/DCAP_QVL_0_6_1_UPSTREAM.json, asset linux-x86_64-musl.
+DCAP_QVL_VERSION = "v0.6.1"
+DCAP_QVL_COMMIT = "6ac45907f814e1c3e8bfc1b0e3c6a99710d4ef9f"
+DCAP_QVL_ASSET = "dcap-qvl-linux-x86_64-musl"
+DCAP_QVL_URL = (
+    "https://github.com/Phala-Network/dcap-qvl/releases/download/"
+    "v0.6.1/dcap-qvl-linux-x86_64-musl"
+)
+DCAP_QVL_SHA256 = (
+    "84bd935e37decbace7a902da2680d7486caca954438bb3196c8da8ed91f26d7b"
+)
+
+# Domain-separated derivation path.  Nothing else in this application asks
+# dstack for this path, so the scalar below is used as a P-256 key and as
+# nothing else; there is no cross-algorithm reuse of it.
+DSTACK_KEY_PATH = "sparkinterval/platt-stronger-range-live/enclave-signing-key/v1"
+DSTACK_KEY_PURPOSE = "sparkinterval.phala-tdx-attested-run.v1"
+
+# dstack moved the guest-agent socket under /var/run/dstack/ at v0.5.6 and
+# kept /run/dstack.sock working through systemd socket activation, "Provides
+# backward compatibility for containers that mount sockets directly".  Probe
+# in the order dstack's own Rust SDK probes, so this works on 0.5.3 and on
+# later images without knowing which one Phala booted.
+CANDIDATE_SOCKETS = (
+    "/var/run/dstack.sock",
+    "/var/run/dstack/dstack.sock",
+    "/run/dstack/dstack.sock",
+)
+DSTACK_RTMR3_EVENT_TYPE = 0x08000001
+
+# The only non-literal value a measurement pin may take, and only for rt_mr3.
+# See the branch in `enforce_policy` for why a literal pin is not merely
+# inconvenient there but wrong.
+REPLAY_VERIFIED = "verified-by-event-log-replay"
+INIT_MR = bytes(48)
+
+WORKER_SCOPE = "sparkinterval.phala-tdx-measured-worker.v1"
+WORKER_BACKEND = "phala_dstack_tdx_cpu"
+
+POLICY_KIND = "sparkinterval.phala-tdx.dcap-qvl-appraisal-policy.v1"
+TODO_PREFIX = "TODO:"
+REVOKED = "Revoked"
+
+MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024
+HEX_RE = re.compile(r"\A[0-9a-f]+\Z")
+
+
+class PreludeError(RuntimeError):
+    """A precondition, a guest-agent answer, or an appraisal was not right."""
+
+
+def fail(message: str) -> "PreludeError":
+    return PreludeError(message)
+
+
+def note(message: str) -> None:
+    print(f"platt-stronger-range-live phala-tdx prelude: {message}", flush=True)
+
+
+# --------------------------------------------------------------------------
+# Small helpers
+# --------------------------------------------------------------------------
+
+
+def require_hex(value: object, digits: int, what: str) -> str:
+    if not isinstance(value, str):
+        raise fail(f"{what} is not a string")
+    lowered = value.lower()
+    if len(lowered) != digits or not HEX_RE.match(lowered):
+        raise fail(f"{what} must be {digits} lowercase hexadecimal digits")
+    return lowered
+
+
+def write_exclusive(path: Path, raw: bytes, mode: int = 0o400) -> None:
+    """Create ``path`` fresh; never follow a symlink, never truncate."""
+
+    descriptor = os.open(
+        path,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
+        mode,
+    )
+    try:
+        view = memoryview(raw)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise fail(f"short write to {path}")
+            view = view[written:]
+        os.fsync(descriptor)
+    except BaseException:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+        raise
+    finally:
+        os.close(descriptor)
+
+
+def sha256_bytes(raw: bytes) -> str:
+    return hashlib.sha256(raw).hexdigest()
+
+
+def mount_filesystem_type(path: Path) -> str:
+    """Filesystem type of the mount carrying ``path``, from mountinfo.
+
+    ``/proc/self/mountinfo`` is the kernel's own answer, so this cannot be
+    fooled by anything short of a compromised kernel -- which is outside the
+    TD's threat model anyway.  Field 5 is the mount point and the field after
+    the ``-`` separator is the filesystem type; octal escapes appear in the
+    mount point for the four characters mountinfo escapes.
+    """
+
+    target = path.resolve()
+    try:
+        raw = Path("/proc/self/mountinfo").read_text(encoding="utf-8")
+    except OSError as error:
+        raise fail(f"cannot read /proc/self/mountinfo: {error}") from error
+    best_type: str | None = None
+    best_length = -1
+    for line in raw.splitlines():
+        fields = line.split(" ")
+        try:
+            separator = fields.index("-")
+        except ValueError:
+            continue
+        if len(fields) < 5 or separator + 1 >= len(fields):
+            continue
+        mount_point = (
+            fields[4]
+            .replace("\\040", " ")
+            .replace("\\011", "\t")
+            .replace("\\012", "\n")
+            .replace("\\134", "\\")
+        )
+        prefix = mount_point.rstrip("/") + "/"
+        if str(target) == mount_point or str(target).startswith(prefix):
+            if len(mount_point) > best_length:
+                best_length = len(mount_point)
+                best_type = fields[separator + 1]
+    if best_type is None:
+        raise fail(f"cannot determine which filesystem carries {target}")
+    return best_type
+
+
+def require_tmpfs(path: Path) -> str:
+    """Refuse to put secret material anywhere the CVM's disk can see it."""
+
+    kind = mount_filesystem_type(path)
+    if kind != "tmpfs":
+        raise fail(
+            f"{path} is on a {kind!r} filesystem; the derived signing key may "
+            "be written only to a tmpfs, so that it never reaches the CVM's "
+            "disk and dies with the container"
+        )
+    return kind
+
+
+def sha384(raw: bytes) -> bytes:
+    return hashlib.sha384(raw).digest()
+
+
+# --------------------------------------------------------------------------
+# dstack guest agent, over the unix socket
+# --------------------------------------------------------------------------
+
+
+class UnixHTTPConnection(http.client.HTTPConnection):
+    """``http.client`` over an ``AF_UNIX`` stream, no third-party code."""
+
+    def __init__(self, socket_path: str, timeout: float) -> None:
+        super().__init__("localhost", timeout=timeout)
+        self.socket_path = socket_path
+
+    def connect(self) -> None:  # pragma: no cover - exercised via the mock
+        connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        connection.settimeout(self.timeout)
+        connection.connect(self.socket_path)
+        self.sock = connection
+
+
+class GuestAgent:
+    def __init__(self, socket_path: str, timeout: float = 60.0) -> None:
+        self.socket_path = socket_path
+        self.timeout = timeout
+
+    def call(self, method: str, payload: dict) -> dict:
+        body = json.dumps(payload).encode("utf-8")
+        connection = UnixHTTPConnection(self.socket_path, self.timeout)
+        try:
+            connection.request(
+                "POST",
+                "/" + method,
+                body=body,
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "Content-Length": str(len(body)),
+                    "Host": "dstack",
+                },
+            )
+            response = connection.getresponse()
+            raw = response.read(4 * 1024 * 1024)
+            if response.status != 200:
+                raise fail(
+                    f"dstack guest agent {method} returned HTTP "
+                    f"{response.status}: {raw[:400]!r}"
+                )
+        except OSError as error:
+            raise fail(
+                f"cannot reach the dstack guest agent at "
+                f"{self.socket_path}: {error}"
+            ) from error
+        finally:
+            connection.close()
+        try:
+            decoded = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise fail(f"dstack guest agent {method} did not answer JSON: {error}")
+        if not isinstance(decoded, dict):
+            raise fail(f"dstack guest agent {method} did not answer an object")
+        if "error" in decoded and len(decoded) == 1:
+            raise fail(f"dstack guest agent {method} failed: {decoded['error']}")
+        return decoded
+
+
+# --------------------------------------------------------------------------
+# RTMR event log
+# --------------------------------------------------------------------------
+
+
+def replay_rtmr(history: list[str]) -> str:
+    measurement = INIT_MR
+    for digest_hex in history:
+        content = bytes.fromhex(digest_hex)
+        if len(content) < 48:
+            content = content.ljust(48, b"\x00")
+        measurement = sha384(measurement + content)
+    return measurement.hex()
+
+
+def rtmr3_event_preimage_v1(event: str, payload: bytes) -> bytes:
+    """dstack ``EventLogVersion::V1``.
+
+    ``SHA(event_type_le || ":" || event_name || ":" || payload)``, per
+    ``cc-eventlog/src/runtime_events.rs::preimage``.
+    """
+    return (
+        DSTACK_RTMR3_EVENT_TYPE.to_bytes(4, "little")
+        + b":"
+        + event.encode("utf-8")
+        + b":"
+        + payload
+    )
+
+
+def rtmr3_event_preimage_v2(event: str, payload: bytes) -> bytes:
+    """dstack ``EventLogVersion::V2``.
+
+    The RFC 8785 (JCS) canonical JSON of ``{"name", "payload", "type"}``.
+    JCS orders keys by code point, so the serialization is fully determined:
+    no whitespace, ``name`` then ``payload`` then ``type``, and the payload
+    is lower-case hex.  dstack builds this with ``serde_jcs``; for this fixed
+    three-key object with a plain string name the result is reproducible
+    without a JCS library, and ``json.dumps`` with ``ensure_ascii`` escapes
+    non-ASCII exactly as JCS requires for the BMP.
+    """
+    return json.dumps(
+        {
+            "name": event,
+            "payload": payload.hex(),
+            "type": DSTACK_RTMR3_EVENT_TYPE,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+
+def rtmr3_event_digest(event: str, payload: bytes, version: str = "v1") -> str:
+    preimage = (
+        rtmr3_event_preimage_v1(event, payload)
+        if version == "v1"
+        else rtmr3_event_preimage_v2(event, payload)
+    )
+    return hashlib.sha384(preimage).hexdigest()
+
+
+def detect_event_log_version(events: list[dict]) -> str:
+    """Decide which dstack digest convention this log uses.
+
+    The version is not carried in the log, so it is inferred: whichever
+    convention reproduces the recorded digest of every RTMR3 entry that
+    carries a name and payload.  Requiring *all* such entries to agree on one
+    convention is what keeps this an inference rather than a licence to try
+    both per event -- a per-event choice would let an attacker relabel an
+    event and then pick whichever formula happened to match.
+    """
+    named = [
+        e for e in events
+        if e.get("imr") == 3 and "event" in e and "event_payload" in e
+    ]
+    if not named:
+        raise fail("the dstack event log has no named RTMR3 entries to verify")
+    for version in ("v1", "v2"):
+        if all(
+            rtmr3_event_digest(
+                e["event"], bytes.fromhex(e.get("event_payload") or ""), version
+            ) == e["digest"]
+            for e in named
+        ):
+            return version
+    raise fail(
+        "no dstack event-log digest convention (v1 or v2) reproduces the "
+        "recorded digests of every named RTMR3 entry; the event log has been "
+        "relabelled or dstack has introduced a third convention"
+    )
+
+
+def parse_event_log(raw: str) -> list[dict]:
+    try:
+        events = json.loads(raw)
+    except json.JSONDecodeError as error:
+        raise fail(f"the dstack event log is not JSON: {error}")
+    if not isinstance(events, list) or not events:
+        raise fail("the dstack event log is empty or not a list")
+    for event in events:
+        if not isinstance(event, dict):
+            raise fail("the dstack event log contains a non-object entry")
+        for key in ("imr", "event_type", "digest"):
+            if key not in event:
+                raise fail(f"a dstack event log entry has no {key}")
+    return events
+
+
+def check_event_log(events: list[dict], quote_rtmrs: dict[int, str]) -> dict:
+    """Replay the log against the quote and read the dstack app binding out.
+
+    Two separate obligations are discharged here.  First, every RTMR3 entry's
+    recorded digest must be the digest dstack would have computed for its
+    recorded name and payload -- without this the name/payload columns are
+    decorative and an attacker could relabel a genuine chain.  Second, the
+    replay of every IMR must reproduce the value the quote actually attests.
+    """
+
+    # dstack has shipped two digest conventions and does not record which one
+    # a log uses, so it is inferred once, from the whole log, and then applied
+    # uniformly below.
+    version = detect_event_log_version(events)
+    note(f"dstack event-log digest convention: {version}")
+
+    for event in events:
+        if int(event["imr"]) != 3:
+            continue
+        if int(event["event_type"]) != DSTACK_RTMR3_EVENT_TYPE:
+            raise fail(
+                "an RTMR3 event has an unexpected event type: "
+                f"{event['event_type']}"
+            )
+        name = event.get("event")
+        payload = event.get("event_payload", "")
+        if not isinstance(name, str) or not isinstance(payload, str):
+            raise fail("an RTMR3 event has a malformed name or payload")
+        if payload and not HEX_RE.match(payload.lower()):
+            raise fail(f"RTMR3 event {name!r} has a non-hex payload")
+        expected = rtmr3_event_digest(name, bytes.fromhex(payload), version)
+        if expected != str(event["digest"]).lower():
+            raise fail(
+                f"RTMR3 event {name!r} does not hash to its recorded digest "
+                f"under the {version} convention; the event log has been "
+                "relabelled"
+            )
+
+    replayed = {}
+    for index in range(4):
+        history = [
+            str(event["digest"]).lower()
+            for event in events
+            if int(event["imr"]) == index
+        ]
+        replayed[index] = replay_rtmr(history)
+        if replayed[index] != quote_rtmrs[index]:
+            raise fail(
+                f"replaying the event log gives RTMR{index} = "
+                f"{replayed[index]}, but the quote attests "
+                f"{quote_rtmrs[index]}"
+            )
+
+    # dstack extends the boot chain into RTMR3 and finishes with
+    # `system-ready`.  Its own verifier ignores anything logged afterwards,
+    # because an application may call EmitEvent at any time; so must we, or a
+    # post-boot EmitEvent("app-id", ...) would be read as the boot binding.
+    rtmr3 = [event for event in events if int(event["imr"]) == 3]
+    boot_chain = []
+    for event in rtmr3:
+        boot_chain.append(event)
+        if event.get("event") == "system-ready":
+            break
+
+    bound = {}
+    for name in ("app-id", "compose-hash", "instance-id", "os-image-hash"):
+        matches = [
+            str(event.get("event_payload", "")).lower()
+            for event in boot_chain
+            if event.get("event") == name
+        ]
+        if len(matches) > 1:
+            raise fail(f"the RTMR3 boot chain records {name!r} more than once")
+        bound[name] = matches[0] if matches else None
+    for name in ("app-id", "compose-hash"):
+        if bound[name] is None:
+            raise fail(f"the RTMR3 boot chain does not record a {name!r} event")
+    return {
+        "replayed_rtmrs": replayed,
+        "rtmr3_bindings": bound,
+        "rtmr3_boot_chain_events": [
+            str(event.get("event", "")) for event in boot_chain
+        ],
+        "rtmr3_post_boot_events": [
+            str(event.get("event", "")) for event in rtmr3[len(boot_chain):]
+        ],
+    }
+
+
+# --------------------------------------------------------------------------
+# Policy
+# --------------------------------------------------------------------------
+
+
+def is_todo(value: object) -> bool:
+    return isinstance(value, str) and value.startswith(TODO_PREFIX)
+
+
+def load_policy(raw: bytes) -> dict:
+    try:
+        policy = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise fail(f"the appraisal policy is not JSON: {error}")
+    if not isinstance(policy, dict):
+        raise fail("the appraisal policy is not a JSON object")
+    if policy.get("kind") != POLICY_KIND:
+        raise fail(
+            f"the appraisal policy declares kind {policy.get('kind')!r}, "
+            f"expected {POLICY_KIND!r}"
+        )
+    if policy.get("schema_version") != 1:
+        raise fail("the appraisal policy declares an unsupported schema_version")
+
+    expected_sections = {
+        "kind",
+        "schema_version",
+        "first_run_measurement_discovery",
+        "require_dcap_qvl_strict",
+        "appraiser",
+        "quote",
+        "measurements",
+        "tcb",
+        "qe_identity",
+    }
+    present = {key for key in policy if not key.startswith("_")}
+    missing = sorted(expected_sections - present)
+    if missing:
+        raise fail("the appraisal policy is missing: " + ", ".join(missing))
+    unknown = sorted(present - expected_sections)
+    if unknown:
+        # A misspelled option in a security policy must fail loudly rather
+        # than be ignored.
+        raise fail("the appraisal policy carries unknown keys: " + ", ".join(unknown))
+
+    for flag in ("first_run_measurement_discovery", "require_dcap_qvl_strict"):
+        if not isinstance(policy[flag], bool):
+            raise fail(f"the appraisal policy field {flag} must be a Boolean")
+
+    appraiser = policy["appraiser"]
+    if not isinstance(appraiser, dict) or appraiser.get("sha256") != DCAP_QVL_SHA256:
+        raise fail(
+            "the appraisal policy names a different dcap-qvl binary than the "
+            "one this prelude is pinned to"
+        )
+    if appraiser.get("version") != DCAP_QVL_VERSION or appraiser.get(
+        "commit"
+    ) != DCAP_QVL_COMMIT:
+        raise fail("the appraisal policy names a different dcap-qvl revision")
+
+    tcb = policy["tcb"]
+    if not isinstance(tcb, dict):
+        raise fail("the appraisal policy tcb section is not an object")
+    for key in (
+        "allowed_statuses",
+        "allowed_platform_statuses",
+        "allowed_qe_statuses",
+    ):
+        value = tcb.get(key)
+        if (
+            not isinstance(value, list)
+            or not value
+            or any(not isinstance(item, str) for item in value)
+        ):
+            raise fail(f"the appraisal policy tcb.{key} must be a non-empty list")
+        if REVOKED in value:
+            raise fail(f"the appraisal policy tcb.{key} lists {REVOKED}")
+    advisories = tcb.get("accepted_advisory_ids")
+    if not isinstance(advisories, list) or any(
+        not isinstance(item, str) for item in advisories
+    ):
+        raise fail(
+            "the appraisal policy tcb.accepted_advisory_ids must be a list of "
+            "strings (the empty list means: no advisory is acceptable)"
+        )
+    return policy
+
+
+MEASUREMENT_DIGITS = {
+    "tee_tcb_svn": 32,
+    "mr_seam": 96,
+    "mr_signer_seam": 96,
+    "td_attributes": 16,
+    "xfam": 16,
+    "mr_td": 96,
+    "rt_mr0": 96,
+    "rt_mr1": 96,
+    "rt_mr2": 96,
+    "rt_mr3": 96,
+}
+
+
+def enforce_policy(
+    policy: dict, decoded: dict, appraisal: dict, observed: dict
+) -> list[str]:
+    """Apply the reviewed policy.  Returns the list of unpinned measurements.
+
+    The checks that do not consult the policy at all -- TEE type, report kind,
+    the report-data binding, the debug-TD rejection -- are the hardcoded floor.
+    The policy can only add to them.  There is no policy value that removes a
+    floor check.
+    """
+
+    quote_policy = policy["quote"]
+    if not isinstance(quote_policy, dict):
+        raise fail("the appraisal policy quote section is not an object")
+
+    header = decoded.get("header")
+    if not isinstance(header, dict):
+        raise fail("the decoded quote has no header")
+    tee_type = header.get("tee_type")
+    if tee_type != quote_policy.get("tee_type"):
+        raise fail(
+            f"the quote's tee_type is {tee_type!r}, the policy requires "
+            f"{quote_policy.get('tee_type')!r}"
+        )
+    if tee_type != 0x81:
+        raise fail("this path accepts Intel TDX quotes only (tee_type 0x81)")
+    version = header.get("version")
+    if not isinstance(version, int) or version < quote_policy.get(
+        "min_quote_version", 4
+    ):
+        raise fail(f"the quote version {version!r} is below the policy minimum")
+
+    report = decoded.get("report")
+    if not isinstance(report, dict) or len(report) != 1:
+        raise fail("the decoded quote has no single report body")
+    (kind,) = report.keys()
+    accepted_kinds = quote_policy.get("accepted_report_kinds")
+    if not isinstance(accepted_kinds, list) or kind not in accepted_kinds:
+        raise fail(f"the quote report kind {kind!r} is not accepted by policy")
+    body = report[kind]
+    if kind == "TD15":
+        body = body.get("base", body)
+    if not isinstance(body, dict):
+        raise fail("the decoded quote report body is not an object")
+
+    # Floor: the TD must not be debuggable.  TDATTRIBUTES bit 0 is DEBUG.
+    td_attributes = require_hex(body.get("td_attributes"), 16, "td_attributes")
+    if bytes.fromhex(td_attributes)[0] & 0x01:
+        raise fail("the TD is debuggable (TDATTRIBUTES.DEBUG is set)")
+
+    # Floor: the report data is exactly this run's commitment.
+    report_data = require_hex(body.get("report_data"), 128, "quote report_data")
+    if report_data != observed["report_data_padded_hex"]:
+        raise fail(
+            "the quote's report data is not this run's commitment to the "
+            "enclave public key and the campaign challenge"
+        )
+
+    unpinned: list[str] = []
+    measurements = policy["measurements"]
+    if not isinstance(measurements, dict):
+        raise fail("the appraisal policy measurements section is not an object")
+    for name, digits in MEASUREMENT_DIGITS.items():
+        pinned = measurements.get(name)
+        actual = require_hex(body.get(name), digits, f"quote {name}")
+        observed.setdefault("measurements", {})[name] = actual
+        if pinned is None:
+            raise fail(f"the appraisal policy does not mention {name}")
+        if is_todo(pinned):
+            unpinned.append(name)
+            continue
+        if pinned == REPLAY_VERIFIED:
+            # rt_mr3 is the running hash of the dstack boot chain, and that
+            # chain includes `instance-id` unless the app-compose sets
+            # `no_instance_id`.  A literal pin is therefore not stable across
+            # deployments, and pinning one observed boot would either fail
+            # every subsequent run or silently invite someone to re-pin it
+            # each time -- which is no pin at all.
+            #
+            # `check_event_log` has already run, and it required: every RTMR3
+            # event digest to be the digest dstack would have computed for its
+            # recorded name and payload; the replay of the whole log to equal
+            # the rt_mr3 this quote attests; and the `compose-hash` event to
+            # equal the compose hash the guest agent reports.  That chain
+            # binds the measurement to *our* app-compose, which is what the
+            # pin is for, rather than to one previously observed boot.
+            #
+            # Restricted to rt_mr3: the platform measurements have no such
+            # derivation and must stay literal.
+            if name != "rt_mr3":
+                raise fail(
+                    f"the appraisal policy uses {REPLAY_VERIFIED!r} for "
+                    f"{name}, but only rt_mr3 may be verified that way"
+                )
+            continue
+        expected = require_hex(pinned, digits, f"policy pin for {name}")
+        if expected != actual:
+            raise fail(
+                f"{name} is {actual}, the policy pins {expected}"
+            )
+
+    # TCB statuses and advisories, from the appraisal rather than the decode.
+    tcb = policy["tcb"]
+    status_paths = (
+        ("status", "allowed_statuses", appraisal.get("status")),
+        (
+            "platform_status.status",
+            "allowed_platform_statuses",
+            (appraisal.get("platform_status") or {}).get("status"),
+        ),
+        (
+            "qe_status.status",
+            "allowed_qe_statuses",
+            (appraisal.get("qe_status") or {}).get("status"),
+        ),
+    )
+    for label, key, value in status_paths:
+        if not isinstance(value, str):
+            raise fail(f"the appraisal has no {label}")
+        if value == REVOKED:
+            raise fail(f"the appraisal reports {label} = {REVOKED}")
+        if value not in tcb[key]:
+            raise fail(
+                f"the appraisal reports {label} = {value!r}, which the policy "
+                f"does not list in tcb.{key}"
+            )
+        observed.setdefault("tcb", {})[label] = value
+
+    accepted_advisories = set(tcb["accepted_advisory_ids"])
+    seen_advisories: set[str] = set()
+    for container in (
+        appraisal,
+        appraisal.get("platform_status") or {},
+        appraisal.get("qe_status") or {},
+    ):
+        for advisory in container.get("advisory_ids") or []:
+            seen_advisories.add(str(advisory))
+    observed["advisory_ids"] = sorted(seen_advisories)
+    surplus = sorted(seen_advisories - accepted_advisories)
+    if surplus:
+        raise fail(
+            "the appraisal carries advisories the policy does not accept: "
+            + ", ".join(surplus)
+        )
+
+    # Quoting-enclave identity, read out of the quote's QE report.
+    qe = read_qe_identity(decoded)
+    observed["qe_identity"] = qe
+    qe_policy = policy["qe_identity"]
+    if not isinstance(qe_policy, dict):
+        raise fail("the appraisal policy qe_identity section is not an object")
+    for name, digits in (("qe_vendor_id", 32), ("mr_signer", 64)):
+        pinned = qe_policy.get(name)
+        if pinned is None:
+            raise fail(f"the appraisal policy does not mention qe_identity.{name}")
+        if is_todo(pinned):
+            unpinned.append(f"qe_identity.{name}")
+            continue
+        expected = require_hex(pinned, digits, f"policy pin for qe_identity.{name}")
+        if expected != qe[name]:
+            raise fail(
+                f"quoting enclave {name} is {qe[name]}, the policy pins {expected}"
+            )
+    prod = qe_policy.get("isv_prod_id")
+    if prod is None:
+        raise fail("the appraisal policy does not mention qe_identity.isv_prod_id")
+    if is_todo(prod):
+        unpinned.append("qe_identity.isv_prod_id")
+    elif isinstance(prod, bool) or not isinstance(prod, int):
+        raise fail("qe_identity.isv_prod_id must be an integer")
+    elif prod != qe["isv_prod_id"]:
+        raise fail(
+            f"quoting enclave ISVPRODID is {qe['isv_prod_id']}, the policy "
+            f"pins {prod}"
+        )
+    minimum = qe_policy.get("min_isv_svn")
+    if minimum is None:
+        raise fail("the appraisal policy does not mention qe_identity.min_isv_svn")
+    if is_todo(minimum):
+        unpinned.append("qe_identity.min_isv_svn")
+    elif isinstance(minimum, bool) or not isinstance(minimum, int):
+        raise fail("qe_identity.min_isv_svn must be an integer")
+    elif qe["isv_svn"] < minimum:
+        raise fail(
+            f"quoting enclave ISVSVN is {qe['isv_svn']}, below the policy "
+            f"minimum {minimum}"
+        )
+    return unpinned
+
+
+def read_qe_identity(decoded: dict) -> dict:
+    """Read MRSIGNER/ISVPRODID/ISVSVN out of the quote's QE report.
+
+    Layout of Intel's 384-byte SGX enclave report, mirrored by
+    ``dcap_qvl::quote::EnclaveReport``: cpu_svn[16] misc_select[4]
+    reserved1[28] attributes[16] mr_enclave[32] reserved2[32] mr_signer[32]
+    reserved3[96] isv_prod_id[2] isv_svn[2] reserved4[60] report_data[64].
+    """
+
+    auth = decoded.get("auth_data")
+    if not isinstance(auth, dict) or len(auth) != 1:
+        raise fail("the decoded quote has no single auth_data body")
+    (_version,) = auth.keys()
+    inner = auth[_version]
+    if not isinstance(inner, dict):
+        raise fail("the decoded quote auth_data body is not an object")
+    qe_report_data = inner.get("qe_report_data")
+    if not isinstance(qe_report_data, dict):
+        raise fail("the decoded quote carries no QE report")
+    raw_hex = require_hex(qe_report_data.get("qe_report"), 768, "QE report")
+    raw = bytes.fromhex(raw_hex)
+    header = decoded.get("header") or {}
+    return {
+        "qe_vendor_id": require_hex(
+            header.get("qe_vendor_id"), 32, "qe_vendor_id"
+        ),
+        "mr_enclave": raw[64:96].hex(),
+        "mr_signer": raw[128:160].hex(),
+        "isv_prod_id": int.from_bytes(raw[256:258], "little"),
+        "isv_svn": int.from_bytes(raw[258:260], "little"),
+    }
+
+
+# --------------------------------------------------------------------------
+# Downloads
+# --------------------------------------------------------------------------
+
+
+def fetch(url: str, expected_sha256: str, what: str, attempts: int = 3) -> bytes:
+    if not url.startswith("https://"):
+        raise fail(f"{what} must be fetched over https, got {url!r}")
+    last: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            request = urllib.request.Request(
+                url, headers={"User-Agent": "sparkinterval-ch25-a7-phala-tdx"}
+            )
+            with urllib.request.urlopen(request, timeout=180) as response:
+                raw = response.read(MAX_DOWNLOAD_BYTES + 1)
+            if len(raw) > MAX_DOWNLOAD_BYTES:
+                raise fail(f"{what} exceeds the download limit")
+            break
+        except Exception as error:  # noqa: BLE001 - retried, then re-raised
+            last = error
+            note(f"attempt {attempt} to fetch {what} failed: {error}")
+            time.sleep(2 * attempt)
+    else:
+        raise fail(f"cannot fetch {what} from {url}: {last}")
+    actual = sha256_bytes(raw)
+    if actual != expected_sha256:
+        raise fail(
+            f"{what} has sha256 {actual}, expected {expected_sha256}; "
+            "refusing to continue"
+        )
+    return raw
+
+
+def read_local(path: Path, expected_sha256: str, what: str) -> bytes:
+    if path.is_symlink() or not path.is_file():
+        raise fail(f"{what} is not a regular file: {path}")
+    raw = path.read_bytes()
+    actual = sha256_bytes(raw)
+    if actual != expected_sha256:
+        raise fail(
+            f"{what} has sha256 {actual}, expected {expected_sha256}; "
+            "refusing to continue"
+        )
+    return raw
+
+
+# --------------------------------------------------------------------------
+# Main
+# --------------------------------------------------------------------------
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input-root", type=Path, default=Path("/workspace/input"))
+    parser.add_argument(
+        "--evidence-root", type=Path, default=Path("/workspace/evidence")
+    )
+    parser.add_argument(
+        "--derive-key-only",
+        action="store_true",
+        help="re-derive the enclave signing key in the campaign container and "
+        "write it to a tmpfs.  Produces nothing else and refuses unless the "
+        "derived key reproduces what the prelude committed into the quote.",
+    )
+    parser.add_argument(
+        "--key-out",
+        type=Path,
+        help="where --derive-key-only writes the scalar.  Must be on a tmpfs.",
+    )
+    parser.add_argument(
+        "--prelude-summary",
+        type=Path,
+        help="the prelude-summary.json --derive-key-only checks itself "
+        "against.  Required in that mode; there is no way to skip it.",
+    )
+    return parser
+
+
+def env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise fail(f"{name} is not set")
+    return value
+
+
+def import_receipt_module():
+    # ``/opt/sparkinterval`` is where the image puts ``tg_verifier``; the
+    # second candidate is the repository root and applies only when this file
+    # is run from a checkout.  Under the deploy manifest the prelude is
+    # written to ``/tmp/prelude.py``, whose ``parents`` is just ``/tmp`` and
+    # ``/``, so indexing it unconditionally raised ``IndexError`` on every
+    # real run.  The fallback is skipped when the path is too shallow.
+    candidates = ["/opt/sparkinterval"]
+    parents = Path(__file__).resolve().parents
+    if len(parents) > 2:
+        candidates.append(str(parents[2]))
+    for candidate in candidates:
+        if candidate not in sys.path:
+            sys.path.append(candidate)
+    try:
+        from tg_verifier import phala_tdx_receipt  # noqa: PLC0415
+    except ImportError as error:
+        raise fail(
+            "cannot import tg_verifier.phala_tdx_receipt; the report-data "
+            f"commitment must come from that module and not be re-derived: {error}"
+        ) from error
+    return phala_tdx_receipt
+
+
+def check_report_data_formula(receipt_module) -> None:
+    """Assert the imported module still computes the documented preimage.
+
+    ``docs/PHALA_FIRST_RUN.md`` section 4 step 2 states the preimage
+    literally.  This is a consistency check against a shadowed or stale
+    module, not a second implementation: the value actually used below is the
+    one ``report_data_hash`` returns.
+    """
+
+    sample_key = "04" + "11" * 64
+    sample_challenge = "22" * 32
+    sample_binding = "33" * 32
+
+    def committed(name: str, value: str) -> str:
+        digest = hashlib.sha256(value.encode("utf-8")).hexdigest()
+        return f"{name}={digest}\n"
+
+    documented = (
+        "sparkinterval.phala-tdx-report-data.v1\n"
+        + committed("enclave_public_key", sample_key)
+        + committed("challenge_nonce", sample_challenge)
+        + committed("job_binding_sha256", sample_binding)
+    )
+    actual = receipt_module.report_data_preimage(
+        enclave_public_key_hex=sample_key,
+        challenge_nonce=sample_challenge,
+        job_binding=sample_binding,
+    )
+    if actual != documented:
+        raise fail(
+            "tg_verifier.phala_tdx_receipt.report_data_preimage no longer "
+            "matches the preimage documented in docs/PHALA_FIRST_RUN.md"
+        )
+
+
+def require_job_scope() -> dict:
+    """The declared TDX campaign job, or a refusal.
+
+    Both modes call this, unchanged: the campaign container is handed exactly
+    the same six literals as the prelude, so re-deriving the key there is
+    subject to the identical scope guard.
+    """
+
+    scope = os.environ.get("SPARKINTERVAL_PHALA_TDX_WORKER_SCOPE")
+    if scope != WORKER_SCOPE:
+        raise fail(
+            "SPARKINTERVAL_PHALA_TDX_WORKER_SCOPE is absent or wrong; this "
+            "prelude runs only inside the declared TDX campaign job"
+        )
+    backend = os.environ.get("SPARKINTERVAL_PHALA_TDX_WORKER_BACKEND")
+    if backend != WORKER_BACKEND:
+        raise fail("SPARKINTERVAL_PHALA_TDX_WORKER_BACKEND is absent or wrong")
+    for azure in (
+        "SPARKINTERVAL_MEASURED_WORKER_SCOPE",
+        "SPARKINTERVAL_MEASURED_WORKER_BACKEND",
+        "SPARKINTERVAL_MEASURED_WORKER_CHALLENGE_NONCE",
+        "SPARKINTERVAL_MEASURED_WORKER_JOB_BINDING_SHA256",
+    ):
+        if azure in os.environ:
+            raise fail(
+                "refusing a mixed-scope job: an Azure measured-runner variable "
+                f"is present ({azure})"
+            )
+    challenge = require_hex(
+        env("SPARKINTERVAL_PHALA_TDX_WORKER_CHALLENGE_NONCE"), 64, "challenge nonce"
+    )
+    job_binding = require_hex(
+        env("SPARKINTERVAL_PHALA_TDX_WORKER_JOB_BINDING_SHA256"), 64, "job binding"
+    )
+    if challenge == job_binding:
+        raise fail("the challenge nonce and the job binding must differ")
+    image_digest = env("TG_FINAL_IMAGE_REFERENCE")
+    if not image_digest.startswith("sha256:"):
+        raise fail("TG_FINAL_IMAGE_REFERENCE must be sha256:<64 hex>")
+    require_hex(image_digest[7:], 64, "image digest")
+    issued_at = env("TG_ISSUED_AT")
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", issued_at):
+        raise fail("TG_ISSUED_AT must be an RFC 3339 UTC instant")
+    return {
+        "challenge": challenge,
+        "job_binding": job_binding,
+        "image_digest": image_digest,
+        "issued_at": issued_at,
+    }
+
+
+def open_guest_agent() -> GuestAgent:
+    override = os.environ.get("TG_DSTACK_SOCKET")
+    if override:
+        socket_path = override
+    else:
+        found = [
+            candidate
+            for candidate in CANDIDATE_SOCKETS
+            if Path(candidate).is_socket()
+        ]
+        if not found:
+            raise fail(
+                "no dstack guest-agent socket is mounted; expected one of "
+                + ", ".join(CANDIDATE_SOCKETS)
+            )
+        socket_path = found[0]
+    note(f"using the dstack guest agent at {socket_path}")
+    return GuestAgent(socket_path)
+
+
+def derive_signing_key(agent: GuestAgent, receipt_module) -> tuple[str, str]:
+    """``POST /GetKey`` and read the answer as a P-256 scalar.
+
+    Returns ``(scalar_hex, public_key_hex)``.  The scalar is never printed,
+    logged, or returned to anything but the caller that needs it; both call
+    sites drop it as soon as the public key exists or the file is written.
+    """
+
+    note("deriving the enclave signing key inside the TD")
+    key_response = agent.call(
+        "GetKey", {"path": DSTACK_KEY_PATH, "purpose": DSTACK_KEY_PURPOSE}
+    )
+    scalar_hex = require_hex(key_response.get("key"), 64, "derived key")
+    scalar = int(scalar_hex, 16)
+    order = receipt_module.P256_GROUP_ORDER
+    if not 1 <= scalar < order:
+        raise fail(
+            "the dstack-derived scalar is not a valid P-256 private key "
+            "(it is zero or at least the group order). This is expected for "
+            "about one derivation path in 2^32. Change DSTACK_KEY_PATH to the "
+            "next version suffix, redeploy, and re-run; do NOT reduce the "
+            "scalar modulo the group order."
+        )
+    return scalar_hex, receipt_module.public_key_hex(scalar)
+
+
+def derive_key_only(args: argparse.Namespace) -> None:
+    """Re-derive the signing key inside the campaign container.
+
+    The prelude wrote no key anywhere -- deliberately, since the only volume
+    that can carry files between the two containers is disk-backed.  This mode
+    obtains the same key from the same guest agent and proves it is the same
+    key, by reproducing both the public key and the report-data commitment the
+    prelude recorded and the quote attests.
+    """
+
+    os.umask(0o077)
+    if args.key_out is None or args.prelude_summary is None:
+        raise fail("--derive-key-only requires --key-out and --prelude-summary")
+    receipt_module = import_receipt_module()
+    check_report_data_formula(receipt_module)
+    scope = require_job_scope()
+
+    key_out: Path = args.key_out
+    if key_out.is_symlink() or key_out.exists():
+        raise fail(f"{key_out} already exists; refusing to overwrite a key file")
+    parent = key_out.parent
+    if parent.is_symlink() or not parent.is_dir():
+        raise fail(f"{parent} is not a non-symlink directory")
+    require_tmpfs(parent)
+
+    summary_path: Path = args.prelude_summary
+    if summary_path.is_symlink() or not summary_path.is_file():
+        raise fail(f"{summary_path} is not a regular file")
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise fail(f"cannot read the prelude summary: {error}") from error
+    if not isinstance(summary, dict):
+        raise fail("the prelude summary is not a JSON object")
+    expected_key = require_hex(
+        summary.get("enclave_public_key"), 130, "the prelude's enclave public key"
+    )
+    expected_report_data = require_hex(
+        summary.get("report_data_sha256"), 64, "the prelude's report data"
+    )
+    if summary.get("challenge_nonce") != scope["challenge"]:
+        raise fail(
+            "the prelude summary records a different challenge nonce than this "
+            "container was given"
+        )
+    if summary.get("job_binding_sha256") != scope["job_binding"]:
+        raise fail(
+            "the prelude summary records a different job binding than this "
+            "container was given"
+        )
+
+    scalar_hex, public_key = derive_signing_key(open_guest_agent(), receipt_module)
+    if public_key != expected_key:
+        raise fail(
+            "the key derived in this container is NOT the key the prelude "
+            "committed to in the TDX quote's report data. dstack's GetKey is "
+            "not returning the same material to both containers, so a receipt "
+            "signed here would not be bound to the quote. Refusing."
+        )
+    report_data = require_hex(
+        receipt_module.report_data_hash(
+            enclave_public_key_hex=public_key,
+            challenge_nonce=scope["challenge"],
+            job_binding=scope["job_binding"],
+        ),
+        64,
+        "report data commitment",
+    )
+    if report_data != expected_report_data:
+        raise fail(
+            "the report-data commitment recomputed from the re-derived key "
+            "differs from the one the prelude put in the quote"
+        )
+    write_exclusive(key_out, scalar_hex.encode("ascii") + b"\n", 0o400)
+    del scalar_hex
+    note(
+        "re-derived the enclave signing key in this container; it reproduces "
+        f"the quote's report-data commitment {report_data}"
+    )
+    note(f"enclave public key: {public_key}")
+
+
+def run(args: argparse.Namespace) -> None:
+    os.umask(0o077)
+    if args.key_out is not None or args.prelude_summary is not None:
+        raise fail(
+            "--key-out and --prelude-summary belong to --derive-key-only"
+        )
+    receipt_module = import_receipt_module()
+    check_report_data_formula(receipt_module)
+
+    input_root: Path = args.input_root
+    evidence_root: Path = args.evidence_root
+    for root in (input_root, evidence_root):
+        if root.exists():
+            raise fail(f"{root} already exists; the prelude requires a fresh tree")
+    input_root.mkdir(mode=0o755, parents=True)
+    evidence_root.mkdir(mode=0o755, parents=True)
+
+    # ---- 0. Job scope ----------------------------------------------------
+    scope = require_job_scope()
+    challenge = scope["challenge"]
+    job_binding = scope["job_binding"]
+    image_digest = scope["image_digest"]
+    issued_at = scope["issued_at"]
+
+    agent = open_guest_agent()
+
+    # ---- 1. Application identity ----------------------------------------
+    note("asking the dstack guest agent for the application identity")
+    info = agent.call("Info", {})
+    app_id = require_hex(info.get("app_id"), 40, "dstack app id")
+    compose_hash = require_hex(info.get("compose_hash"), 64, "app-compose hash")
+    write_exclusive(
+        evidence_root / "dstack-info.json",
+        json.dumps(info, indent=2, sort_keys=True).encode("utf-8") + b"\n",
+        0o444,
+    )
+
+    # ---- 2. Derive the signing key --------------------------------------
+    #
+    # The scalar is NOT written anywhere.  The only volume that can carry a
+    # file from this container to the campaign container is disk-backed -- a
+    # tmpfs-backed named volume is private to each container, which is exactly
+    # what broke the first real run -- so handing the key over would mean
+    # putting it on the CVM's disk.  Instead the campaign container re-derives
+    # it from the same guest agent (`--derive-key-only`) and proves it got the
+    # same key by reproducing the report-data commitment computed just below.
+    scalar_hex, enclave_public_key = derive_signing_key(agent, receipt_module)
+    del scalar_hex
+    note(f"enclave public key: {enclave_public_key}")
+
+    # ---- 3. Report-data commitment --------------------------------------
+    report_data = receipt_module.report_data_hash(
+        enclave_public_key_hex=enclave_public_key,
+        challenge_nonce=challenge,
+        job_binding=job_binding,
+    )
+    report_data = require_hex(report_data, 64, "report data commitment")
+    # GetQuote zero-pads on the right to 64 bytes; send the padded value so
+    # the echo check below compares exactly what the TD will measure.
+    report_data_padded = report_data + "00" * 32
+    note(f"report data commitment: {report_data}")
+
+    # ---- 4. Fetch the quote ---------------------------------------------
+    note("requesting the TDX quote")
+    quote_response = agent.call("GetQuote", {"report_data": report_data_padded})
+    quote_hex = quote_response.get("quote")
+    if not isinstance(quote_hex, str) or not HEX_RE.match(quote_hex.lower()):
+        raise fail("the guest agent did not return a hex-encoded quote")
+    quote = bytes.fromhex(quote_hex)
+    if len(quote) < 1024:
+        raise fail(f"the returned quote is implausibly short ({len(quote)} bytes)")
+    echoed = quote_response.get("report_data")
+    if isinstance(echoed, str) and echoed.lower() != report_data_padded:
+        raise fail(
+            "the guest agent echoed report data that is not this run's "
+            "commitment"
+        )
+    write_exclusive(input_root / "tdx-quote.bin", quote, 0o444)
+    # The event log must come from ``Info``'s ``tcb_info``, not from the
+    # ``GetQuote`` response.  Both carry the same 30 entries, but GetQuote
+    # leaves every ``digest`` field empty, so the per-event digest check would
+    # compare a correctly computed digest against "" and refuse a genuine log.
+    # Taking the log from ``tcb_info`` costs nothing in trust: it is still
+    # replayed below and every IMR must reproduce what the quote attests, so a
+    # tampered log cannot survive regardless of which endpoint served it.
+    tcb_info = info.get("tcb_info")
+    if isinstance(tcb_info, str):
+        try:
+            tcb_info = json.loads(tcb_info)
+        except json.JSONDecodeError as error:
+            raise fail(f"the guest agent's tcb_info is not JSON: {error}")
+    if not isinstance(tcb_info, dict):
+        raise fail("the guest agent returned no tcb_info")
+    event_log_raw = tcb_info.get("event_log")
+    if not isinstance(event_log_raw, str):
+        if event_log_raw is None:
+            raise fail("the guest agent's tcb_info carries no event log")
+        event_log_raw = json.dumps(event_log_raw)
+    if not event_log_raw:
+        raise fail("the guest agent returned no event log")
+    write_exclusive(
+        evidence_root / "dstack-event-log.json",
+        event_log_raw.encode("utf-8"),
+        0o444,
+    )
+
+    # ---- 5. Stage the pinned appraiser ----------------------------------
+    binary_path = evidence_root / DCAP_QVL_ASSET
+    local_binary = os.environ.get("TG_DCAP_QVL_BINARY")
+    if local_binary:
+        note(f"using a locally supplied dcap-qvl at {local_binary}")
+        binary = read_local(Path(local_binary), DCAP_QVL_SHA256, "the dcap-qvl binary")
+    else:
+        note(f"fetching the pinned dcap-qvl {DCAP_QVL_VERSION}")
+        binary = fetch(DCAP_QVL_URL, DCAP_QVL_SHA256, "the dcap-qvl binary")
+    write_exclusive(binary_path, binary, 0o500)
+    # Digest the binary as it now sits on disk, not the buffer we downloaded.
+    appraiser_sha256 = sha256_bytes(binary_path.read_bytes())
+    if appraiser_sha256 != DCAP_QVL_SHA256:
+        raise fail("the staged dcap-qvl binary does not match its pin")
+    write_exclusive(
+        input_root / "dcap-qvl-artifact.sha256",
+        f"{appraiser_sha256}  {DCAP_QVL_ASSET}-{DCAP_QVL_VERSION}\n".encode("ascii"),
+        0o444,
+    )
+
+    # ---- 6. Decode and appraise -----------------------------------------
+    note("decoding the quote")
+    decode = subprocess.run(
+        [str(binary_path), "decode", str(input_root / "tdx-quote.bin")],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if decode.returncode != 0:
+        raise fail(f"dcap-qvl decode failed: {decode.stderr[-2000:]}")
+    try:
+        decoded = json.loads(decode.stdout)
+    except json.JSONDecodeError as error:
+        raise fail(f"dcap-qvl decode did not emit JSON: {error}")
+    write_exclusive(
+        evidence_root / "dcap-qvl-decode.json",
+        decode.stdout.encode("utf-8"),
+        0o444,
+    )
+
+    note("appraising the quote with dcap-qvl")
+    verify = subprocess.run(
+        [str(binary_path), "verify", str(input_root / "tdx-quote.bin")],
+        capture_output=True,
+        text=True,
+        timeout=900,
+    )
+    write_exclusive(
+        evidence_root / "dcap-qvl-verify.stderr",
+        verify.stderr.encode("utf-8"),
+        0o444,
+    )
+    if verify.returncode != 0:
+        raise fail(
+            "dcap-qvl could not verify the quote; nothing downstream is "
+            f"meaningful:\n{verify.stderr[-4000:]}"
+        )
+    try:
+        appraisal = json.loads(verify.stdout)
+    except json.JSONDecodeError as error:
+        raise fail(f"dcap-qvl verify did not emit JSON: {error}")
+    write_exclusive(
+        input_root / "dcap-qvl-appraisal.json",
+        verify.stdout.encode("utf-8"),
+        0o444,
+    )
+
+    strict = subprocess.run(
+        [str(binary_path), "verify", "--strict", str(input_root / "tdx-quote.bin")],
+        capture_output=True,
+        text=True,
+        timeout=900,
+    )
+    write_exclusive(
+        evidence_root / "dcap-qvl-strict.json",
+        json.dumps(
+            {
+                "exit_status": strict.returncode,
+                "passed": strict.returncode == 0,
+                "stderr": strict.stderr[-8000:],
+            },
+            indent=2,
+            sort_keys=True,
+        ).encode("utf-8")
+        + b"\n",
+        0o444,
+    )
+    note(
+        "dcap-qvl --strict verdict: "
+        + ("PASS" if strict.returncode == 0 else "FAIL (recorded as evidence)")
+    )
+
+    # ---- 7. Policy -------------------------------------------------------
+    policy_b64 = env("TG_DCAP_QVL_POLICY_B64")
+    try:
+        policy_raw = base64.b64decode(policy_b64.encode("ascii"), validate=True)
+    except (binascii.Error, UnicodeEncodeError) as error:
+        raise fail(f"TG_DCAP_QVL_POLICY_B64 is not valid base64: {error}")
+    policy = load_policy(policy_raw)
+    write_exclusive(input_root / "dcap-qvl-policy.json", policy_raw, 0o444)
+
+    if policy["require_dcap_qvl_strict"] and strict.returncode != 0:
+        raise fail(
+            "the policy requires dcap-qvl --strict to pass and it did not:\n"
+            + strict.stderr[-4000:]
+        )
+
+    quote_rtmrs: dict[int, str] = {}
+    report_body = next(iter((decoded.get("report") or {}).values()), None)
+    if isinstance(report_body, dict) and "base" in report_body:
+        report_body = report_body["base"]
+    if not isinstance(report_body, dict):
+        raise fail("the decoded quote has no report body")
+    for index in range(4):
+        quote_rtmrs[index] = require_hex(
+            report_body.get(f"rt_mr{index}"), 96, f"quote rt_mr{index}"
+        )
+
+    events = parse_event_log(event_log_raw)
+    replay = check_event_log(events, quote_rtmrs)
+    write_exclusive(
+        evidence_root / "rtmr-replay.json",
+        json.dumps(replay, indent=2, sort_keys=True).encode("utf-8") + b"\n",
+        0o444,
+    )
+    bindings = replay["rtmr3_bindings"]
+    if bindings["app-id"] != app_id:
+        raise fail(
+            f"RTMR3 attests app-id {bindings['app-id']}, but the guest agent "
+            f"reports {app_id}"
+        )
+    if bindings["compose-hash"] != compose_hash:
+        raise fail(
+            f"RTMR3 attests compose-hash {bindings['compose-hash']}, but the "
+            f"guest agent reports {compose_hash}"
+        )
+    note("RTMR3 attests the reported app id and app-compose hash")
+
+    observed: dict = {"report_data_padded_hex": report_data_padded}
+    unpinned = enforce_policy(policy, decoded, appraisal, observed)
+    if unpinned:
+        if not policy["first_run_measurement_discovery"]:
+            summary = json.dumps(observed.get("measurements", {}), indent=2, sort_keys=True)
+            qe = json.dumps(observed.get("qe_identity", {}), indent=2, sort_keys=True)
+            raise fail(
+                "the appraisal policy leaves these pins as TODO: "
+                + ", ".join(unpinned)
+                + ".\nThe quote verified cryptographically and every "
+                "non-measurement check passed, so the values below are the "
+                "ones to paste into dcap-qvl-policy.json.\nObserved "
+                f"measurements:\n{summary}\nObserved quoting-enclave "
+                f"identity:\n{qe}\nThen set first_run_measurement_discovery "
+                "to false (it already is) and re-run.  Nothing was produced."
+            )
+        note("=" * 72)
+        note("MEASUREMENTS ARE NOT PINNED.  This is a discovery run.")
+        note("The receipt this produces MUST NOT be promoted to the Lean")
+        note("production enclave identity.  Unpinned: " + ", ".join(unpinned))
+        note("=" * 72)
+        write_exclusive(
+            evidence_root / "MEASUREMENTS-NOT-PINNED",
+            ("unpinned: " + ", ".join(unpinned) + "\n").encode("ascii"),
+            0o444,
+        )
+
+    # ---- 8. The registered input ----------------------------------------
+    #
+    # There is no artifact to fetch.  The campaign -- ten freestanding
+    # executables, the C they were compiled from, and the manifest that pins
+    # every one of them by SHA-256 -- is inside the image, and the image is
+    # named by registry digest in the compose document whose hash the CPU
+    # measured.  Nothing about the subject matter of this run comes over the
+    # network.
+    write_exclusive(
+        input_root / "registered-input.json", REGISTERED_INPUT, 0o444
+    )
+
+    # ---- 9. Hand over ----------------------------------------------------
+    required = (
+        "registered-input.json",
+        "tdx-quote.bin",
+        "dcap-qvl-appraisal.json",
+        "dcap-qvl-policy.json",
+        "dcap-qvl-artifact.sha256",
+    )
+    for name in required:
+        path = input_root / name
+        if path.is_symlink() or not path.is_file() or path.stat().st_size == 0:
+            raise fail(f"the prelude did not produce {name}")
+    # The hand-over tree is an ordinary shared volume, so it is on the CVM's
+    # disk.  Nothing secret may be on it.  This is the assertion that says so.
+    for entry in sorted(input_root.iterdir()):
+        if "key" in entry.name:
+            raise fail(
+                f"the hand-over tree contains {entry.name!r}; no key material "
+                "may be written to the shared volume"
+            )
+
+    summary = {
+        "kind": "sparkinterval.phala-tdx-prelude-summary.v1",
+        "app_id": app_id,
+        "compose_hash": compose_hash,
+        "image_digest": image_digest,
+        "issued_at": issued_at,
+        "challenge_nonce": challenge,
+        "job_binding_sha256": job_binding,
+        "enclave_public_key": enclave_public_key,
+        "report_data_sha256": report_data,
+        "dstack_key_path": DSTACK_KEY_PATH,
+        "dstack_key_purpose": DSTACK_KEY_PURPOSE,
+        "dcap_qvl": {
+            "version": DCAP_QVL_VERSION,
+            "commit": DCAP_QVL_COMMIT,
+            "asset": DCAP_QVL_ASSET,
+            "sha256": appraiser_sha256,
+            "strict_passed": strict.returncode == 0,
+        },
+        "measurements_pinned": not unpinned,
+        "unpinned": unpinned,
+        "observed": observed,
+        "input_sha256": {
+            name: sha256_bytes((input_root / name).read_bytes())
+            for name in required
+        },
+    }
+    write_exclusive(
+        evidence_root / "prelude-summary.json",
+        json.dumps(summary, indent=2, sort_keys=True).encode("utf-8") + b"\n",
+        0o444,
+    )
+
+    # The app id and the app-compose hash cannot be literals in the compose
+    # document: the compose hash is the SHA-256 of that very document.  They
+    # are taken from the guest agent and, above, checked against what RTMR3
+    # actually attests.  The campaign entry point sources this file, so it
+    # sees exactly the variables docs/PHALA_FIRST_RUN.md section 3 lists.
+    write_exclusive(
+        input_root / "job-scope.env",
+        (
+            f"SPARKINTERVAL_PHALA_TDX_WORKER_APP_ID={app_id}\n"
+            f"SPARKINTERVAL_PHALA_TDX_WORKER_COMPOSE_HASH={compose_hash}\n"
+        ).encode("ascii"),
+        0o444,
+    )
+    os.chmod(input_root, stat.S_IRUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP
+             | stat.S_IROTH | stat.S_IXOTH)
+    note("inputs are staged; the campaign entry point may run")
+
+
+def main() -> int:
+    try:
+        arguments = build_parser().parse_args()
+        if arguments.derive_key_only:
+            derive_key_only(arguments)
+        else:
+            run(arguments)
+    except PreludeError as error:
+        print(
+            f"platt-stronger-range-live phala-tdx prelude FAILED: {error}",
+            file=sys.stderr,
+            flush=True,
+        )
+        return 2
+    except Exception as error:  # noqa: BLE001 - nothing may proceed on error
+        print(
+            f"platt-stronger-range-live phala-tdx prelude FAILED "
+            f"(unexpected): "
+            f"{type(error).__name__}: {error}",
+            file=sys.stderr,
+            flush=True,
+        )
+        return 3
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

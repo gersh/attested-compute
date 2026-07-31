@@ -112,6 +112,7 @@ INTEL_ROOT_CA_URL = (
 KNOWN_QUOTES = (
     "tests/data/phala_tdx_prod5/retained-evidence/input/tdx-quote.bin",
     "tests/data/phala_tdx_seg/tdx-quote.bin",
+    "tests/data/phala_tdx_live/retained-evidence/input/tdx-quote.bin",
 )
 
 TDX_QUOTE_VERSION = 4

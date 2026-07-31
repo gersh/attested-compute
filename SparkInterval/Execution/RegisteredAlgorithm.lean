@@ -100,6 +100,10 @@ inductive RegisteredAlgorithm where
   Ramaré--Zúñiga Lemma 7.1 rows through `10^8`, and the `m★` product through
   `1.4·10^8`. -/
   | ramareProductionFoldsV1
+  /-- Per-integer leancompcert CompCert campaign for Platt's stronger
+  little-Mertens range, `|Σ_{m≤n} μ(m)/m| ≤ 1/(2√(n+1))` for
+  `5 ≤ n ≤ 7 727 068 586`. -/
+  | plattStrongerRangeLiveV1
   deriving Repr, DecidableEq, BEq
 
 namespace RegisteredAlgorithm
@@ -171,6 +175,18 @@ def ramareProductionFoldsInput : String :=
   "{\"campaign\":\"ramare-production-folds-v1\"," ++
   "\"first_mertens_limit\":100000000,\"lemma71_limit\":100000000," ++
   "\"mstar_limit\":140000000}"
+
+/-- Exact closed input for the live leancompcert CompCert campaign covering
+Platt's stronger little-Mertens range.
+
+The campaign manifest is named by digest a second time here -- the first is
+inside `canonicalDefinition`, hence inside `algorithmHash` -- so a substituted
+manifest fails both the algorithm and the input binding. -/
+def plattStrongerRangeLiveInput : String :=
+  "{\"campaign\":\"platt-stronger-range-live-v1\"," ++
+  "\"campaign_manifest_sha256\":" ++
+  "\"6c67c2a900889087d3c1f88eed9caecf4e08ba0c40ab23e83ef316ff0d7ef0a9\"," ++
+  "\"range_hi\":7727068586,\"range_lo\":5}"
 
 /-- Exact closed input for Helfgott Proposition 12.2.4's source-rank scan. -/
 def helfgottProp1224MpfrInput : String :=
@@ -413,6 +429,8 @@ def algorithmId : RegisteredAlgorithm → String
       "sparkinterval.ternary-goldbach.sqrt218-fixed-v2.v1"
   | .ramareProductionFoldsV1 =>
       "sparkinterval.ternary-goldbach.ramare-production-folds.v1"
+  | .plattStrongerRangeLiveV1 =>
+      "sparkinterval.leancompcert.platt-stronger-range-live.v1"
 
 /-- Canonical, human-reviewable definition bytes whose digest is signed as
 `RunStatement.algorithmHash`.
@@ -593,6 +611,22 @@ def canonicalDefinition : RegisteredAlgorithm → String
       "mstar-range=[2,140000000]\n" ++
       "scales=2^48-first-mertens,2^32-lemma71,2^96-mstar-product\n" ++
       "output=false-or-true-with-finite-fold-evidence"
+  | .plattStrongerRangeLiveV1 =>
+      "sparkinterval.registered-algorithm.v1\n" ++
+      "name=platt-stronger-range-live\n" ++
+      "producer=leancompcert\n" ++
+      "program=Ports.ArraySegSieve.mobiusLiveProgram\n" ++
+      "reduced-family=MathExtras.Reductions.PlattStrongerRangeNatFamily\n" ++
+      "range=[5,7727068586]\n" ++
+      "windows=10\n" ++
+      "manifest-sha256=6c67c2a900889087d3c1f88eed9caecf4e08ba0c40ab23e83ef316ff0d7ef0a9\n" ++
+      "manifest-bytes=4528\n" ++
+      "compcert-version=3.17\n" ++
+      "compcert-target=x86_64-linux\n" ++
+      "link=static-freestanding-no-libc\n" ++
+      "semantics=AProgram.evalCC_compile\n" ++
+      "success=every-window-exit-status-zero\n" ++
+      "output=false-or-true\n"
 
 /-- Source-reviewed protocol digest of the fixed algorithm definition.
 
@@ -634,6 +668,8 @@ def algorithmHash (algorithm : RegisteredAlgorithm) : Digest :=
       "cefa3f3eccfc3505923d1c37f600766127473a1a8a097b2e9097cede014011d6"
   | .ramareProductionFoldsV1 =>
       "9f5ffa335e068542b0838ee221626c8b4c4bb8cc0c8bb0e4b13c6c41f4fcc099"
+  | .plattStrongerRangeLiveV1 =>
+      "7080938bc1af83e75b1c273e6388916741250422d964ac734e5b638ab61386c2"
 
 /-- Executable audit check for the source-reviewed algorithm digest.  The
 closed invocation selector includes this check through
@@ -722,6 +758,10 @@ def canonicalParameters : RegisteredAlgorithm → String
       "\"mstar_product_scale_bits\":96," ++
       "\"replay\":\"independent-two-pass\"," ++
       "\"row_domain\":\"sparkinterval.tg.ramare-production-fold-rows.v1\"}"
+  | .plattStrongerRangeLiveV1 =>
+      "{\"accumulator_bits\":78,\"budget\":\"ceil(n/2^17)+1\"," ++
+      "\"chain\":\"two-limb-carry\",\"test\":\"every-integer\"," ++
+      "\"threshold\":\"floor(2^78/ceil(sqrt(n+1)))\"}"
 
 /-- Canonical domain bytes bound by the signed statement. -/
 def canonicalDomain : RegisteredAlgorithm → String
@@ -812,6 +852,9 @@ def canonicalDomain : RegisteredAlgorithm → String
       "\"lemma71_numerators\":[374,422,579,762]," ++
       "\"mstar_lower\":2,\"mstar_upper\":140000000," ++
       "\"seam_denominator\":1000,\"seam_numerator\":5}"
+  | .plattStrongerRangeLiveV1 =>
+      "{\"claim\":\"platt-stronger-little-mertens-live\"," ++
+      "\"source_lower\":5,\"source_upper\":7727068586}"
 
 /-- Source-reviewed SHA-256 of `canonicalParameters`. -/
 def canonicalParametersHash : RegisteredAlgorithm → Digest
@@ -847,6 +890,8 @@ def canonicalParametersHash : RegisteredAlgorithm → Digest
       "11a8b0f784e4846b10c46669d04d349ba13640c08ba782fe0ac1450246ab379f"
   | .ramareProductionFoldsV1 =>
       "4c2bfc7fefa0e9c33c8877c52107a8f8fdcc2f1289ab0e25e8d9d6e7bdfb4481"
+  | .plattStrongerRangeLiveV1 =>
+      "8c8166cce5f1b071deb1ab977549fc9364d1787309055650e458e431eac8b9b0"
 
 /-- Source-reviewed SHA-256 of `canonicalDomain`. -/
 def canonicalDomainHash : RegisteredAlgorithm → Digest
@@ -882,6 +927,8 @@ def canonicalDomainHash : RegisteredAlgorithm → Digest
       "e27ff5ea0864cfbaa3a2618bcc6e79ff82ad0767c74473e8f88bef9670d6ecc9"
   | .ramareProductionFoldsV1 =>
       "e57d9903f117e68dce0db4fa223eae103a599c4ccd31735c4487ccec129fcff4"
+  | .plattStrongerRangeLiveV1 =>
+      "e5a470a3565f520b333f6fd7c2b400c12121fd5a17f77452dbb6efd0667410d4"
 
 /-- Executable audit check for parameter/domain protocol digests. -/
 def metadataHashesDiagnosticCheck (algorithm : RegisteredAlgorithm) : Bool :=
@@ -1033,6 +1080,29 @@ def Runs : RegisteredAlgorithm → String → String → Prop
           output = "true" ∧
             Nonempty
               SparkInterval.TernaryGoldbach.RamareNativeFoldContracts.FiniteFoldEvidence)
+  -- Why this case has no source-evidence conjunct, unlike every neighbouring
+  -- production case.
+  --
+  -- Each neighbour above pairs `output = "true"` with a `Nonempty <evidence>`
+  -- conjunct because its producer emits checked rows that Lean re-folds into
+  -- the stated real inequality.  leancompcert emits nothing of that kind.
+  -- What leancompcert proves is that *compilation* is faithful: the Lean
+  -- `Program` value, the C it is lowered to, and the x86_64 the CompCert
+  -- backend produces all agree.  It does not prove that
+  -- `mobiusProgram`/`mobiusLiveProgram` computes `Σ_{m≤n} μ(m)/m`, nor that a
+  -- zero exit status means the threshold inequality holds.  Nothing in this
+  -- library establishes that denotation today.
+  --
+  -- Consequently a `"true"` from this campaign carries no mathematical content
+  -- through `Runs`, and this relation must not quietly assert any.  The
+  -- mathematical content is a separate, explicitly stated realisation premise
+  -- carried on the attestation path (see the `...RealisesLittleStronger`-style
+  -- hypotheses in `Execution/LeanCompCertSegCampaign.lean`), where it is a
+  -- named assumption a reader can see and discharge -- not an invisible
+  -- conjunct smuggled into the closed registry's execution semantics.
+  | .plattStrongerRangeLiveV1, input, output =>
+      input = plattStrongerRangeLiveInput ∧
+        (output = "false" ∨ output = "true")
 
 /-- Extract exact typed operational success from the successful Sqrt218 branch.
 
@@ -1250,6 +1320,9 @@ inductive RegisteredInvocation where
   | helfgottSqrt218FixedProductionV2
   /-- Azure CPU replay of the three Ramaré production interval folds. -/
   | ramareProductionFoldsProductionV1
+  /-- Intel TDX enclave run of the live leancompcert CompCert campaign for
+  Platt's stronger little-Mertens range. -/
+  | plattStrongerRangeLiveProductionV1
   deriving Repr, DecidableEq, BEq
 
 namespace RegisteredInvocation
@@ -1272,6 +1345,7 @@ def algorithm : RegisteredInvocation → RegisteredAlgorithm
   | .helfgottSqrt218ProductionV1 => .helfgottSqrt218V1
   | .helfgottSqrt218FixedProductionV2 => .helfgottSqrt218FixedV2
   | .ramareProductionFoldsProductionV1 => .ramareProductionFoldsV1
+  | .plattStrongerRangeLiveProductionV1 => .plattStrongerRangeLiveV1
 
 /-- Exact canonical input selected by a closed invocation.
 
@@ -1314,6 +1388,8 @@ def canonicalInput : RegisteredInvocation → String
       | some reviewed => reviewed.certificateSHA256
   | .ramareProductionFoldsProductionV1 =>
       RegisteredAlgorithm.ramareProductionFoldsInput
+  | .plattStrongerRangeLiveProductionV1 =>
+      RegisteredAlgorithm.plattStrongerRangeLiveInput
 
 /-- Source-reviewed SHA-256 of the closed invocation input.
 
@@ -1354,6 +1430,8 @@ def canonicalInputHash : RegisteredInvocation → Digest
       | some reviewed => reviewed.certificateSHA256
   | .ramareProductionFoldsProductionV1 =>
       "3535d4ae8a9a1073b7aedd66c900de77abfbc0519d96fcaa89242a0bc638c629"
+  | .plattStrongerRangeLiveProductionV1 =>
+      "6b9fbeae694703c0fabad05eef9319ff7ef064a9832ad668cd1c4b45dac2e97a"
 
 /-- Executable audit check for the source-reviewed input digest. -/
 def inputHashDiagnosticCheck (invocation : RegisteredInvocation) : Bool :=
@@ -1430,6 +1508,22 @@ def deploymentCheck (invocation : RegisteredInvocation)
   | .ramareProductionFoldsProductionV1 =>
       statement.target == .azureSEVSNPCPU &&
         statement.trust == .azureSEVSNPConfidentialCompute
+  -- Target-polymorphic, like `cubicSumDivThree20000V1`.
+  --
+  -- This invocation's real deployment restriction lives on the separate Intel
+  -- TDX attestation layer, which pins the enclave image digest and does not
+  -- consult `deploymentCheck` at all.  (That layer is deliberately not named
+  -- here: this module must stay off its cone, and
+  -- `tests/test_phala_tdx_axiom_off_cone.py` enforces that by rejecting any
+  -- reference to it from this file.)  The `RunStatement` `target`/`trust`
+  -- enumeration has no Intel TDX member to name, so a restriction written
+  -- here would be arbitrary rather than binding.
+  --
+  -- Leaving it polymorphic grants nothing: `Runs` for
+  -- `plattStrongerRangeLiveV1` has no mathematical conjunct, so no
+  -- combination of target and trust can unlock a mathematical claim through
+  -- this constructor.
+  | .plattStrongerRangeLiveProductionV1 => true
 
 /-- Bind profile and artifact hashes when a closed production invocation has
 post-run reviewed pins.
@@ -1489,8 +1583,13 @@ def artifactCheck (invocation : RegisteredInvocation)
   | .ramareProductionFoldsProductionV1 =>
       reviewedProductionDeploymentCheck
         ramareProductionFoldsProductionDeployment statement
+  -- No reviewed `RunStatement` deployment pin exists for the leancompcert
+  -- campaign, and none is needed: its artifacts are pinned by enclave image
+  -- digest on the Phala TDX path, and its `Runs` has no mathematical conjunct
+  -- for an unpinned statement to unlock.
   | .cubicSumDivThree20000V1
-  | .h100FormalPtxConstantOneV1 => true
+  | .h100FormalPtxConstantOneV1
+  | .plattStrongerRangeLiveProductionV1 => true
 
 /-- Bind every nontrivial production invocation to its exact reviewed
 source-admitted receipt, not merely to a different receipt carrying the same
@@ -1540,8 +1639,11 @@ def receiptCheck (invocation : RegisteredInvocation)
   | .ramareProductionFoldsProductionV1 =>
       reviewedProductionReceiptCheck
         ramareProductionFoldsProductionDeployment attestation
+  -- Same reason as `artifactCheck`: the binding receipt for this campaign is
+  -- the Phala TDX quote, not a reviewed `Attestation` pin in this module.
   | .cubicSumDivThree20000V1
-  | .h100FormalPtxConstantOneV1 => true
+  | .h100FormalPtxConstantOneV1
+  | .plattStrongerRangeLiveProductionV1 => true
 
 /-- Parse and accept one canonical fixed-V2 native result envelope.  This is
 only a result-language check; the `Runs` success branch additionally binds its
@@ -1590,6 +1692,8 @@ def ResultAllowed : RegisteredInvocation → String → Prop
       output = "false" ∨
         sqrt218FixedV2AcceptedResultCheck output = true
   | .ramareProductionFoldsProductionV1, output =>
+      output = "false" ∨ output = "true"
+  | .plattStrongerRangeLiveProductionV1, output =>
       output = "false" ∨ output = "true"
 
 /-- The closed result language is decidable constructor by constructor. -/
@@ -1737,6 +1841,9 @@ def Runs : RegisteredInvocation → String → Prop
   | .ramareProductionFoldsProductionV1, output =>
       RegisteredAlgorithm.ramareProductionFoldsV1.Runs
         RegisteredAlgorithm.ramareProductionFoldsInput output
+  | .plattStrongerRangeLiveProductionV1, output =>
+      RegisteredAlgorithm.plattStrongerRangeLiveV1.Runs
+        RegisteredAlgorithm.plattStrongerRangeLiveInput output
 
 /-- Every result satisfying the fixed execution relation belongs to the
 invocation's canonical result language.  This theorem is axiom-free and makes
@@ -1789,6 +1896,8 @@ theorem resultAllowed_of_runs {invocation : RegisteredInvocation}
         simpa [sqrt218FixedV2AcceptedResultCheck, hresult] using haccepted
   | ramareProductionFoldsProductionV1 =>
       exact run.2.imp id And.left
+  | plattStrongerRangeLiveProductionV1 =>
+      exact run.2
 
 theorem statementCheck_sound {invocation : RegisteredInvocation}
     {statement : RunStatement}
@@ -2023,6 +2132,8 @@ theorem runs_satisfiable (invocation : RegisteredInvocation) :
   | helfgottSqrt218FixedProductionV2 =>
       exact ⟨"false", Or.inl rfl⟩
   | ramareProductionFoldsProductionV1 =>
+      exact ⟨"false", rfl, Or.inl rfl⟩
+  | plattStrongerRangeLiveProductionV1 =>
       exact ⟨"false", rfl, Or.inl rfl⟩
 
 /-- The closed tutorial invocation can return only its one exact canonical

@@ -1,0 +1,27 @@
+{
+  "replayed_rtmrs": {
+    "0": "027b610ab0555482f8a3868524093bdf3cdbe2539f81dfeeb886864654cb2fe3422f7fc36d4bab6fa46683aad11d1ba7",
+    "1": "07e6f51aa763abfe75c3ddfbf4f425fe3f0ceff66d807a75e049303dce9addf68e7218729bd419638af63a370f65878c",
+    "2": "a2a58c9a959a4fa44bd6da0c97a2270c051faf12084cfe91ae900e4fdff6cdd4f69a82005e04ee920f231497894d677f",
+    "3": "29c12b8afca34f9519bdc01e846131c390c94bc5597f9267a4cd0619446a6bda9c6cb645eabdf9344d92fa51e8c6fd08"
+  },
+  "rtmr3_bindings": {
+    "app-id": "4b69f1ec45055992958b38b1adf1855c5a66522f",
+    "compose-hash": "30952cf5e9feb272beeb59a0724296475c4a110adf7b84c10ac971969cd5b26e",
+    "instance-id": "b6eb873e3d41e9f42b5a98dea592ebc78ece2451",
+    "os-image-hash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9"
+  },
+  "rtmr3_boot_chain_events": [
+    "system-preparing",
+    "app-id",
+    "compose-hash",
+    "instance-id",
+    "boot-mr-done",
+    "mr-kms",
+    "os-image-hash",
+    "key-provider",
+    "storage-fs",
+    "system-ready"
+  ],
+  "rtmr3_post_boot_events": []
+}

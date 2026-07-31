@@ -136,6 +136,23 @@ inductive PhalaTdxEnclave where
   off by one character.  It carries no attestation authority and must never be
   given any. -/
   | ch25A7BoundaryPhalaProd5TamperedKeyV1
+  /-- **The second deployment this project attests, and the first whose
+  subject matter is a leancompcert artifact.**  The dstack application that
+  ran the per-integer `platt-stronger-range-live` campaign -- ten statically
+  linked, freestanding, CompCert-compiled x86_64 executables testing
+  `|Σ_{m≤n} μ(m)/m| ≤ 1/(2√(n+1))` at every integer `n` in
+  `[5, 7 727 068 586]` -- inside an Intel TDX confidential VM on Phala Cloud
+  prod5 on 2026-07-31.  Its retained evidence is committed at
+  `tests/data/phala_tdx_live/`.  Its pin literals are machine-derived; see
+  `Execution/PhalaTdxLiveCampaignEvidence.lean`, which proves by `decide`
+  that the case below is exactly what
+  `tools/tg_phala_tdx_pin_from_evidence.py --profile live` derives from that
+  evidence. -/
+  | plattStrongerRangeLivePhalaV1
+  /-- The live-campaign pin with one hexadecimal digit of the enclave public
+  key changed.  A negative-test fixture and nothing else: it carries no
+  attestation authority and must never be given any. -/
+  | plattStrongerRangeLiveTamperedKeyV1
   deriving Repr, DecidableEq, BEq
 
 namespace PhalaTdxEnclave
@@ -221,6 +238,86 @@ def pin : PhalaTdxEnclave → PhalaTdxEnclavePin
         quoteAppraisalArtifactHash :=
           "cf7f9aaad376230844aad27bb2615377e9c622f334904c1aa35f9f74a78b9ef8"
         attestationAuthority := false }
+  | .plattStrongerRangeLivePhalaV1 =>
+      -- PHALA PROD5, CVM `platt-live-2`, Intel TDX, 2026-07-31T03:51:34Z.
+      --
+      -- `attestationAuthority := true` here is the project's trust-boundary
+      -- statement that this P-256 key was derived by dstack inside that trust
+      -- domain and never left it.  It is scoped to this one deployment: this
+      -- app id, this app-compose hash, this image digest, and the reviewed
+      -- `dcap-qvl` policy and binary that appraised that run's quote.  It says
+      -- nothing about any other run, image, or platform, and in particular
+      -- nothing about `ch25A7BoundaryPhalaProd5V1`, which is a different
+      -- application running different code.
+      --
+      -- What was reviewed before this line was written, and is recorded so a
+      -- later reader can check the same things:
+      --
+      --   * the campaign itself -- ten CompCert-compiled freestanding x86_64
+      --     artifacts and the manifest that pins every one of them by
+      --     SHA-256 -- is inside the image, not fetched at run time, and the
+      --     manifest digest is named inside the registered algorithm's
+      --     `canonicalDefinition`, hence inside the `algorithm_hash` the
+      --     enclave signed;
+      --   * the image is referenced by registry digest in the compose
+      --     document whose SHA-256 the CPU measured into RTMR3, and the same
+      --     manifest digest is held permanently at
+      --     `ghcr.io/gersh/sparkinterval-platt-live-phala-tdx`;
+      --   * the three scripts that derive the key, gate on the appraisal,
+      --     run the chain, sign, and decide what leaves the CVM are embedded
+      --     verbatim in that compose document, so they are measured too;
+      --   * `dcap-qvl v0.6.1` verified the quote against the reviewed policy
+      --     with `first_run_measurement_discovery: false`, so MRTD and
+      --     RTMR0-2 were pinned literals, not discovered values;
+      --   * the retained RTMR3 event log replays to what the quote attests,
+      --     and its `app-id` and `compose-hash` events equal what the guest
+      --     agent reported.
+      --
+      -- Every literal is machine-derived from `tests/data/phala_tdx_live/` by
+      -- `tools/tg_phala_tdx_pin_from_evidence.py --profile live`, and
+      -- `Execution/PhalaTdxLiveCampaignEvidence.lean` proves by `decide` that
+      -- this case equals the generated record.  A mistyped digit is a build
+      -- failure, not a silently trusted stranger.
+      { pinId := "sparkinterval.phala-tdx.platt-stronger-range-live.phala.v1"
+        appId := "4b69f1ec45055992958b38b1adf1855c5a66522f"
+        composeHash :=
+          "30952cf5e9feb272beeb59a0724296475c4a110adf7b84c10ac971969cd5b26e"
+        imageDigest :=
+          "sha256:e58fd209cb294db396633c3645d15a01e5717a0d4fe914e25d5b892c3adbab54"
+        enclavePublicKeyHex :=
+          "043729776ad63a1f3aa02f671ac1b94f7422dd98ec3ab8d86f6ab8a50fecadb0" ++
+          "50c64f4d3ff1aa49c1d4bf8f345cba86fc231788af0da106753b4b5eb2409af054"
+        quoteAppraisalPolicyHash :=
+          "9de162db5c359ebc75264d90dd243ea443a2f0d765cb469c31fb57fc21f1a501"
+        quoteAppraisalArtifactHash :=
+          "cf7f9aaad376230844aad27bb2615377e9c622f334904c1aa35f9f74a78b9ef8"
+        attestationAuthority := true }
+  | .plattStrongerRangeLiveTamperedKeyV1 =>
+      -- The live-campaign pin with the final hexadecimal digit of the public
+      -- key changed from `4` to `0`.  A negative-test fixture, and nothing
+      -- else: `attestationAuthority := false` is what keeps it inert.
+      { pinId :=
+          "sparkinterval.phala-tdx.platt-stronger-range-live.negative-test.v1"
+        appId := "4b69f1ec45055992958b38b1adf1855c5a66522f"
+        composeHash :=
+          "30952cf5e9feb272beeb59a0724296475c4a110adf7b84c10ac971969cd5b26e"
+        imageDigest :=
+          "sha256:e58fd209cb294db396633c3645d15a01e5717a0d4fe914e25d5b892c3adbab54"
+        enclavePublicKeyHex :=
+          "043729776ad63a1f3aa02f671ac1b94f7422dd98ec3ab8d86f6ab8a50fecadb0" ++
+          "50c64f4d3ff1aa49c1d4bf8f345cba86fc231788af0da106753b4b5eb2409af050"
+        quoteAppraisalPolicyHash :=
+          "9de162db5c359ebc75264d90dd243ea443a2f0d765cb469c31fb57fc21f1a501"
+        quoteAppraisalArtifactHash :=
+          "cf7f9aaad376230844aad27bb2615377e9c622f334904c1aa35f9f74a78b9ef8"
+        attestationAuthority := false }
+
+/-- The live-campaign negative-test identity can never satisfy the trust
+axiom's authority premise. -/
+theorem plattStrongerRangeLiveTamperedKeyV1_no_authority :
+    PhalaTdxEnclave.plattStrongerRangeLiveTamperedKeyV1.pin.attestationAuthority
+      = false :=
+  rfl
 
 /-- The `ch25A7BoundaryProductionV1` slot carries no key, so every check
 against *that identity* fails closed.  It was left that way when the Phala

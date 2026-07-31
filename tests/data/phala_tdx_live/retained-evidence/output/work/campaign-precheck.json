@@ -1,0 +1,27 @@
+{
+ "header": {
+  "accumulator-bits": "78",
+  "claim": "abs (mobiusOverNSum n) <= 1 / (2 * sqrt (n+1))",
+  "compcert-target": "x86_64-linux",
+  "compcert-version": "3.17",
+  "cover-lo": "1",
+  "emitter": "proof_build/leancompcert_tdx/LiveChainEmit.lean",
+  "initial-seed": "604462909807314587353088",
+  "link": "static-freestanding-no-libc",
+  "link-len": "1000000000",
+  "name": "platt-stronger-range-live",
+  "output": "false-or-true",
+  "primer-windows": "1",
+  "producer": "leancompcert",
+  "program": "LeanCompCert.Ports.ArraySegSieve.mobiusLiveProgram",
+  "range-hi": "7727068586",
+  "range-lo": "5",
+  "reduced-family": "MathExtras.Reductions.PlattStrongerRangeNatFamily",
+  "seg-len": "1000000",
+  "start-stub-sha256": "cb38b2875ce3fae22ac33b9e961f047229f8b0fb9ac22773ba8ffa97a4eeafc1",
+  "success": "every-window-exit-status-zero",
+  "windows": "10"
+ },
+ "problems": [],
+ "windows": 10
+}

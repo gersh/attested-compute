@@ -111,7 +111,14 @@ FAILED_AT=-1
 LOG="${OUTPUT_ROOT}/work/window-status.txt"
 : >"${LOG}"
 
-while read -r index binary; do
+# `IFS` is `\n\t` for the whole script, deliberately, so that an unquoted
+# expansion cannot be split on a space.  The checker's `--list` output is
+# `<index> <relative path>`, separated by a SPACE, so this one `read` must
+# have the space back -- otherwise `index` swallows the whole line, `binary`
+# is empty, and the loop executes `${CAMPAIGN_ROOT}/`, a directory, which
+# exits 126 and is correctly refused as "neither verdict".  The assignment is
+# scoped to the `read` builtin and does not leak into the loop body.
+while IFS=' ' read -r index binary; do
   set +e
   "${CAMPAIGN_ROOT}/${binary}" </dev/null >/dev/null 2>&1
   STATUS=$?
@@ -192,7 +199,11 @@ fields = {
     "report_data_sha256": summary["report_data_sha256"],
     "issued_at": os.environ["TG_ISSUED_AT"],
 }
-receipt = sign_receipt(private_key_hex=key, fields=fields)
+# `sign_receipt` takes the scalar as an int, not as hex.  The file the
+# deriver wrote is the 64-hex-digit dstack-derived scalar; `int(..., 16)`
+# raises on anything that is not exactly that, which is the behaviour wanted
+# here -- a malformed key must stop the run rather than produce a receipt.
+receipt = sign_receipt(private_key=int(key, 16), fields=fields)
 # The manifest digest travels as unsigned provenance: it is already bound
 # through `algorithm_hash`, whose preimage `canonicalDefinition` names it.
 receipt["campaign_manifest_sha256"] = os.environ["TG_MANIFEST_SHA256"]
