@@ -45,6 +45,15 @@ the TCB level, and the QE identity are not parsed and not verified here;
 quote at `tests/data/phala_tdx_seg/dcap-qvl-verify.stdout`.  That file's
 `mr_config_id` and `report_data` agree with what Lean parses below, which is a
 useful cross-check and not a proof.
+
+And the appraisal itself is weaker than a reader might assume.  The retained
+`verification.json` records `dcap_qvl.exit_status = 0` with status
+`UpToDate` for the ordinary run, but `dcap_qvl.strict_exit_status = 1`: the
+strict re-run could not fetch Intel collateral from the PCCS at appraisal
+time.  So even the external appraisal on this particular run is the
+non-strict one.  Nothing in this module depends on either -- every theorem
+below is about the quote's *contents*, which are what they are whoever signed
+them.
 -/
 
 set_option autoImplicit false
