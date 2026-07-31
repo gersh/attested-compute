@@ -461,7 +461,7 @@ def canonicalDefinition : RegisteredAlgorithm → String
       "squarefree-b1=151/2000-after-9243;check-value-at-n>=9243-and-right-limit-at-n+1\n" ++
       "squarefree-b2=57/2000-after-438429;check-value-at-n>=438429-and-right-limit-at-n+1\n" ++
       "little-2-11=right*abs(q96)^2<=2*2^192-for-1<=n<=10^12\n" ++
-      "little-stronger=4*right*abs(q96)^2<=2^192-for-3<=n<=7727068587\n" ++
+      "little-stronger=4*right*abs(q96)^2<=2^192-for-3<=n<7727068587\n" ++
       "output=false-or-true-with-local-replay-evidence"
   | .ch25PsiLemma92V1 =>
       "sparkinterval.registered-algorithm.v1\n" ++
@@ -609,7 +609,7 @@ def algorithmHash (algorithm : RegisteredAlgorithm) : Digest :=
   | .cdemTableAbelExactScanV2 =>
       "f924a59b7569a9407b78bbbe5931c03fa76532b7dd88c64401263402ac4575b0"
   | .hurstSharedFourResidualV2 =>
-      "7ba331f8cc0457f3a19bbce0887be65b12ba005952ed480aeb5b98c86611a6cd"
+      "d5fa24d80d95216208ff8e8bbacb42ec181966b40e6a577dae26d585c09df5aa"
   | .ch25PsiLemma92V1 =>
       "b16368f84ca70c2a3e7b9b9814c7e098e79c0c3bb137a51b85851cfd526753b0"
   | .ramareZunigaLemma62V1 =>

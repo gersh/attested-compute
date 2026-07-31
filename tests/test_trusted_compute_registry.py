@@ -482,7 +482,7 @@ class TrustedComputeRegistryTests(unittest.TestCase):
         )
         self.assertEqual(
             expected["algorithm_hash"],
-            "7ba331f8cc0457f3a19bbce0887be65b12ba005952ed480aeb5b98c86611a6cd",
+            "d5fa24d80d95216208ff8e8bbacb42ec181966b40e6a577dae26d585c09df5aa",
         )
         self.assertEqual(
             expected["input_hash"],

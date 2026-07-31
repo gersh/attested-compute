@@ -9,7 +9,7 @@
     "citation_inventory_relative_to_claude_math": "problems/ternary-goldbach/citations/inventory.json",
     "citation_inventory_sha256": "d86b0b9fa6fab62032452318b15a1674daaed166a8c92ced40be70ca617839ac",
     "external_catalog": "specifications/TERNARY_GOLDBACH_EXTERNAL_ATOMS.json",
-    "external_catalog_sha256": "204949b03f342024868667db7b87c4fed600ca2b3951e274e65f2f437dfc5373",
+    "external_catalog_sha256": "69cc423a4f14caa032fc1cb91512c9a9402e725912e8c2bca9245c539fe27d12",
     "compact_registry": "SparkInterval/Execution/CompactArchitectureRegistry.lean",
     "compact_registry_sha256": "52d675f7a91a2214c063a3a17d64d8b9fe7a3fb1d3b45329f08d1e5ed373e26a",
     "compact_capstone": "SparkInterval/TernaryGoldbach/CompactExternalAtomCapstone.lean",

@@ -40,6 +40,7 @@ constexpr std::uint64_t kSourceLimit = 10'000'000'000'000'000ULL;
 constexpr std::uint64_t kHurstLower = 33;
 constexpr std::uint64_t kLittle211Limit = 1'000'000'000'000ULL;
 constexpr std::uint64_t kLittleStrongerLower = 3;
+// EXCLUSIVE upper endpoint: the stronger bound is false at 7'727'068'587.
 constexpr std::uint64_t kLittleStrongerLimit = 7'727'068'587ULL;
 constexpr std::uint64_t kSquarefreeB1Threshold = 9'243;
 constexpr std::uint64_t kSquarefreeB2Threshold = 438'429;
@@ -545,9 +546,13 @@ void update_affine_guards(AffineGuards* guards, std::uint64_t n,
                         right, local.little_lower, local.little_upper, false,
                         right_floor_root, half_floor_root);
   }
-  if (n >= kLittleStrongerLower && n <= kLittleStrongerLimit) {
-    const std::uint64_t right =
-        n < kLittleStrongerLimit ? n + 1 : n;
+  // kLittleStrongerLimit is EXCLUSIVE.  The closed statement is false there:
+  // at n = 7 727 068 587 the sum exceeds its majorant by a relative 8.03e-06,
+  // and that is the only violation in 3 <= n <= 7 727 068 587.  Helfgott
+  // states the range with sum_{n<x}, which is exactly this half-open form, so
+  // the right endpoint is unconditionally n + 1 and never collapses onto n.
+  if (n >= kLittleStrongerLower && n < kLittleStrongerLimit) {
+    const std::uint64_t right = n + 1;
     update_little_guard(&guards->little_stronger_lower,
                         &guards->little_stronger_upper, right,
                         local.little_lower, local.little_upper, true,
@@ -984,10 +989,9 @@ int main(int argc, char** argv) {
               break;
             }
           }
-          if (n >= kLittleStrongerLower &&
-              n <= kLittleStrongerLimit) {
-            const std::uint64_t right =
-                n < kLittleStrongerLimit ? n + 1 : n;
+          // Exclusive upper endpoint; see update_guards above.
+          if (n >= kLittleStrongerLower && n < kLittleStrongerLimit) {
+            const std::uint64_t right = n + 1;
             right_root = root;
             advance_floor_root(right, &right_root);
             const std::uint64_t half = (right + 1) / 2;

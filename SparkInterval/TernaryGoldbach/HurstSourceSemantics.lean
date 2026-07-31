@@ -57,6 +57,15 @@ def littleScale : Nat := 2 ^ 96
 
 def sourceLimit : Nat := 10_000_000_000_000_000
 def little211Limit : Nat := 1_000_000_000_000
+
+/-- **Exclusive** upper endpoint of Platt's stronger little-Mertens range.
+
+The closed form is false at this endpoint: at `n = 7 727 068 587` the sum is
+`5.6880854031502278e-06` against the majorant `5.6880397241931255e-06`.  A
+sweep of `3 ≤ n ≤ 7 727 068 587` finds that one violation and no other; on
+`[3, 7 727 068 586]` the minimum relative margin is `1.47e-05`.  Helfgott's
+`Σ_{n<x}` statement is exactly this half-open `Σ_{n≤x}` one, so narrowing is a
+summation-convention transport rather than a weakening. -/
 def littleStrongerLimit : Nat := 7_727_068_587
 
 /-- The machine coordinates realize every source prefix that the worker
@@ -136,8 +145,16 @@ def LittleIntervalSafe (rightEndpoint : Nat) (stronger : Bool)
 counts, V2 retains both the value at `n`, inclusively from each strict-real
 threshold, and the left limit at `n+1`.  The inclusive value check is needed
 for points strictly between a threshold and its successor.  For
-little-Mertens, the right endpoint is `n+1`, except at the closed terminal
-endpoint. -/
+little-Mertens, the right endpoint is `n+1`.
+
+Equation (2.11) keeps its closed terminal endpoint at `little211Limit`.  The
+stronger range does **not**: its upper endpoint is exclusive, because the
+closed statement is false there (see `littleStrongerLimit`).  A row at
+`n = littleStrongerLimit - 1` still guards the right endpoint `n + 1 =
+littleStrongerLimit`, which is what covers the real slab `[n, n+1)` where the
+`1/(2√x)` majorant is smallest; what is dropped is only the demand that the
+*prefix at* `littleStrongerLimit` satisfy the bound, which is exactly the
+false case. -/
 def SourceRowSafe (n : Nat) (state : State) : Prop :=
   (33 ≤ n → HurstSafeAt n state) ∧
   (9_243 ≤ n → SquarefreeSafeAt n state.squarefree 151 2_000) ∧
@@ -148,8 +165,8 @@ def SourceRowSafe (n : Nat) (state : State) : Prop :=
     SquarefreeSafeAt (n + 1) state.squarefree 57 2_000) ∧
   (n ≤ little211Limit →
     LittleIntervalSafe (if n < little211Limit then n + 1 else n) false state) ∧
-  (3 ≤ n → n ≤ littleStrongerLimit →
-    LittleIntervalSafe (if n < littleStrongerLimit then n + 1 else n) true state)
+  (3 ≤ n → n < littleStrongerLimit →
+    LittleIntervalSafe (n + 1) true state)
 
 /-- Concrete row predicate to be fixed in the registered Hurst invocation. -/
 def SourceRowPredicate (n : Nat) (state : State) : Prop :=
@@ -520,13 +537,12 @@ theorem checked_little_stronger_endpoint
     {certificate : Certificate}
     (hcheck : certificate.check = true)
     (evidence : SourceScaleEvidence SourceRowPredicate certificate)
-    (n : Nat) (hnLower : 3 ≤ n) (hnUpper : n ≤ littleStrongerLimit) :
+    (n : Nat) (hnLower : 3 ≤ n) (hnUpper : n < littleStrongerLimit) :
     ∃ state : State,
       PrefixRealization n state ∧
-      LittleIntervalSafe
-        (if n < littleStrongerLimit then n + 1 else n) true state := by
+      LittleIntervalSafe (n + 1) true state := by
   rcases checked_full_source_claims hcheck evidence n (by omega)
-      (hnUpper.trans (by norm_num [littleStrongerLimit, sourceLimit])) with
+      (hnUpper.le.trans (by norm_num [littleStrongerLimit, sourceLimit])) with
     ⟨state, hrealizes, hsafe⟩
   exact ⟨state, hrealizes, hsafe.2.2.2.2.2.2 hnLower hnUpper⟩
 
@@ -535,13 +551,12 @@ theorem checked_little_stronger_endpoint_of_local
     {certificate : Certificate}
     (hcheck : certificate.check = true)
     (evidence : LocalSourceScaleEvidence certificate)
-    (n : Nat) (hnLower : 3 ≤ n) (hnUpper : n ≤ littleStrongerLimit) :
+    (n : Nat) (hnLower : 3 ≤ n) (hnUpper : n < littleStrongerLimit) :
     ∃ state : State,
       PrefixRealization n state ∧
-      LittleIntervalSafe
-        (if n < littleStrongerLimit then n + 1 else n) true state := by
+      LittleIntervalSafe (n + 1) true state := by
   rcases checked_full_source_claims_of_local hcheck evidence n (by omega)
-      (hnUpper.trans (by norm_num [littleStrongerLimit, sourceLimit])) with
+      (hnUpper.le.trans (by norm_num [littleStrongerLimit, sourceLimit])) with
     ⟨state, hrealizes, hsafe⟩
   exact ⟨state, hrealizes, hsafe.2.2.2.2.2.2 hnLower hnUpper⟩
 
@@ -849,25 +864,29 @@ theorem checked_little211_real_of_local
   exact littleFalseRealOfRealizes hrealizes hnUpper hsafe hx hxr
 
 /-- Platt's stronger `1/(2√x)` computation projected from both directed
-Q96 coordinates on every real slab through `7,727,068,587`. -/
+Q96 coordinates on every real slab strictly below `7,727,068,587`.
+
+The upper endpoint is **exclusive**; the closed statement is false there.  See
+`littleStrongerLimit`. -/
 theorem checked_little_stronger_real
     {certificate : Certificate}
     (hcheck : certificate.check = true)
     (evidence : SourceScaleEvidence SourceRowPredicate certificate)
-    (x : Real) (hxLower : 3 ≤ x) (hxUpper : x ≤ littleStrongerLimit) :
+    (x : Real) (hxLower : 3 ≤ x) (hxUpper : x < littleStrongerLimit) :
     |littleMertensStep x| ≤ 1 / (2 * Real.sqrt x) := by
   have hx : 0 < x := lt_of_lt_of_le (by norm_num) hxLower
   let n := ⌊x⌋₊
   have hnLower : 3 ≤ n := Nat.le_floor
     (show ((3 : Nat) : Real) ≤ x by simpa using hxLower)
-  have hnUpper : n ≤ littleStrongerLimit := floor_upper hx.le hxUpper
+  have hnUpper : n < littleStrongerLimit :=
+    (Nat.floor_lt hx.le).mpr (by exact_mod_cast hxUpper)
   rcases checked_little_stronger_endpoint hcheck evidence n hnLower hnUpper with
     ⟨state, hrealizes, hsafe⟩
-  have hxr :
-      x ≤ ((if n < littleStrongerLimit then n + 1 else n : Nat) : Real) := by
-    exact slab_right hx.le hxUpper
+  have hxr : x ≤ ((n + 1 : Nat) : Real) := by
+    push_cast
+    exact (Nat.lt_floor_add_one x).le
   exact littleTrueRealOfRealizes hrealizes
-    (hnUpper.trans (by norm_num [littleStrongerLimit, little211Limit]))
+    (hnUpper.le.trans (by norm_num [littleStrongerLimit, little211Limit]))
     hsafe hx hxr
 
 /-- Local-replay production path for the stronger little-Mertens bound. -/
@@ -875,21 +894,22 @@ theorem checked_little_stronger_real_of_local
     {certificate : Certificate}
     (hcheck : certificate.check = true)
     (evidence : LocalSourceScaleEvidence certificate)
-    (x : Real) (hxLower : 3 ≤ x) (hxUpper : x ≤ littleStrongerLimit) :
+    (x : Real) (hxLower : 3 ≤ x) (hxUpper : x < littleStrongerLimit) :
     |littleMertensStep x| ≤ 1 / (2 * Real.sqrt x) := by
   have hx : 0 < x := lt_of_lt_of_le (by norm_num) hxLower
   let n := ⌊x⌋₊
   have hnLower : 3 ≤ n := Nat.le_floor
     (show ((3 : Nat) : Real) ≤ x by simpa using hxLower)
-  have hnUpper : n ≤ littleStrongerLimit := floor_upper hx.le hxUpper
+  have hnUpper : n < littleStrongerLimit :=
+    (Nat.floor_lt hx.le).mpr (by exact_mod_cast hxUpper)
   rcases checked_little_stronger_endpoint_of_local
       hcheck evidence n hnLower hnUpper with
     ⟨state, hrealizes, hsafe⟩
-  have hxr :
-      x ≤ ((if n < littleStrongerLimit then n + 1 else n : Nat) : Real) := by
-    exact slab_right hx.le hxUpper
+  have hxr : x ≤ ((n + 1 : Nat) : Real) := by
+    push_cast
+    exact (Nat.lt_floor_add_one x).le
   exact littleTrueRealOfRealizes hrealizes
-    (hnUpper.trans (by norm_num [littleStrongerLimit, little211Limit]))
+    (hnUpper.le.trans (by norm_num [littleStrongerLimit, little211Limit]))
     hsafe hx hxr
 
 /-! ## Squarefree rational-density projection -/
@@ -1364,7 +1384,7 @@ structure RealSourceClaims : Prop where
       (57 / 2_000 : Real) * Real.sqrt x
   little211 : ∀ x : Real, 1 ≤ x → x ≤ little211Limit →
     |littleMertensStep x| ≤ Real.sqrt (2 / x)
-  littleStronger : ∀ x : Real, 3 ≤ x → x ≤ littleStrongerLimit →
+  littleStronger : ∀ x : Real, 3 ≤ x → x < littleStrongerLimit →
     |littleMertensStep x| ≤ 1 / (2 * Real.sqrt x)
 
 /-- A checked full-range exact certificate supplies the complete real-source
@@ -1438,7 +1458,7 @@ theorem checked_shared_real_source_claims
     rw [littleMertensStep_eq_sourceSum] at h
     simpa [TGComputeContracts.HurstV2.littleMertensStep] using h
   · intro x hxLower hxUpper
-    have hxUpper' : x ≤ littleStrongerLimit := by
+    have hxUpper' : x < littleStrongerLimit := by
       simpa [TGComputeContracts.HurstV2.littleStrongerLimit,
         littleStrongerLimit] using hxUpper
     have h := checked_little_stronger_real hcheck evidence x hxLower hxUpper'
@@ -1486,7 +1506,7 @@ theorem checked_shared_real_source_claims_of_local
     rw [littleMertensStep_eq_sourceSum] at h
     simpa [TGComputeContracts.HurstV2.littleMertensStep] using h
   · intro x hxLower hxUpper
-    have hxUpper' : x ≤ littleStrongerLimit := by
+    have hxUpper' : x < littleStrongerLimit := by
       simpa [TGComputeContracts.HurstV2.littleStrongerLimit,
         littleStrongerLimit] using hxUpper
     have h :=

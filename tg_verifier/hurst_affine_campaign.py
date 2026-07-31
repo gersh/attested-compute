@@ -661,10 +661,15 @@ def _validate_witness_position(
             and max(shard_lower, 1) <= n <= min(shard_upper, 10**12)
         )
     else:
+        # platt-little-mertens-stronger.  The upper endpoint 7_727_068_587 is
+        # EXCLUSIVE: the closed statement is false there, so the last row that
+        # carries a stronger-range witness is 7_727_068_586, guarding the right
+        # endpoint 7_727_068_587.  See TGComputeContracts.HurstV2 and
+        # reference/tg_hurst_residual_shard.cpp.
         valid = (
             side == "right_limit"
             and max(shard_lower, 3) <= n
-            <= min(shard_upper, 7_727_068_587)
+            <= min(shard_upper, 7_727_068_586)
         )
     if not valid:
         raise HurstAffineCampaignError(

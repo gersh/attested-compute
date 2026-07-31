@@ -30,7 +30,18 @@ def sourceLimit : Nat := 10_000_000_000_000_000
 /-- Inclusive upper endpoint of Platt--Lambov equation (2.11). -/
 def little211Limit : Nat := 1_000_000_000_000
 
-/-- Inclusive upper endpoint of Platt's stronger little-Mertens computation. -/
+/-- **Exclusive** upper endpoint of Platt's stronger little-Mertens
+computation.
+
+This endpoint is exclusive and the closed form is false there.  At
+`n = 7 727 068 587` the sum is `5.6880854031502278e-06` against the majorant
+`5.6880397241931255e-06`, a relative excess of `+8.03e-06`; a sweep of
+`3 ≤ n ≤ 7 727 068 587` finds that single violation and nothing else.  On
+`[3, 7 727 068 586]` the minimum relative margin is `1.47e-05`.
+
+This is a summation-convention transport, not a weakening.  Helfgott states
+the range with `Σ_{n<x}`, which is exactly the `Σ_{n≤x}` half-open form used
+here. -/
 def littleStrongerLimit : Nat := 7_727_068_587
 
 /-- Exact source-normal Mertens step function. -/
@@ -62,7 +73,7 @@ structure RealSourceClaims : Prop where
       (57 / 2_000 : Real) * Real.sqrt x
   little211 : ∀ x : Real, 1 ≤ x → x ≤ little211Limit →
     |littleMertensStep x| ≤ Real.sqrt (2 / x)
-  littleStronger : ∀ x : Real, 3 ≤ x → x ≤ littleStrongerLimit →
+  littleStronger : ∀ x : Real, 3 ≤ x → x < littleStrongerLimit →
     |littleMertensStep x| ≤ 1 / (2 * Real.sqrt x)
 
 end TGComputeContracts.HurstV2

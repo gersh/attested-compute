@@ -91,6 +91,30 @@ result bytes.
    identities, and must not be read as having done so: the Intel signature
    over the quote is appraised outside Lean and stays a pin.
 
+   Assumption 4 is **unchanged** by the build gate described next.  The gate
+   moved the chain check from "someone did it once" to "the build refuses to
+   pass without it"; it did not move it into the kernel.
+
+### The Intel chain is checked, but outside the kernel
+
+`lake exe sparkinterval-check-tdx-chain` (see
+`Execution/TdxChainGateCLI.lean`, wired into `tools/audit_axioms.sh` and
+`.github/workflows/build-provenance.yml`) walks every retained quote's own
+ECDSA-P256 signature chain -- attestation key over `header ‖ TD report`, QE
+report data binding that key, PCK leaf over the QE report, leaf →
+intermediate → root, root self-signed, root fingerprint equal to the Intel
+SGX Root CA pinned at `tools/intel_sgx_root_ca.pem`.  That establishes the
+link this axiom's assumption 1 needs: the key that signed the quote belongs
+to a genuine Intel-rooted TDX platform.
+
+It establishes it **in Python, in a subprocess, at build time**.  No proof
+term in this development mentions a PCK certificate, and none may be written
+as though one did.  The gate also says nothing about TCB freshness, QE
+identity, or revocation, which need Intel's live collateral and remain
+`dcap-qvl`'s job.  Its offline mode is deterministic and never touches the
+network; confirming that the pinned PEM still matches Intel's published root
+is a separate `--live` mode for CI.
+
 ### How this assumption narrowed when the quote parser landed
 
 Assumption 3 used to have to carry two further things that are now checked.

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "registry_kind": "sparkinterval_ternary_goldbach_campaign_profiles",
-  "source_catalog_sha256": "204949b03f342024868667db7b87c4fed600ca2b3951e274e65f2f437dfc5373",
+  "source_catalog_sha256": "69cc423a4f14caa032fc1cb91512c9a9402e725912e8c2bca9245c539fe27d12",
   "profiles": [
     {
       "atom_id": "ch25-a7-boundary",
@@ -930,12 +930,12 @@
       "catalog_verifier": "little_mertens_fixed_point_stream_v1",
       "implementation_state": "full_campaign_ready",
       "full_source_domain": {
-        "domain_kind": "closed_real_range",
+        "domain_kind": "half_open_real_range",
         "lower": "3",
         "upper": "7727068587",
-        "coverage_rule": "Check both one-sided real-step endpoints for every exact weighted Moebius prefix through 7727068587.",
+        "coverage_rule": "Check the right real-step endpoint for every exact weighted Moebius prefix through 7727068586. The upper endpoint is exclusive: the closed statement is false at 7727068587, which is the only violation in 3 <= n <= 7727068587.",
         "work_unit": "Mobius prefix index",
-        "target_work_items": 7727068587
+        "target_work_items": 7727068586
       },
       "required_inputs": [
         {

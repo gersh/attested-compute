@@ -61,13 +61,44 @@ attestation can establish either, and the A.7 path no longer uses it. See
 The container runs the registered CH25 Lemma A.7 producer and signs a
 canonical statement of what it computed, using the P-256 key that `dstack`
 derives inside the TD. Outside, `dcap-qvl` appraises the TDX quote against a
-pinned policy. Lean verifies **only** the P-256 signature against a
-source-pinned public key, plus the bindings between that signature, the closed
-registered invocation, and the result. **Lean never parses a quote**, a PCK
-certificate chain, a TCB level, or a QE identity, and it must never be
+pinned policy. Lean verifies the P-256 signature against a source-pinned
+public key, the bindings between that signature, the closed registered
+invocation, and the result, and — since `Execution/TdxQuoteV4.lean` landed —
+the quote's own `mrconfigid` and `report_data`. **Lean never parses a PCK
+certificate chain, a TCB level, or a QE identity**, and it must never be
 described as having done so. This is the same division of labour as the Azure
 path, where MAA appraises the attestation outside Lean and Lean checks a
 signature.
+
+### The Intel chain is a build gate, not a Lean proof
+
+The link Lean does not close — that the pinned key belongs to a genuine
+Intel-rooted TDX platform — is checked outside the kernel, by a gate that a
+build cannot silently skip:
+
+```bash
+lake exe sparkinterval-check-tdx-chain                     # offline
+lake exe sparkinterval-check-tdx-chain --require-evidence  # absent = fatal
+lake exe sparkinterval-check-tdx-chain --live              # online only
+```
+
+It walks every retained quote's signature chain — attestation key over
+`header ‖ TD report`, QE report data binding that key, PCK leaf over the QE
+report, leaf → intermediate → root, root self-signed, root fingerprint equal
+to `tools/intel_sgx_root_ca.pem`. It runs from `tools/audit_axioms.sh` and
+from `.github/workflows/build-provenance.yml`.
+
+The offline mode touches no network. Confirming that the pinned PEM is still
+the root Intel publishes is the separate `--live` mode, so a build never
+depends on Intel's service being up and a network failure is never reported
+as an attestation failure. Exit `1` means a quote is present and its chain is
+invalid; exit `3` means no bundle was present, a loud skip rather than a pass;
+exit `4` means `--live` could not reach Intel.
+
+This adds **no** power to Lean. `Execution/PhalaTdxOperationalAttestation.lean`
+still assumes the external appraisal, and no proof term mentions a
+certificate. The gate also says nothing about TCB freshness, QE identity, or
+revocation, which need Intel's live collateral and stay `dcap-qvl`'s job.
 
 ---
 

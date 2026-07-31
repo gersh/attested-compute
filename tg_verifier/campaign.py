@@ -206,6 +206,10 @@ def _validate_domain(value: Any, atom_id: str, target_work_items: int) -> dict[s
     )
     if domain["domain_kind"] not in {
         "closed_real_range",
+        # `upper` is the first point NOT covered.  Needed by
+        # platt-little-mertens-stronger, whose closed statement is false at
+        # its endpoint; see TGComputeContracts.HurstV2.littleStrongerLimit.
+        "half_open_real_range",
         "closed_integer_range",
         "finite_index_set",
         "compound_finite_range",

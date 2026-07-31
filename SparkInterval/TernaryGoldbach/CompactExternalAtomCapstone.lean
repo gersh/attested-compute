@@ -75,10 +75,14 @@ abbrev PlattLittleMertens211Claim : Prop :=
     |TGComputeContracts.HurstV2.littleMertensStep x| ≤
       Real.sqrt (2 / x)
 
-/-- Platt's stronger finite little-Mertens range. -/
+/-- Platt's stronger finite little-Mertens range.
+
+The upper endpoint is **exclusive**.  The closed form is false at
+`7 727 068 587`, and Helfgott's `Σ_{n<x}` statement is exactly this half-open
+`Σ_{n≤x}` one; see `TGComputeContracts.HurstV2.littleStrongerLimit`. -/
 abbrev PlattLittleMertensStrongerClaim : Prop :=
   ∀ x : Real, 3 ≤ x →
-    x ≤ TGComputeContracts.HurstV2.littleStrongerLimit →
+    x < TGComputeContracts.HurstV2.littleStrongerLimit →
     |TGComputeContracts.HurstV2.littleMertensStep x| ≤
       1 / (2 * Real.sqrt x)
 

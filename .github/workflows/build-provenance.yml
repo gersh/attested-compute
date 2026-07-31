@@ -301,3 +301,76 @@ jobs:
             exit 1
           fi
           echo "reproducible-build check passed: manifests are byte-identical"
+
+  # ---------------------------------------------------------------------------
+  # 4. Intel certificate-chain gate.  Independent of the provenance lane above;
+  #    it is here because this is where the repository's CI lives.
+  #
+  #    Lean verifies, in kernel, that the pinned enclave key signed a statement
+  #    naming the algorithm, its input and its result, and that the quote's own
+  #    mrconfigid and report data bind that key to the pinned compose.  What
+  #    Lean does NOT verify is that the pinned key belongs to a genuine TDX
+  #    enclave rooted in Intel's CA.  That link is real but external, and
+  #    `SparkInterval/Execution/PhalaTdxOperationalAttestation.lean` continues
+  #    to say Lean does not parse PCK certificate chains.  This job walks the
+  #    chain outside the kernel so the check cannot be silently skipped.
+  #
+  #    The two steps are split on purpose.  The offline step is deterministic
+  #    and must never depend on network reachability.  The online step confirms
+  #    the pinned PEM still matches Intel's published root; it tolerates a
+  #    network failure (exit 4) because a network failure is not an attestation
+  #    failure, but a genuine fingerprint mismatch (exit 1) fails the job.
+  # ---------------------------------------------------------------------------
+  intel-chain-gate:
+    name: Intel certificate chain for retained TDX quotes
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      # Same workflow-wide invariant as the provenance jobs: a gate that only
+      # ever ran on hardware the repository owner controls is weak evidence
+      # that the gate ran at all.
+      - name: Require a GitHub-hosted runner
+        run: |
+          set -o errexit -o nounset -o pipefail
+          if [ "${RUNNER_ENVIRONMENT:-}" != "github-hosted" ]; then
+            echo "refusing to run the Intel certificate-chain gate on a" \
+              "'${RUNNER_ENVIRONMENT:-unset}' runner: a gate attested only on" \
+              "owner-controlled hardware is not worth what this lane" \
+              "claims" >&2
+            exit 1
+          fi
+          echo "runner environment: ${RUNNER_ENVIRONMENT}"
+
+      - name: Check out the exact commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Install the X.509 / ECDSA dependency
+        run: python3 -m pip install --disable-pip-version-check cryptography
+
+      - name: Offline chain check against the pinned Intel SGX Root CA
+        run: |
+          set -o errexit -o nounset -o pipefail
+          # --require-evidence: the bundles are committed, so their absence is
+          # a broken checkout rather than an unconfigured one.  Without it the
+          # checker exits 3 ("nothing to check"), a loud skip and not a pass.
+          python3 tools/verify_tdx_quote_chain.py --require-evidence
+
+      - name: Online check that the pinned root is still Intel's published root
+        run: |
+          set -o errexit -o nounset -o pipefail
+          status=0
+          python3 tools/verify_tdx_quote_chain.py --check-live-intel-root \
+            || status=$?
+          case "${status}" in
+            0) echo "pinned root matches Intel's published root" ;;
+            4) echo "::warning::could not reach Intel's certificate service;" \
+                 "this is a NETWORK result, not an attestation result -- the" \
+                 "offline gate above is unaffected" ;;
+            *) echo "::error::the pinned Intel SGX Root CA no longer matches" \
+                 "what Intel publishes (exit ${status})" >&2
+               exit "${status}" ;;
+          esac

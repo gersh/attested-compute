@@ -484,7 +484,7 @@ def registered_invocation_expected(
             "squarefree-b1=151/2000-after-9243;check-value-at-n>=9243-and-right-limit-at-n+1\n"
             "squarefree-b2=57/2000-after-438429;check-value-at-n>=438429-and-right-limit-at-n+1\n"
             "little-2-11=right*abs(q96)^2<=2*2^192-for-1<=n<=10^12\n"
-            "little-stronger=4*right*abs(q96)^2<=2^192-for-3<=n<=7727068587\n"
+            "little-stronger=4*right*abs(q96)^2<=2^192-for-3<=n<7727068587\n"
             "output=false-or-true-with-local-replay-evidence"
         )
         input_text = (

@@ -76,6 +76,16 @@ root = "SparkInterval.TernaryGoldbach.A7BoundaryWireCLI"
 name = "sparkinterval-check-certificate"
 root = "SparkInterval.Certificate.CLI"
 
+# Build gate for the one attestation link Lean does not check: that the pinned
+# enclave key belongs to a TDX platform rooted in Intel's CA.  It shells out to
+# the vendored `tools/verify_tdx_quote_chain.py`; it proves nothing and puts
+# nothing into Lean's kernel.  See the module docstring, and
+# `SparkInterval/Execution/PhalaTdxOperationalAttestation.lean`, whose
+# assumption list is unchanged by it.
+[[lean_exe]]
+name = "sparkinterval-check-tdx-chain"
+root = "SparkInterval.Execution.TdxChainGateCLI"
+
 [[lean_exe]]
 name = "sparkinterval-check-dirichlet-qorder"
 root = "SparkInterval.Dirichlet.QOrderManifestCLI"

@@ -139,13 +139,13 @@
     {
       "id": "platt-little-mertens-stronger",
       "lean_name": "MathExtras.Helfgott.Section24.residual_platt_stronger_range",
-      "claim": "For every real 3 <= x <= 7727068587, |sum_{n<=x} mu(n)/n| <= 1/(2*sqrt(x)).",
+      "claim": "For every real 3 <= x < 7727068587, |sum_{n<=x} mu(n)/n| <= 1/(2*sqrt(x)). The upper endpoint is exclusive; the closed form is false there. Helfgott states the range with sum_{n<x}, which is exactly this half-open sum_{n<=x} form.",
       "verifier": "little_mertens_fixed_point_stream_v1",
-      "present_evidence": "This atom is another logical consumer of the one shared Hurst four-residual campaign. The same two passes preserve its exact scale-2^96 reciprocal state, source-shaped real-slab guards, and exceptional closed endpoint 7727068587. Bounded tests pass, but no complete shared certificate exists and this atom schedules no separate scan.",
+      "present_evidence": "This atom is another logical consumer of the one shared Hurst four-residual campaign. The same two passes preserve its exact scale-2^96 reciprocal state, source-shaped real-slab guards, and half-open upper endpoint 7727068587 (exclusive). Bounded tests pass, but no complete shared certificate exists and this atom schedules no separate scan.",
       "completion_requirement": "Execute and independently audit the shared four-residual campaign, replay this guard family from its final certificate, and prove the stronger-range endpoint reduction in Lean.",
       "feasibility": "shared_full_source_hurst_campaign_implemented_run_pending",
       "work_unit": "Mobius prefix index",
-      "target_work_items": 7727068587
+      "target_work_items": 7727068586
     }
   ]
 }

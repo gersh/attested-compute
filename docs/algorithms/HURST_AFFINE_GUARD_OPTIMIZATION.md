@@ -291,7 +291,7 @@ The reviewed V2 identity is:
 
 | Field | Exact value |
 | --- | --- |
-| algorithm SHA-256 | `7ba331f8cc0457f3a19bbce0887be65b12ba005952ed480aeb5b98c86611a6cd` |
+| algorithm SHA-256 | `d5fa24d80d95216208ff8e8bbacb42ec181966b40e6a577dae26d585c09df5aa` |
 | input SHA-256 | `84cad6505119c2498b1213c73c13e379ebcc0e8bbd2d445d1539d45ec06fc5b7` |
 | parameters SHA-256 | `78f8cf9ecdcac464c1711f877c57e31518dd66d6070882fb6de1d2a199068d1d` |
 | domain SHA-256 | `fbbe3abc2d158bebb2a9f9b06c0379c3fd9eff168c86c9900a7997172ec91f0a` |
