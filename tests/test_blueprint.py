@@ -748,7 +748,7 @@ class BlueprintIntegrationTests(unittest.TestCase):
     def test_leanarchitect_revision_matches_toolchain_release(self) -> None:
         lakefile = (ROOT / "lakefile.toml").read_text(encoding="utf-8")
         toolchain = (ROOT / "lean-toolchain").read_text(encoding="utf-8")
-        self.assertEqual(toolchain.strip(), "leanprover/lean4:v4.32.0")
+        self.assertEqual(toolchain.strip(), "leanprover/lean4:v4.32.1")
         self.assertIn(
             'rev = "3810ba48f2e5bbd83b32623d21fc059b279dbf81"',
             lakefile,
