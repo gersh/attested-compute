@@ -52,8 +52,8 @@ The expected digest is
 
 ## Generate machine-readable blueprint data
 
-The repository pins the LeanArchitect release matching its Lean
-`v4.32.0` toolchain. The historical curated graph imports the production
+The repository uses the Lean `v4.32.1` compiler patch and pins the compatible
+LeanArchitect `v4.32.0` release commit. The historical curated graph imports the production
 registry and materialized Platt/CDEM tables, so generation is a measured Azure
 qualification operation rather than a local documentation build. Inside that
 worker, generate it through the serialized, memory-capped planner:
