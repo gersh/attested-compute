@@ -61,14 +61,6 @@ certificate axiom alone supplies the per-run physical-to-formal connection.
 - [DGX Spark setup](DGX_SPARK_SETUP.md)
 - [Worked examples](../examples/README.md)
 - [H100 offline support](H100.md)
-- [Challenge-first Azure CPU/H100 measured runner](AZURE_MEASURED_RUNNER.md)
-- [Azure confidential CPU/H100 execution](AZURE_CONFIDENTIAL_COMPUTE.md)
-- [Azure H100 production operator state machine](AZURE_H100_PRODUCTION_OPERATOR.md)
-- [Azure SEV-SNP CPU production operator state machine](AZURE_CPU_PRODUCTION_OPERATOR.md)
-- [Fail-closed Azure ternary-Goldbach portfolio DAG](AZURE_TG_PORTFOLIO_ORCHESTRATION.md)
-- [Read-only Azure ternary-Goldbach launch preflight](AZURE_TG_LAUNCH_PREFLIGHT.md)
-- [DGX Spark benchmarks and Azure performance sizing](AZURE_PERFORMANCE_SIZING.md)
-- [Azure Managed HSM receipt signing](AZURE_MANAGED_HSM_SIGNING.md)
 - [Pinned numeric-corpus references and cloud-receipt binding](NUMERIC_CORPUS_REFERENCES.md)
 
 ## Verifiers
@@ -82,6 +74,10 @@ axiom assumes but does not check.
 - [Attested runs: turning a computation you cannot re-run into a theorem](ATTESTED_COMPCERT_RUNS.md)
 - [Phala TDX deployment: what actually gets signed](PHALA_TDX_DEPLOYMENT.md)
 
+Then the rest:
+
+- [A leancompcert campaign, built for real: what worked and what did not](LEANCOMPCERT_SEG_CAMPAIGN_RUN.md)
+- [What this project is, in one page](OVERVIEW.md)
 - [Verifier guide](VERIFYING.md)
 - [Correctness claims and proof boundary](CORRECTNESS_CLAIMS.md)
 - [Trust model and execution assumptions](TRUST_MODEL.md)
@@ -104,13 +100,95 @@ axiom assumes but does not check.
 - [First Phala run: history and pitfalls](PHALA_FIRST_RUN.md)
 - [CompCert artifacts under TDX](COMPCERT_ARTIFACT_UNDER_TDX.md)
 - [Superseded: the CompCert run ledger](COMPCERT_RUN_LEDGER.md)
-- [Challenge-first measured-runner and evidence handoff](AZURE_MEASURED_RUNNER.md)
-- [Azure confidential CPU/H100 operator workflow](AZURE_CONFIDENTIAL_COMPUTE.md)
-- [Fail-closed Azure H100 production runbook](AZURE_H100_PRODUCTION_OPERATOR.md)
-- [Fail-closed Azure SEV-SNP CPU production runbook](AZURE_CPU_PRODUCTION_OPERATOR.md)
-- [Azure ternary-Goldbach portfolio planning and resume](AZURE_TG_PORTFOLIO_ORCHESTRATION.md)
+
+## Algorithm and campaign notes
+
+These are working notes for individual computations: what each one computes,
+how it is scheduled, and where its Lean binding sits. They are reference
+material rather than a reading order — most readers want the Verifiers section
+above instead.
+
+### Zeta, Dirichlet, and Platt
+
+- [Primitive-V2 all-character q-order scheduler](algorithms/DIRICHLET_ALL_CHARACTER_Q_SCHEDULER.md)
+- [Formulaic Dirichlet q-major target cursor](algorithms/DIRICHLET_FORMULAIC_QMAJOR_CURSOR.md)
+- [A uniform interpolation-truncation bound for Platt's Theorem 7.1 domain](algorithms/DIRICHLET_INTERPOLATION_UNIFORM_BOUND.md)
+- [Fused large-q SM90 post-compilation validation slice](algorithms/DIRICHLET_LARGEQ_SASS_VALIDATION_SLICE.md)
+- [Bounded resident q-major phase](algorithms/DIRICHLET_RESIDENT_QMAJOR_PHASE.md)
+- [Resident q-major Dirichlet phase plan](algorithms/DIRICHLET_RESIDENT_QMAJOR_PLAN.md)
+- [Source-shaped resident q-major stream candidate](algorithms/DIRICHLET_RESIDENT_QMAJOR_STREAM.md)
+- [Scheduled large-q Dirichlet component graph](algorithms/DIRICHLET_SCHEDULED_LARGEQ_PIPELINE.md)
+- [Factored small-q raw-trace Lean bridge](algorithms/DIRICHLET_SMALLQ_RAW_TRACE_BRIDGE.md)
+- [Small-q semantic sign scan](algorithms/DIRICHLET_SMALLQ_SIGN_SCAN.md)
+- [The corrected reflected Turing bound for Dirichlet L-functions](algorithms/DIRICHLET_TURING_REFLECTED_BOUND.md)
+- [LMFDB zeta prefix through `10^10`](algorithms/LMFDB_ZETA_PREFIX_IMPORT.md)
+- [Platt Appendix C interpolation source map](algorithms/PLATT_LEMMA_C3_SOURCE_MAP.md)
+- [PT21 worker block-input stream](algorithms/PLATT_PT21_BLOCK_INPUT_STREAM.md)
+- [PT21 sloppy-DD root whole-transform qualification](algorithms/PLATT_PT21_DD_SLOPPY_ROOT_WHOLE_TRANSFORM_QUALIFICATION.md)
+- [PT21 tile9 plus sloppy-root whole-transform qualification](algorithms/PLATT_PT21_DD_TILE9_SLOPPY_ROOT_WHOLE_TRANSFORM_QUALIFICATION.md)
+- [PT21 fused three-stream event stage](algorithms/PLATT_PT21_FUSED_EVENT_STREAM.md)
+- [PT21 qualification-only inline stationary stream](algorithms/PLATT_PT21_INLINE_STATIONARY.md)
+- [PT21 multiwindow transform-reuse qualification](algorithms/PLATT_PT21_MULTIWINDOW_REUSE_QUALIFICATION.md)
+- [PT21 native retained-export finalizer](algorithms/PLATT_PT21_NATIVE_FINALIZER.md)
+- [PT21 authenticated stationary junction](algorithms/PLATT_PT21_STATIONARY_JUNCTION.md)
+- [Platt source-semantic complex-disk prototype](algorithms/PLATT_WINDOWED_DISK_SEMANTIC_PROTOTYPE.md)
+- [Platt windowed zeta: source-semantic transform stage](algorithms/PLATT_WINDOWED_SEMANTIC_TRANSFORMS.md)
+- [The PT21 verification ladder](algorithms/PT21_VERIFICATION_LADDER.md)
+- [The Lean interface contract for the zeta (Platt PT21) campaign](algorithms/ZETA_LEAN_INTERFACE_CONTRACT.md)
+
+### Goldbach
+
+- [Goldbach `10^27` verification boundary](algorithms/GOLDBACH_10POW27_VERIFICATION_BOUNDARY.md)
+- [Goldbach prime-prefix reuse candidate](algorithms/GOLDBACH_PRIME_PREFIX_REUSE.md)
+- [Goldbach CTA-local tail-combiner qualification](algorithms/GOLDBACH_TAIL_COMBINER_QUALIFICATION.md)
+- [Goldbach wheel-gap tail qualification](algorithms/GOLDBACH_WHEEL_GAP_TAIL_QUALIFICATION.md)
+- [Compact capstone for all thirteen external atoms](algorithms/TERNARY_GOLDBACH_COMPACT_ATOM_CAPSTONE.md)
+- [Full ternary Goldbach trust-boundary closure](algorithms/TERNARY_GOLDBACH_FULL_TRUST_BOUNDARY.md)
+- [Architecture route for every native-generated ternary-Goldbach dependency](algorithms/TERNARY_GOLDBACH_NATIVE_AGGREGATE_ARCHITECTURE.md)
+- [Ternary Goldbach native-family closure](algorithms/TERNARY_GOLDBACH_NATIVE_FAMILY_CLOSURE.md)
+- [Ternary Goldbach native-root member crosswalk](algorithms/TERNARY_GOLDBACH_NATIVE_MEMBER_CROSSWALK.md)
+- [Static-CPU executable certificates for the external campaigns](algorithms/TERNARY_GOLDBACH_STATIC_CPU_EXECUTABLE_CERTIFICATES.md)
+
+### Execution boundaries and certificates
+
+- [Fixed decision checker boundary](algorithms/FIXED_DECISION_CHECKER.md)
+- [Closed architecture invocations for every ternary-Goldbach computation](algorithms/REGISTERED_ARCHITECTURE_INVOCATIONS.md)
+- [Sqrt218 physical-launch identity V2](algorithms/SQRT218_PHYSICAL_LAUNCH_IDENTITY_V2.md)
+- [Sqrt218 pure-entry launcher boundary](algorithms/SQRT218_PURE_ENTRY_LAUNCHER_BOUNDARY.md)
+- [Sqrt218 pure-entry source-refinement map](algorithms/SQRT218_PURE_ENTRY_SOURCE_REFINEMENT_MAP.md)
+- [Sqrt218 verified CPU-compiler path](algorithms/SQRT218_VERIFIED_COMPILER_PATH.md)
+- [Sqrt218 x86-64 model feasibility](algorithms/SQRT218_X86_MODEL_FEASIBILITY.md)
+- [Sqrt218 x86-64 pure-entry ABI model](algorithms/SQRT218_X86_PURE_ENTRY_ABI_MODEL.md)
+
+### Other campaigns
+
+- [CDEM Abel typed replay refinement](algorithms/CDEM_ABEL_TYPED_REPLAY_REFINEMENT.md)
+- [The CH25 Lemma A.7 reference model, and what it costs to remove the enclave](algorithms/CH25_A7_LEAN_MODEL.md)
+- [CH25 psi qualification and one-pass affine optimization](algorithms/CH25_PSI_QUALIFICATION_AND_AFFINE_OPTIMIZATION.md)
+- [Equation (13.15) coupled-cap certificate prototype](algorithms/EQ1315_COUPLED_CAP_CAMPAIGN.md)
+- [Hurst affine versus two-pass bounded qualification](algorithms/HURST_AFFINE_EQUIVALENCE_QUALIFICATION.md)
+- [Ramaré production folds: compact fallback](algorithms/RAMARE_NATIVE_FOLDS_COMPACT_FALLBACK.md)
+
+## Azure backend (never validated on hardware)
+
+No Azure run has ever been performed: there is no `az` CLI, no subscription,
+and `tests/data/` holds retained evidence for Intel TDX only. These documents
+describe a design that has not been executed, and are listed so the repository
+does not appear to contain undocumented files — not as a supported path. The
+supported path is Intel TDX, under Verifiers above.
+
+- [Closed Azure CPU materialization for the Hurst V2 campaign](algorithms/HURST_AZURE_CPU_MATERIALIZER_DESIGN.md)
+- [Sqrt218 finite certificate on Azure confidential CPU](algorithms/SQRT218_AZURE_CPU_CERTIFICATE.md)
+- [Azure H100 production operator state machine](AZURE_H100_PRODUCTION_OPERATOR.md)
+- [Azure Managed HSM receipt signing](AZURE_MANAGED_HSM_SIGNING.md)
+- [Azure SEV-SNP CPU production operator state machine](AZURE_CPU_PRODUCTION_OPERATOR.md)
+- [Azure confidential CPU/H100 execution](AZURE_CONFIDENTIAL_COMPUTE.md)
 - [Azure ternary-Goldbach launch preflight and blocker classes](AZURE_TG_LAUNCH_PREFLIGHT.md)
-- [Managed HSM key provisioning, attestation, and receipt signing](AZURE_MANAGED_HSM_SIGNING.md)
+- [Azure ternary-Goldbach portfolio planning and resume](AZURE_TG_PORTFOLIO_ORCHESTRATION.md)
+- [Challenge-first Azure CPU/H100 measured runner](AZURE_MEASURED_RUNNER.md)
+- [DGX Spark benchmarks and Azure performance sizing](AZURE_PERFORMANCE_SIZING.md)
+- [Hurst terminal range on eight Azure H100 workers](algorithms/HURST_8XH100_AFFINE_CLUSTER.md)
+- [LMFDB zeta-prefix Azure audit campaign](algorithms/LMFDB_ZETA_PREFIX_CAMPAIGN.md)
 
 ## Format reference
 

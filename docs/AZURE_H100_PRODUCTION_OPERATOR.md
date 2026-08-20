@@ -1,5 +1,13 @@
 # Azure H100 production operator
 
+> **⚠ Never validated on hardware.** No Azure run has ever been performed.
+> There is no `az` CLI, no `~/.azure`, and no subscription in this environment;
+> `tests/data/` contains retained evidence for Intel TDX runs only, and
+> `attestation/verify_azure_ncc_evidence.py` currently fails at import. The
+> Azure backend is a design, not a working path — treat everything below as a
+> specification that has not been executed. The supported path is Intel TDX:
+> see [`../attestation/phala/README.md`](../attestation/phala/README.md).
+
 `azure/h100_production_orchestrator.py` is the fail-closed state machine for
 one certificate-capable run on one private
 `Standard_NCC40ads_H100_v5` VM. It composes the measured runner, the

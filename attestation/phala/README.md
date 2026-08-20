@@ -23,19 +23,22 @@ one. See `../../docs/PHALA_TDX_DEPLOYMENT.md` for the deployment format and
 ## The order things happen in
 
 ```sh
-python3 build_compose.py --manifest <deployment>/deployment.json
-bash dry_run.sh       <deployment>     # free; must pass before spending
-bash negative_test.sh <deployment>     # free; every gate must refuse
-PHALA_CLOUD_API_KEY=phak_… bash deploy.sh <deployment>   # ~$0.03
-python3 verify_run.py --deployment <deployment> --log <…>/phala-run.log
+DEPLOYMENT=../../../claude_math/audits/compcert/rh_phala   # holds deployment.json
+
+python3 build_compose.py --manifest "$DEPLOYMENT/deployment.json"
+bash dry_run.sh       "$DEPLOYMENT"    # free; must pass before spending
+bash negative_test.sh "$DEPLOYMENT"    # free; every gate must refuse
+PHALA_CLOUD_API_KEY=phak_... bash deploy.sh "$DEPLOYMENT"   # ~$0.03
+python3 verify_run.py --deployment "$DEPLOYMENT" \
+        --log "$DEPLOYMENT/retained-evidence/phala-run.log"
 ```
 
 Then, in the consuming repository, generate the Lean receipt literal rather
 than transcribing sixteen hexadecimal fields by hand:
 
 ```sh
-python3 ../../tools/attest/emit_lean_receipt.py <deployment>/retained-evidence \
-        compcert-run-v1:<artifact>
+python3 ../../tools/attest/emit_lean_receipt.py "$DEPLOYMENT/retained-evidence" \
+        compcert-run-v1:ceu_harmonic_1048576
 ```
 
 It prints the app id, compose hash and enclave key to stderr — the three values

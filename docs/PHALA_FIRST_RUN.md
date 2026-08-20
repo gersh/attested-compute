@@ -107,11 +107,17 @@ revocation, which need Intel's live collateral and stay `dcap-qvl`'s job.
 The image is `linux/amd64` because Intel TDX is an x86 feature.
 
 ```bash
+# `<registry>` and `<version>` as literal angle brackets are shell redirections,
+# not placeholders -- set them as variables so the block can be pasted as-is.
+REGISTRY=ghcr.io/your-account
+VERSION=v1
+IMAGE="$REGISTRY/attested-compute-ch25-a7-phala-tdx:$VERSION"
+
 docker build --platform linux/amd64 \
   -f proof_build/ch25_a7_phala_tdx/Dockerfile \
-  -t <registry>/sparkinterval-ch25-a7-phala-tdx:<version> .
-docker push <registry>/sparkinterval-ch25-a7-phala-tdx:<version>
-docker buildx imagetools inspect <registry>/sparkinterval-ch25-a7-phala-tdx:<version>
+  -t "$IMAGE" .
+docker push "$IMAGE"
+docker buildx imagetools inspect "$IMAGE"
 ```
 
 On a non-amd64 build host, register emulation first:
@@ -431,7 +437,7 @@ then sleeps for `TG_EVIDENCE_HOLD_SECONDS` (24 h, a literal in the compose and
 therefore measured). Retrieve and decode it with:
 
 ```bash
-phala cvms logs <cvm-id> > run.log
+phala cvms logs "$CVM_ID" > run.log
 python3 tools/tg_phala_tdx_extract_evidence.py --log run.log \
     --out-dir ./retained-evidence
 ```
@@ -551,7 +557,7 @@ gets pinned, and a wrong pin is not a build failure -- it is a silently trusted
 stranger. Instead:
 
 ```
-cp -r ./retained-evidence ./run-scope.txt tests/data/phala_tdx_<run>/
+cp -r ./retained-evidence ./run-scope.txt "tests/data/phala_tdx_$RUN/"
 python3 tools/tg_phala_tdx_pin_from_evidence.py \
     --evidence-dir tests/data/phala_tdx_<run> \
     --out SparkInterval/Execution/PhalaTdx<Run>Evidence.lean
@@ -796,7 +802,7 @@ POLICY_B64=$(base64 -w0 proof_build/ch25_a7_phala_tdx/dcap-qvl-policy.json)
 
 # 4. Watch the prelude.  It exits 0 and the campaign starts, or it FAILS and
 #    holds itself open for 24 h so that its log is readable:
-phala cvms logs <cvm-id> | tail -200
+phala cvms logs "$CVM_ID" | tail -200
 #   A failed prelude produces nothing and the campaign never starts.  Fix the
 #   policy (section 4b), destroy the CVM, redeploy the SAME app-compose.json
 #   (the policy is not part of it, so the compose hash and RTMR3 do not move).
@@ -804,7 +810,7 @@ phala cvms logs <cvm-id> | tail -200
 # 5. Retrieve the evidence from the campaign container's log, BEFORE
 #    destroying the CVM.  The container prints everything and then sleeps for
 #    24 h; that log is the only channel out.
-phala cvms logs <cvm-id> > run.log
+phala cvms logs "$CVM_ID" > run.log
 python3 tools/tg_phala_tdx_extract_evidence.py --log run.log \
     --out-dir ./retained-evidence
 #   writes ./retained-evidence/{input,evidence,output}/... and verifies every

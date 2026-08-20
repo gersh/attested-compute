@@ -1,5 +1,13 @@
 # Closed Azure CPU materialization for the Hurst V2 campaign
 
+> **⚠ Never validated on hardware.** No Azure run has ever been performed.
+> There is no `az` CLI, no `~/.azure`, and no subscription in this environment;
+> `tests/data/` contains retained evidence for Intel TDX runs only, and
+> `attestation/verify_azure_ncc_evidence.py` currently fails at import. The
+> Azure backend is a design, not a working path — treat everything below as a
+> specification that has not been executed. The supported path is Intel TDX:
+> see [`../../attestation/phala/README.md`](../../attestation/phala/README.md).
+
 Status: terminal byte contract, 320-group partition, source-closed Azure CPU
 phase materializers, and portfolio-catalog routing are implemented.
 Confidential-VM calibration and the production run remain pending.

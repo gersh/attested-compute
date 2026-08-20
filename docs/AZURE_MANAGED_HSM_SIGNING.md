@@ -1,5 +1,13 @@
 # Azure Managed HSM receipt signing
 
+> **⚠ Never validated on hardware.** No Azure run has ever been performed.
+> There is no `az` CLI, no `~/.azure`, and no subscription in this environment;
+> `tests/data/` contains retained evidence for Intel TDX runs only, and
+> `attestation/verify_azure_ncc_evidence.py` currently fails at import. The
+> Azure backend is a design, not a working path — treat everything below as a
+> specification that has not been executed. The supported path is Intel TDX:
+> see [`../attestation/phala/README.md`](../attestation/phala/README.md).
+
 The receipt signer belongs on the independent relying-party side of the
 trusted-compute pipeline, never on an Azure computation worker. It signs only
 after the pinned Azure/NVIDIA appraisers have accepted the complete evidence

@@ -9,7 +9,23 @@ from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCAL_LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
-PHASE_JARGON = re.compile(r"\b[Pp]hase\s+[0-9]+\b")
+# Development-phase jargon: prose that describes the PROJECT as being in a
+# numbered phase of a plan.  The bare pattern `phase <n>` is too broad -- these
+# documents legitimately describe algorithmic phases (a GPU sieve's phase 1, a
+# table row "fallback phase 1", and captured program output reading
+# "Phase 2 fallbacks : 0"), and rewriting technical prose or literal output to
+# satisfy a regular expression would make the documentation worse, not better.
+# So match a numbered phase only where it is used as a plan label: as a
+# heading, or next to planning vocabulary.
+PHASE_JARGON = re.compile(
+    r"^#+\s*[Pp]hase\s+[0-9]+\b"                      # a heading
+    r"|\b[Pp]hase\s+[0-9]+\s+(?:is|was|will|has|have)\b"
+    r"|\b[Pp]hase\s+[0-9]+\s*[-:\u2014]\s*(?:complete|done|in progress|planned)"
+    r"|\b(?:complete|completed|finish(?:ed)?|begin(?:s|ning)?|start(?:s|ed)?|enter(?:s|ed|ing)?"
+    r"|plan(?:ned)?|milestone|deliverable|roadmap|scope)\s+(?:of\s+|for\s+)?[Pp]hase\s+[0-9]+\b"
+    r"|\b[Pp]hase\s+[0-9]+\s+(?:plan|milestone|deliverable|roadmap|scope|work|effort)\b",
+    re.MULTILINE,
+)
 BASH_FENCE = re.compile(r"```(?:bash|sh)\n(.*?)```", re.DOTALL)
 
 
@@ -17,6 +33,7 @@ def documentation_files() -> list[Path]:
     paths = [
         ROOT / "README.md",
         ROOT / "attestation" / "README.md",
+        ROOT / "attestation" / "phala" / "README.md",
         ROOT / "gpu" / "platform" / "h100" / "README.md",
     ]
     for directory in ("docs", "examples", "specifications"):
@@ -127,6 +144,41 @@ class DocumentationTests(unittest.TestCase):
             if "IMPLEMENTATION_STATUS.md" in text or PHASE_JARGON.search(text):
                 failures.append(str(path.relative_to(ROOT)))
         self.assertEqual(failures, [])
+
+    def test_phase_jargon_rule_catches_plan_language_and_spares_algorithms(self) -> None:
+        """The jargon rule was narrowed; this is what stops it eroding further.
+
+        It used to match any `phase <n>`, which flagged four documents for
+        describing a GPU sieve's phase 1, a table row, and captured program
+        output reading `Phase 2 fallbacks : 0`.  Rewriting technical prose and
+        literal output to satisfy a regular expression makes documentation
+        worse, so the rule now targets plan language only.  Narrowing a gate is
+        exactly when it needs a test in both directions.
+        """
+        plan_language = [
+            "## Phase 1", "# Phase 2: hardening", "Phase 2 is complete",
+            "Phase 1 was delivered in June", "we completed Phase 3",
+            "the Phase 2 plan", "Phase 1 - complete", "entering Phase 4",
+            "Phase 5 will ship next quarter", "Phase 2 milestone",
+            "beginning Phase 6", "Phase 7 deliverable", "started Phase 8",
+            "Phase 9 scope", "the roadmap for Phase 10",
+        ]
+        algorithmic = [
+            "global-atomic sieve, `244.002 ms` to phase 1",
+            "| fallback phase 1 | 52 | 96 |",
+            "Phase 2 fallbacks      : 0",
+            "For exact source phase 7, structural reconstruction",
+            "compares every live packed word before phase 1",
+            "warp + shifted phase 1 + packed count",
+            "the phase 1 kernel writes 64 words",
+            "phase 2 of the sieve emits packed words",
+        ]
+        for text in plan_language:
+            with self.subTest(should_flag=text):
+                self.assertIsNotNone(PHASE_JARGON.search(text))
+        for text in algorithmic:
+            with self.subTest(should_allow=text):
+                self.assertIsNone(PHASE_JARGON.search(text))
 
     def test_docs_index_lists_every_mutable_document(self) -> None:
         index = (ROOT / "docs" / "README.md").read_text(encoding="utf-8")

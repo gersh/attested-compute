@@ -11,9 +11,25 @@ There are two independent backends, and they are at different stages:
 | | |
 | --- | --- |
 | [`phala/`](phala/README.md) | **Intel TDX on Phala Cloud.** The current path, exercised on real hardware. Runs CompCert artifacts inside a confidential VM and produces evidence checkable offline against the pinned Intel SGX Root CA. Start at [`phala/README.md`](phala/README.md); the trust surface is in [`../docs/TRUSTING_THE_ENCLAVE.md`](../docs/TRUSTING_THE_ENCLAVE.md) and what the Lean axiom does *not* check is in [`../docs/AXIOM_ASSUMPTIONS.md`](../docs/AXIOM_ASSUMPTIONS.md). |
-| the Azure files below | **Azure confidential CPU and H100.** An earlier, more elaborate design built around a relying-party challenge and MAA/NVAT appraisal. Described here for completeness; the TDX path is the one currently in use. |
+| the Azure files below | **Azure confidential CPU and H100 — never validated on hardware.** An earlier, more elaborate design built around a relying-party challenge and MAA/NVAT appraisal. It has never been executed: there is no `az` CLI, no subscription, `tests/data/` holds retained evidence for Intel TDX only, and `verify_azure_ncc_evidence.py` currently fails at import. Read it as a specification. |
 
-The rest of this document describes the Azure path.
+## Why the Azure path is still here at all
+
+Its own readiness document said so plainly — *"Nothing here was verified
+against a live Azure account"*, with `tg_azure_launch_preflight.py` reporting
+zero of ten campaigns `cloud_launch_ready` — so on 2026-08-20 the parts that
+nothing else depended on were deleted: 27 Azure-only tests, 3 tools and 2
+documents, 30 files in all, recoverable from git history.
+
+The rest stays because it is not separable. `azure/measured_runner.py` has 37
+referrers and `azure/cpu_production_orchestrator.py` has 29, spanning the H100
+and GPU measured-worker machinery that is not Azure-specific despite living
+under this name. Deleting those would remove the measured-run subsystem, not
+an unused backend. Every surviving Azure document now carries a banner saying
+it was never executed, and they are grouped under their own heading in
+`../docs/README.md` rather than listed as if supported.
+
+The rest of this document describes that unvalidated Azure path.
 
 The certificate-capable Azure path has six distinct stages:
 

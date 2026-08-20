@@ -1,5 +1,13 @@
 # Sqrt218 finite certificate on Azure confidential CPU
 
+> **⚠ Never validated on hardware.** No Azure run has ever been performed.
+> There is no `az` CLI, no `~/.azure`, and no subscription in this environment;
+> `tests/data/` contains retained evidence for Intel TDX runs only, and
+> `attestation/verify_azure_ncc_evidence.py` currently fails at import. The
+> Azure backend is a design, not a working path — treat everything below as a
+> specification that has not been executed. The supported path is Intel TDX:
+> see [`../../attestation/phala/README.md`](../../attestation/phala/README.md).
+
 This path verifies the finite computation used for Helfgott's equation
 (2.18) through `2,000,000`. The full production computation is cloud-only:
 local validation is deliberately limited to the bound-64 Python

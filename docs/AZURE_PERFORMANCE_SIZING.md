@@ -1,5 +1,13 @@
 # Azure trusted-compute performance sizing
 
+> **⚠ Never validated on hardware.** No Azure run has ever been performed.
+> There is no `az` CLI, no `~/.azure`, and no subscription in this environment;
+> `tests/data/` contains retained evidence for Intel TDX runs only, and
+> `attestation/verify_azure_ncc_evidence.py` currently fails at import. The
+> Azure backend is a design, not a working path — treat everything below as a
+> specification that has not been executed. The supported path is Intel TDX:
+> see [`../attestation/phala/README.md`](../attestation/phala/README.md).
+
 This note records local planning measurements taken on 2026-07-21 on the
 repository's DGX Spark (NVIDIA GB10, compute capability 12.1, `aarch64`, 20
 logical CPUs). They size an Azure pilot; they are not H100 measurements and do

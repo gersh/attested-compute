@@ -1,5 +1,13 @@
 # Proposition 12.2.4: closed Azure measured DAG
 
+> **⚠ Never validated on hardware.** No Azure run has ever been performed.
+> There is no `az` CLI, no `~/.azure`, and no subscription in this environment;
+> `tests/data/` contains retained evidence for Intel TDX runs only, and
+> `attestation/verify_azure_ncc_evidence.py` currently fails at import. The
+> Azure backend is a design, not a working path — treat everything below as a
+> specification that has not been executed. The supported path is Intel TDX:
+> see [`../../attestation/phala/README.md`](../../attestation/phala/README.md).
+
 The `helfgott-prop-12-2-4-mpfr-v1` portfolio campaign now has a closed
 Azure SEV-SNP CPU workload factory, source-build materializer, retained-export
 protocol, and terminal registered-result path. This is production capability,

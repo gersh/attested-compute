@@ -280,11 +280,13 @@ It names no artifact and no consumer: a deployment is a `deployment.json`
 manifest plus its artifacts, and lives wherever its owner keeps it.
 
 ```sh
-attestation/phala/build_compose.py --manifest <dir>/deployment.json
-attestation/phala/dry_run.sh       <dir>      # free
-attestation/phala/deploy.sh        <dir>      # ~$0.005
-attestation/phala/verify_run.py --log <dir>/retained-evidence/phala-run.log \
-                                --deployment <dir>
+DEPLOYMENT=audits/compcert/rh_phala   # the deployment directory
+
+attestation/phala/build_compose.py --manifest "$DEPLOYMENT"/deployment.json
+attestation/phala/dry_run.sh       "$DEPLOYMENT"      # free
+attestation/phala/deploy.sh        "$DEPLOYMENT"      # ~$0.005
+attestation/phala/verify_run.py --log "$DEPLOYMENT"/retained-evidence/phala-run.log \
+                                --deployment "$DEPLOYMENT"
 ```
 
 Historical records of individual runs are in
