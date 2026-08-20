@@ -218,8 +218,8 @@ A third party checks the claim like this:
 OWNER="the-github-owner"
 ATTESTED_COMMIT="the-attested-commit-sha"
 
-git clone "https://github.com/${OWNER}/gpu_prover.git"
-cd gpu_prover
+git clone "https://github.com/${OWNER}/sparkinterval.git"
+cd sparkinterval
 git checkout "${ATTESTED_COMMIT}"
 
 docker run --rm -v "$PWD:/src" -w /src \
@@ -234,10 +234,10 @@ python3 tools/verify_build_provenance.py --pretty \
 # 2. do those exact bytes carry a signed attestation naming this commit?
 python3 tools/verify_build_provenance.py --pretty verify \
   --artifact rebuild/artifacts/sqrt218_cpu_checker_v2 \
-  --repo "${OWNER}/gpu_prover" \
+  --repo "${OWNER}/sparkinterval" \
   --source-commit "${ATTESTED_COMMIT}" \
   --signer-workflow \
-    "${OWNER}/gpu_prover/.github/workflows/build-provenance.yml"
+    "${OWNER}/sparkinterval/.github/workflows/build-provenance.yml"
 ```
 
 Step 2 requires GitHub CLI 2.49.0 or newer, because the `gh attestation`

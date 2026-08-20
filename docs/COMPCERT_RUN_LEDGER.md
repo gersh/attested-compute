@@ -6,6 +6,10 @@
 > supplied, and the trust surface came out at one axiom rather than the shape
 > sketched here.  It is kept because it records why the design went the way it
 > did, and what was believed at each turn.
+>
+> It predates the `gpu_prover` → `sparkinterval` rename, and quotes lakefile
+> comments verbatim from that period.  Those mentions are left as written
+> because they are quotations.
 
 # Supplying CompCert run admissions from signed attestations
 
@@ -42,8 +46,8 @@ this directory recompiles.
 
 ### 2. Nothing connects a signed statement to `Computation.Returns`
 
-gpu_prover's `Runs : RegisteredAlgorithm → String → String → Prop` speaks about
-strings, and gpu_prover has no LeanCompCert dependency (deliberately — the two
+SparkInterval's `Runs : RegisteredAlgorithm → String → String → Prop` speaks about
+strings, and SparkInterval has no LeanCompCert dependency (deliberately — the two
 repositories share a Lean/Mathlib package graph but not a compiler model). So
 the producer cannot state `Computation.Returns`.
 

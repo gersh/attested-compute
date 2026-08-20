@@ -163,14 +163,14 @@ axiom reachable from the concrete theorem should remain
 the consumer definitions are ordinary Lean theorems.
 
 The current Hurst V2 scaffold implements the conditional half of this split as
-`TGComputeContracts.HurstV2`.  `gpu_prover` and `claude_math` compile identical
+`TGComputeContracts.HurstV2`.  `sparkinterval` and its consumer compile identical
 source bytes for that axiom-free contract under their respective pins, and the
 producer proves the shared `RealSourceClaims` type from its exact campaign
 certificate.  This is **not** the completed receipt handoff: it supplies a
 stable proposition, not evidence that a production run occurred.
 
 End-to-end retirement has two acceptable migration paths.  Either align the
-repository pins and import the actual `gpu_prover` generated receipt theorem
+repository pins and import the actual SparkInterval generated receipt theorem
 from source, or extract the minimal receipt decoder/generator and **move**
 `accepted_run_certificate_sound` into the shared package.  The latter must
 remove the producer-local declaration rather than duplicate it.  In both
