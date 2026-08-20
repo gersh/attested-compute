@@ -118,10 +118,31 @@ structure CompCertEnclavePin where
 
 /-- Reviewed enclave pins.
 
-Empty until a run's identity has been reviewed and added, which makes every
-check below fail closed — the same "no credentials yet" stance
-`PhalaTdxEnclave.ch25A7BoundaryProductionV1` takes with an empty key. -/
-def compcertEnclavePins : List CompCertEnclavePin := []
+A closed table, and the only source of attestation authority: the check looks
+a pin up here by the receipt's own `appId` and never accepts one from a
+caller.  Adding an entry is therefore a reviewable change to this file, not
+something a proof can do to itself. -/
+def compcertEnclavePins : List CompCertEnclavePin :=
+  [ { -- Intel TDX run of 2026-08-19 on Phala Cloud.  The key was derived
+      -- inside the CVM by dstack's `/GetKey` on the dedicated path
+      -- `sparkinterval/compcert-run/p256`, and the quote's report_data commits
+      -- to it (`H(public key, statement)`), so the hardware attests that this
+      -- key signed these results.
+      --
+      -- ⚠ `attestationAuthority := true` IS THE TRUST DECISION.  Everything
+      -- else in this file is arithmetic; this line is a person saying "that
+      -- key came from inside an enclave".  Set it for no key that did not.
+      -- Its evidence is `audits/compcert/rh_phala/retained-evidence/` in the
+      -- consuming repository, which re-verifies offline against the pinned
+      -- Intel SGX Root CA.
+      pinId := "rh-x86-attested-2026-08-19"
+      appId := "2499812607817d8c182bdad4aea514a499efb119"
+      composeHash :=
+        "c7a2c69ae864c931032337156efa5ccb1a44d5f6ba3c9836d53f207dfe1798a1"
+      enclavePublicKey :=
+        "049cc3d7d6d372eaa6868ab598603f74957816a2fa799bafd30ec23b8f4052c96404" ++
+        "d7e4680aa23669c0cc4ca1b16ee2acfc5cfcc2786e4f36e9b4d0c658f524fb"
+      attestationAuthority := true } ]
 
 /-- Lookup by app id.  Duplicate app ids are rejected by the generator before
 this source is emitted. -/
@@ -184,81 +205,104 @@ def pinCheck (r : CompCertRunReceipt) (pin : CompCertEnclavePin) : Bool :=
 
 end CompCertRunReceipt
 
-/-- Fail-closed check for one signed CompCert run receipt. -/
-def compcertRunReceiptCheck (r : CompCertRunReceipt) (pin : CompCertEnclavePin)
+/-- Fail-closed check for one signed CompCert run receipt.
+
+**The pin is looked up, never supplied.**  An earlier version took it as a
+parameter, which meant the caller supplied the trust anchor: forge a pin
+carrying your own public key and `attestationAuthority := true`, sign anything
+with the matching private key, and the check passed with no enclave involved.
+That was demonstrated, not theorised.  Keying the lookup on the receipt's own
+`appId` against the closed reviewed table is what makes the signature mean
+something: a key that is not in this source file cannot be made to count, and
+adding one is visible in a diff. -/
+def compcertRunReceiptCheck (r : CompCertRunReceipt)
     (spec : CompCertRunSpec) : Bool :=
-  spec.specWellFormed && r.pinCheck pin && r.specCheck spec &&
-    r.digestCheck && r.signatureCheck
+  match lookupCompCertEnclavePin r.appId with
+  | none => false
+  | some pin =>
+      spec.specWellFormed && r.pinCheck pin && r.specCheck spec &&
+        r.digestCheck && r.signatureCheck
 
-/-- What an accepted receipt establishes — all of it decidable, none of it
-about whether a machine ran.
+/-- What an accepted receipt establishes.
 
-`signatureBinds` is the substantive one: a P-256 signature by the reviewed
-enclave key stands over a payload that names this artifact and this result. -/
+`reviewedPin` is the load-bearing field and the reason this structure does not
+take a pin as a parameter: the pin must come from `compcertEnclavePins`, so a
+caller cannot conjure the authority that makes a signature count. -/
 structure CertifiedCompCertReceipt (r : CompCertRunReceipt)
-    (pin : CompCertEnclavePin) (spec : CompCertRunSpec) : Prop where
-  /-- The pinned deployment is one whose signatures count. -/
-  authority : pin.attestationAuthority = true
-  /-- The receipt names the pinned key, app and compose. -/
-  pinned : r.pinCheck pin = true
+    (spec : CompCertRunSpec) : Prop where
+  /-- Some pin in the **reviewed table** matches this receipt, carries
+  attestation authority, and is the key the receipt names. -/
+  reviewedPin : ∃ pin, lookupCompCertEnclavePin r.appId = some pin ∧
+    pin.attestationAuthority = true ∧ r.pinCheck pin = true
   /-- The receipt describes this artifact, and the enclave's own comparison
   against the pinned expectation passed. -/
   describes : r.specCheck spec = true
   /-- Its digest recomputes from its fields. -/
   digest : SHA256.digestString r.canonicalPayload = r.receiptSha256
-  /-- And that digest carries a valid signature under the pinned key. -/
+  /-- And that digest carries a valid signature under the key it names. -/
   signatureBinds :
     P256.verifyDigestHex r.enclavePublicKey r.receiptSha256 r.signature = true
 
+set_option maxHeartbeats 1000000 in
 /-- Soundness of the fail-closed check.  **Axiom-free** — base trio only.
 
-Turning this into a statement about a `Computation` needs the empirical
-premise, which lives in `LeanCompCert.Attest.Admission` and is deliberately
-not restated here. -/
-theorem certifyCompCertReceipt {r : CompCertRunReceipt}
-    {pin : CompCertEnclavePin} {spec : CompCertRunSpec}
-    (hcheck : compcertRunReceiptCheck r pin spec = true) :
-    CertifiedCompCertReceipt r pin spec := by
-  -- `&&` associates left, so this is `((((A && B) && C) && D) && E)`.  The
-  -- conjuncts are extracted with `tauto` rather than by projection index:
-  -- guessing the nesting is how the two previous versions of this proof broke,
-  -- and `beq_iff_eq` is deliberately NOT in the simp set here, because turning
-  -- a component into a String equation makes `obtain` attempt dependent
-  -- elimination and fail.
-  simp only [compcertRunReceiptCheck, Bool.and_eq_true] at hcheck
-  obtain ⟨⟨⟨⟨_hwf, hpin⟩, hspec⟩, hdig⟩, hsig⟩ := hcheck
-  have hauth : pin.attestationAuthority = true := by
-    simp only [CompCertRunReceipt.pinCheck, Bool.and_eq_true] at hpin
-    tauto
-  exact {
-    authority := hauth
-    pinned := hpin
-    describes := hspec
-    digest := by simpa [CompCertRunReceipt.digestCheck] using hdig
-    signatureBinds := by simpa [CompCertRunReceipt.signatureCheck] using hsig }
+The heartbeat allowance is for elaboration only: the pin table is a list, so
+matching a receipt against it costs string comparisons that the default budget
+does not cover once the table is non-empty. -/
+theorem certifyCompCertReceipt {r : CompCertRunReceipt} {spec : CompCertRunSpec}
+    (hcheck : compcertRunReceiptCheck r spec = true) :
+    CertifiedCompCertReceipt r spec := by
+  unfold compcertRunReceiptCheck at hcheck
+  cases hlookup : lookupCompCertEnclavePin r.appId with
+  | none => rw [hlookup] at hcheck; exact absurd hcheck (by simp)
+  | some pin =>
+      rw [hlookup] at hcheck
+      -- Projections, not `obtain` and not `tauto`.  `obtain` makes `cases`
+      -- attempt dependent elimination on the P-256 term; `tauto` exhausts its
+      -- heartbeats once the pin table is non-empty.  `&&` associates left, so
+      -- five conjuncts are `((((A ∧ B) ∧ C) ∧ D) ∧ E)`.
+      simp only [Bool.and_eq_true] at hcheck
+      have hpin : r.pinCheck pin = true := hcheck.1.1.1.2
+      have hspec : r.specCheck spec = true := hcheck.1.1.2
+      have hdig : r.digestCheck = true := hcheck.1.2
+      have hsig : r.signatureCheck = true := hcheck.2
+      have hauth : pin.attestationAuthority = true := by
+        simp only [CompCertRunReceipt.pinCheck, Bool.and_eq_true] at hpin
+        exact hpin.1.1.1.1
+      exact {
+        reviewedPin := ⟨pin, hlookup, hauth, hpin⟩
+        describes := hspec
+        digest := by simpa [CompCertRunReceipt.digestCheck] using hdig
+        signatureBinds := by simpa [CompCertRunReceipt.signatureCheck] using hsig }
 
-/-- An empty pin table refuses every receipt.  This is what "fail closed until
-an identity has been reviewed" means, and it is proved rather than asserted. -/
-theorem compcertRunReceiptCheck_eq_false_of_unpinned
+/-- An **unlisted** enclave is refused.  With `compcertEnclavePins` empty this
+refuses everything, which is what "fail closed until an identity has been
+reviewed" means -- and it is now a property of the check itself rather than of
+whatever pin a caller chose to pass. -/
+theorem compcertRunReceiptCheck_eq_false_of_unlisted
     (r : CompCertRunReceipt) (spec : CompCertRunSpec)
-    (pin : CompCertEnclavePin) (hpin : pin.attestationAuthority = false) :
-    compcertRunReceiptCheck r pin spec = false := by
-  simp [compcertRunReceiptCheck, CompCertRunReceipt.pinCheck, hpin]
-
-/-- A key of the wrong length is refused whatever else holds: a pin whose key
-has not been filled in cannot accept anything. -/
-theorem compcertRunReceiptCheck_eq_false_of_short_key
-    (r : CompCertRunReceipt) (spec : CompCertRunSpec)
-    (pin : CompCertEnclavePin) (hkey : pin.enclavePublicKey.length ≠ 130) :
-    compcertRunReceiptCheck r pin spec = false := by
-  simp [compcertRunReceiptCheck, CompCertRunReceipt.pinCheck, hkey]
+    (h : lookupCompCertEnclavePin r.appId = none) :
+    compcertRunReceiptCheck r spec = false := by
+  -- `rw`, not `simp`: with a non-empty pin table `simp` tries to evaluate the
+  -- lookup and exhausts its heartbeats.  The refusal is structural and needs
+  -- no evaluation at all.
+  unfold compcertRunReceiptCheck
+  rw [h]
 
 /-- A receipt whose enclave did **not** match its pinned expectation is
-refused, however well signed it is. -/
+refused, however well signed it is and whoever signed it. -/
 theorem compcertRunReceiptCheck_eq_false_of_mismatch
     (r : CompCertRunReceipt) (spec : CompCertRunSpec)
-    (pin : CompCertEnclavePin) (hm : r.matchedPinnedExpectation ≠ "1") :
-    compcertRunReceiptCheck r pin spec = false := by
-  simp [compcertRunReceiptCheck, CompCertRunReceipt.specCheck, hm]
+    (hm : r.matchedPinnedExpectation ≠ "1") :
+    compcertRunReceiptCheck r spec = false := by
+  unfold compcertRunReceiptCheck
+  cases hlookup : lookupCompCertEnclavePin r.appId with
+  | none => rfl
+  | some pin =>
+      have : r.specCheck spec = false := by
+        simp only [CompCertRunReceipt.specCheck, Bool.and_eq_false_iff,
+          beq_eq_false_iff_ne]
+        exact Or.inr hm
+      simp only [this, Bool.and_false, Bool.false_and]
 
 end SparkInterval.Execution
