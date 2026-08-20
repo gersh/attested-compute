@@ -195,6 +195,30 @@ sysroot, which real x86_64 hardware has natively), bind-mount the difference
 It surfaced only because the fix — refuse if `gcc` is missing — *failed* in the
 rehearsal. A gate failing where you expected it to pass is information.
 
+**A hardening flag silently disabled every artifact.** Docker mounts a
+`--tmpfs` `noexec` unless told otherwise. Artifacts are decoded into `/tmp` and
+executed from there, so adding `read_only` plus a tmpfs — without `exec` —
+fails all of them with exit 126. On hardware that is the whole deployment.
+
+What makes it worth recording is how nearly it escaped. The rehearsal runs the
+x86_64 artifacts under `qemu-x86_64-static`, an *interpreter*, which opens the
+binary as data; `noexec` governs `execve`, so it never touches them. The only
+natively executed thing in the rehearsal is the differential gcc rebuild, and
+that was the sole reason the failure appeared at all. **A deployment declaring
+no `sources` would have had no canary.** The entry point now probes the work
+directory directly with a `#!` script — the kernel refuses `execve` on a
+`noexec` mount for scripts too, so this needs no compiler — and refuses up
+front. Negative test 6 covers it.
+
+Corollary: **`--tmpfs` options replace the defaults you can see and keep one
+you cannot.** When a flag has an implicit default that contradicts your intent,
+state the intent explicitly even when it looks redundant.
+
+**"Differs" was not an actionable verdict.** The differential check reported
+`DIFFERS from CompCert` for a binary that had never executed. A wrong-code
+divergence and a binary that failed to start call for opposite responses, so
+the check now reports the exit status and the first line of each transcript.
+
 **Lean specifics settled by the compiler, not by memory.** `&&` associates
 left. Extract conjuncts by projection or `tauto`, never `obtain` — it attempts
 dependent elimination on String and P-256 terms. Keep `beq_iff_eq` out of the

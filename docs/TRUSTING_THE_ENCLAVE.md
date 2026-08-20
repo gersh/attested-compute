@@ -151,6 +151,13 @@ is trusted.
 * **CompCert's proof** for C → assembly, and the **assembler and linker**,
   which are outside it. Freestanding artifacts reduce this: zero undefined
   symbols and a five-instruction entry stub.
+* **Docker, for honouring the compose.** The hardening — `network_mode: none`,
+  `read_only`, `cap_drop: ALL`, `no-new-privileges`, `pids_limit` — is measured
+  because it is in the compose, but the measurement proves only that *those
+  words* were in the document the CPU hashed, not that the runtime obeyed them.
+  The entry point records `uid`, rootfs writability, `CapEff` and `NoNewPrivs`
+  from `/proc/self/status` as a cross-check, and that record is inside the
+  attested transcript.
 * **The contents of the base image**, `python:3.12` at the digest the compose
   names. Every executable the entry point uses — `bash`, coreutils, `gcc`, the
   libc headers, and the `python3` that signs the receipt — comes from it. The
