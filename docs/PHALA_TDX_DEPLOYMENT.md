@@ -13,6 +13,55 @@ serve.
 
 ---
 
+## 0. What actually gets signed
+
+Short answer: **the docker-compose is not signed. It is *measured*.** Nothing
+ever signs your compose file, and no key is involved in that step at all.
+
+Two signatures exist, and neither is over the compose:
+
+```
+   docker-compose.yaml
+        │  dstack wraps it in an app-compose document
+        ▼
+   app-compose.json ──SHA256──▶ compose_hash
+        │                            │
+        │                            ├─▶ mr_config_id  = 01 ‖ compose_hash ‖ 0…0
+        │                            └─▶ an RTMR3 event
+        ▼                                     │
+   the CPU measures the VM ───────────────────┤
+                                              ▼
+   ┌───────────────────────── TD report ─────────────────────────┐
+   │  mrtd, rtmr0..3, mr_config_id                               │
+   │  report_data  =  H(enclave public key, statement of results)│
+   └─────────────────────────────────────────────────────────────┘
+        │
+        │  ①  signed by an Intel-certified ATTESTATION KEY  →  the quote
+        │
+        └─ separately, ②  a RECEIPT naming the results, signed by a P-256 key
+           derived inside the enclave, whose public half is committed in
+           report_data above
+```
+
+**① The quote.** Signed by an attestation key that Intel's PKI vouches for, up
+to a root fingerprint pinned in this repository. It covers the measurements —
+including `mr_config_id`, hence the compose hash — and the 64 bytes of
+`report_data` we chose.
+
+**② The receipt.** Signed by a key derived inside the VM via `/GetKey`. On its
+own that proves nothing, since anyone can sign. It becomes evidence because
+`report_data` commits to *that public key together with the statement of
+results*, so the hardware attests which key signed and what it claimed.
+
+So the compose's **hash** ends up inside something signed. The compose itself is
+only hashed — which is the stronger arrangement, because a hash cannot be
+forged into agreeing with different bytes, and nobody has to be trusted to have
+signed the right file.
+
+The practical consequence: **whatever you put in the compose is covered.** That
+is why the artifacts and the entry point are embedded in it rather than fetched
+at run time.
+
 ## 1. What the platform provides
 
 Inside the VM, applications talk to a **guest agent** over the unix socket
