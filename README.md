@@ -17,7 +17,14 @@ without a signature the hardware vouches for.
 **Start here:** [`docs/OVERVIEW.md`](docs/OVERVIEW.md) · deployment:
 [`docs/PHALA_TDX_DEPLOYMENT.md`](docs/PHALA_TDX_DEPLOYMENT.md) · mechanism:
 [`docs/ATTESTED_COMPCERT_RUNS.md`](docs/ATTESTED_COMPCERT_RUNS.md) · why believe
-it: [`docs/TRUSTING_THE_ENCLAVE.md`](docs/TRUSTING_THE_ENCLAVE.md)
+it: [`docs/TRUSTING_THE_ENCLAVE.md`](docs/TRUSTING_THE_ENCLAVE.md) · **what the
+axiom does *not* check:**
+[`docs/AXIOM_ASSUMPTIONS.md`](docs/AXIOM_ASSUMPTIONS.md)
+
+If you are deciding whether to believe any of this, read the last one first.
+It is the only document written to argue against the mechanism rather than for
+it, and it is where an assumption that was once *not* defensible is recorded
+along with what it took to fix.
 
 The subject-matter examples below (ternary Goldbach, GRH/Platt) are
 illustrations of the mechanism, not its purpose.

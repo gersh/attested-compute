@@ -1,10 +1,19 @@
 # Attestation adapters
 
-This directory implements the evidence boundary for Azure confidential CPU
-and H100 runs. It does not turn attestation into a mathematical proof. The
-result of the pipeline is a signed statement about one measured historical
-run; Lean can attach mathematical meaning only when that statement matches a
-closed `RegisteredInvocation` with an ordinary Lean soundness theorem.
+This directory implements the evidence boundary between a measured physical
+run and a Lean proof. It does not turn attestation into a mathematical proof.
+The result of any pipeline here is a signed statement about one measured
+historical run; Lean can attach mathematical meaning only when that statement
+matches a closed computation with an ordinary soundness theorem.
+
+There are two independent backends, and they are at different stages:
+
+| | |
+| --- | --- |
+| [`phala/`](phala/README.md) | **Intel TDX on Phala Cloud.** The current path, exercised on real hardware. Runs CompCert artifacts inside a confidential VM and produces evidence checkable offline against the pinned Intel SGX Root CA. Start at [`phala/README.md`](phala/README.md); the trust surface is in [`../docs/TRUSTING_THE_ENCLAVE.md`](../docs/TRUSTING_THE_ENCLAVE.md) and what the Lean axiom does *not* check is in [`../docs/AXIOM_ASSUMPTIONS.md`](../docs/AXIOM_ASSUMPTIONS.md). |
+| the Azure files below | **Azure confidential CPU and H100.** An earlier, more elaborate design built around a relying-party challenge and MAA/NVAT appraisal. Described here for completeness; the TDX path is the one currently in use. |
+
+The rest of this document describes the Azure path.
 
 The certificate-capable Azure path has six distinct stages:
 

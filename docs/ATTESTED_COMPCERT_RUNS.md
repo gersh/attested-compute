@@ -102,8 +102,8 @@ for anything larger than about a kilobyte.
    in the chain.
 7. In Lean: instantiate the receipt, discharge the artifact-to-program binding
    by `decide +kernel`, apply the axiom. Generate the receipt literal rather
-   than transcribing it — the consuming repository has
-   `tools/attest/emit_lean_receipt.py <evidence-dir> <algorithm-id>`, which
+   than transcribing it — `tools/attest/emit_lean_receipt.py <evidence-dir>
+   <algorithm-id>` in this repository, which
    reads the receipt the enclave signed and prints the Lean structure. Get one
    field wrong and `decide +kernel` cannot close the goal; what you actually
    see is not "the check returned false" but

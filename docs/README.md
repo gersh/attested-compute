@@ -1,6 +1,6 @@
 # Documentation
 
-SparkInterval's goal is provable, explicitly bounded arithmetic on CPUs and
+This project's goal is provable, explicitly bounded arithmetic on CPUs and
 GPUs, with secure execution evidence turned into reusable finite-computation
 certificates that Lean can reference through a narrow axiom boundary. The
 [project vision](VISION.md) describes that target architecture; the
@@ -73,6 +73,15 @@ certificate axiom alone supplies the per-run physical-to-formal connection.
 
 ## Verifiers
 
+Start here for an attested run. These four are the trust surface, and
+`AXIOM_ASSUMPTIONS.md` is the one that states, without softening, what the Lean
+axiom assumes but does not check.
+
+- [What the axiom covers, and what is embedded in it](AXIOM_ASSUMPTIONS.md)
+- [Why the enclave should be trusted, and how to check a certificate](TRUSTING_THE_ENCLAVE.md)
+- [Attested runs: turning a computation you cannot re-run into a theorem](ATTESTED_COMPCERT_RUNS.md)
+- [Phala TDX deployment: what actually gets signed](PHALA_TDX_DEPLOYMENT.md)
+
 - [Verifier guide](VERIFYING.md)
 - [Correctness claims and proof boundary](CORRECTNESS_CLAIMS.md)
 - [Trust model and execution assumptions](TRUST_MODEL.md)
@@ -91,6 +100,10 @@ certificate axiom alone supplies the per-run physical-to-formal connection.
 - [LeanArchitect proof-map generation](PROOF_BLUEPRINT.md)
 - [DGX Spark setup and acceptance runs](DGX_SPARK_SETUP.md)
 - [Attestation component boundary](../attestation/README.md)
+- [The Phala TDX pipeline itself](../attestation/phala/README.md)
+- [First Phala run: history and pitfalls](PHALA_FIRST_RUN.md)
+- [CompCert artifacts under TDX](COMPCERT_ARTIFACT_UNDER_TDX.md)
+- [Superseded: the CompCert run ledger](COMPCERT_RUN_LEDGER.md)
 - [Challenge-first measured-runner and evidence handoff](AZURE_MEASURED_RUNNER.md)
 - [Azure confidential CPU/H100 operator workflow](AZURE_CONFIDENTIAL_COMPUTE.md)
 - [Fail-closed Azure H100 production runbook](AZURE_H100_PRODUCTION_OPERATOR.md)
