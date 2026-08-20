@@ -107,6 +107,7 @@ It reports one line per check. The classes, and what each rules out:
 | **R2–R4** | the RTMR3 boot chain names this app id and compose hash | the measurements belong to a different deployment |
 | **C1** | `mr_config_id = 01 ‖ compose_hash ‖ 0…0` | the CPU measured a different configuration |
 | **C2–C5** | the app-compose document read *inside* the TD hashes to that compose hash, and carries this repository's compose byte for byte | the code that ran is not the code you are reading |
+| **C6** | that same measured document *declares the hardened posture*: no network, read-only root, no capabilities, no new privileges, an `exec` work directory | the run happened under a weaker configuration than the one documented here |
 | **S1–S2** | `report_data` is `H(key, statement)`, upper 32 bytes zero | the results are not the ones attested; no second commitment hidden in the spare bytes |
 | **S4–S9** | the attested artifact digests equal the ones built here; every exit status is 0; each transcript matches the digest pinned in the measured compose | a different binary ran, or a different result was produced |
 | **G1–G5** | every receipt is signed by one key from the **reviewed pin table**, its canonical digest recomputes, and it names this quote and compose | the receipt was signed by a key nobody reviewed |
@@ -157,7 +158,10 @@ is trusted.
   words* were in the document the CPU hashed, not that the runtime obeyed them.
   The entry point records `uid`, rootfs writability, `CapEff` and `NoNewPrivs`
   from `/proc/self/status` as a cross-check, and that record is inside the
-  attested transcript.
+  attested transcript. `verify_run.py`'s C6 additionally requires the *measured*
+  document — the bytes the CPU hashed, not the file on disk — to declare that
+  posture, so a later deployment cannot quietly relax it while every other
+  check still passes.
 * **The contents of the base image**, `python:3.12` at the digest the compose
   names. Every executable the entry point uses — `bash`, coreutils, `gcc`, the
   libc headers, and the `python3` that signs the receipt — comes from it. The

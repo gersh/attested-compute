@@ -184,15 +184,14 @@ under rather than our claim about it. The entry point additionally records
 `uid`, rootfs writability, `CapEff` and `NoNewPrivs` at run time, which is the
 cross-check that the runtime honoured what the compose asked for.
 
-Two caveats, both real:
+The process runs as `65534:65534`, by uid so it does not depend on the image's
+`/etc/passwd`. That was settled by measurement rather than by argument: the
+guest agent's socket is mode 777 and `/tapp` is 755, both recorded in an
+attested transcript, so an unprivileged process can reach them. Had they been
+root-only, a non-root `user:` would have produced a run with no signature at
+all — which is why the posture block was added before the change, not after.
 
-*The process still runs as root inside the container.* `cap_drop: ALL` and
-`no-new-privileges` remove most of what that would otherwise mean, but it is
-not the same as a non-root `user:`. The obstacle is factual rather than
-philosophical: the dstack socket and the app-compose mount are root-owned, and
-a `user:` that cannot read them produces a run with no signature at all. The
-posture block records their mode and owner precisely so that decision can be
-made from data instead of guessed.
+One caveat remains, and it is a prerequisite rather than a weakness:
 
 *`exec` on the `/tmp` tmpfs is mandatory, not an oversight.* Docker mounts a
 `--tmpfs` `noexec` by default, and the decoded artifacts are executed from
@@ -233,7 +232,7 @@ from a key in the reviewed table.
 | the pin's compose hash names a reviewed compose | defensible **if the pin is a review record** (§3.1) |
 | the quote is checked outside Lean, not in it | defensible and deliberate (§3.2) |
 | everything that runs is inside the measurement | defensible; image pinned by digest, no network (§3.3) |
-| the container runtime behaves | defensible; no network, read-only, no caps; still root (§3.4) |
+| the container runtime behaves | defensible; no network, read-only, no caps, unprivileged (§3.4) |
 | the emitter expression and `mainText` | defensible, by preimage (§3.5) |
 | CompCert's proof, the assembler, the linker | defensible, reduced by freestanding linking (§3.6) |
 | a machine really executed it | irreducible; this is the axiom (§3.7) |
@@ -245,8 +244,9 @@ bytes and got this exact transcript."* Nothing more — in particular, not that
 the transcript means what the emitter says it means (§3.5), and not that
 CompCert's proof is true (§3.6) — but that much, honestly.
 
-What remains open is scope rather than soundness: the container is hardened
-but still runs as root inside itself (§3.4), pending the mount-ownership data
-that says whether a non-root `user:` can reach the guest agent at all; and §3.1
-holds only if the pin table is treated as a review record rather than a list of
-hashes someone pasted in. Both are matters of process, not of mechanism.
+What remains open is process rather than mechanism: §3.1 holds only if the pin
+table is treated as a review record rather than a list of hashes someone pasted
+in. The container hardening (§3.4) is now as tight as this design admits — no
+network, read-only root, no capabilities, no new privileges, unprivileged uid —
+and every one of those declarations is inside the measurement, checked by C6
+against the document the CPU hashed rather than the file on disk.

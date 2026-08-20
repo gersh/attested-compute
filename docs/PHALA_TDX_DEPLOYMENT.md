@@ -198,6 +198,10 @@ caught, in order:
 
 * `apt-get --no-install-recommends gcc` not pulling in `libc6-dev` -- back
   when the entry point still installed its toolchain at run time;
+* a `--tmpfs` mounted `noexec`, which Docker does by default, silently
+  disabling every artifact with exit 126 — the artifacts run under qemu in the
+  rehearsal, an interpreter that reads them as data, so the only thing that
+  caught it was the one natively executed binary in the differential rebuild;
 * the rehearsal running in the *cross-build* image rather than the compose's,
   so an entry point that provisioned itself passed a gate whose whole purpose
   is "what deploys is what was exercised".  It printed the compose's image in
