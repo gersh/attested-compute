@@ -196,7 +196,13 @@ is not evidence the script runs: an earlier project's first signed run cost two
 deployments to a script that had never been executed. Our rehearsal has since
 caught, in order:
 
-* `apt-get --no-install-recommends gcc` not pulling in `libc6-dev`;
+* `apt-get --no-install-recommends gcc` not pulling in `libc6-dev` -- back
+  when the entry point still installed its toolchain at run time;
+* the rehearsal running in the *cross-build* image rather than the compose's,
+  so an entry point that provisioned itself passed a gate whose whole purpose
+  is "what deploys is what was exercised".  It printed the compose's image in
+  its own log while running a different one.  Both `dry_run.sh` and
+  `negative_test.sh` now take the image from the compose;
 * `[ -f x ] && cmd` as the last command under `set -e`, which exits the script
   before the completion marker — a deploy would poll for twenty minutes, give
   up, and leave the VM billing;
@@ -245,9 +251,12 @@ in [`TRUSTING_THE_ENCLAVE.md`](TRUSTING_THE_ENCLAVE.md); the Lean axiom's own
 premises and their assumptions are audited in
 [`AXIOM_ASSUMPTIONS.md`](AXIOM_ASSUMPTIONS.md).
 
-⚠ Note in particular that the entry point currently `apt-get install`s the
-`python3` that signs the receipt.  The compose is measured; packages fetched at
-run time are not.  See §3.3 there.
+Note in particular §3.3 there: the entry point installs nothing at run time.
+Every tool it uses -- including the `python3` that signs the receipt -- comes
+from the digest-pinned base image, so it is inside the measurement, and the
+service runs `network_mode: none` so there is no channel a substitution could
+arrive over.  It used to `apt-get install` its toolchain, which meant the
+signing interpreter was outside the measurement; that is what §3.3 records.
 
 ## 8. Reference implementation
 

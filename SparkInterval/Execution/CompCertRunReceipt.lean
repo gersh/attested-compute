@@ -139,13 +139,23 @@ def compcertEnclavePins : List CompCertEnclavePin :=
       -- Its evidence is `audits/compcert/rh_phala/retained-evidence/` in the
       -- consuming repository, which re-verifies offline against the pinned
       -- Intel SGX Root CA.
-      pinId := "rh-x86-attested-2026-08-19"
-      appId := "2499812607817d8c182bdad4aea514a499efb119"
+      --
+      -- This replaces, rather than joins, the pin for app id
+      -- 2499812607817d8c182bdad4aea514a499efb119.  That enclave ran an entry
+      -- point that `apt-get install`ed the very `python3` it then signed with,
+      -- so its signatures attest a stack that was only partly measured (the
+      -- old docs/AXIOM_ASSUMPTIONS.md section 3.3).  A signature from it is
+      -- not worth less arithmetically -- it is a valid P-256 signature -- but
+      -- it means less, so it is no longer honoured here.  Retiring a pin is
+      -- how that judgement gets expressed; leaving it in the list would keep
+      -- accepting the weaker claim forever.
+      pinId := "rh-x86-measured-2026-08-19"
+      appId := "08c92f0e6c1b33fb455c58b2703c8869b5d2c8c6"
       composeHash :=
-        "c7a2c69ae864c931032337156efa5ccb1a44d5f6ba3c9836d53f207dfe1798a1"
+        "a37d5223570e89b80bc5ef0eca6d5539569d932fa654683a21459e9780e5b132"
       enclavePublicKey :=
-        "049cc3d7d6d372eaa6868ab598603f74957816a2fa799bafd30ec23b8f4052c96404" ++
-        "d7e4680aa23669c0cc4ca1b16ee2acfc5cfcc2786e4f36e9b4d0c658f524fb"
+        "0411900f95822f8a5b0ada60ae4513253f597e48fd9d73e38f41c161394f35c31f90" ++
+        "4d540fab0ce0a587dfdc82493c1232dd26a368b319098809f14d54f5b5859b"
       attestationAuthority := true } ]
 
 /-- Lookup by app id.  Duplicate app ids are rejected by the generator before

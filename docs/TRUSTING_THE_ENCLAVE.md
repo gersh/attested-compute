@@ -151,6 +151,14 @@ is trusted.
 * **CompCert's proof** for C → assembly, and the **assembler and linker**,
   which are outside it. Freestanding artifacts reduce this: zero undefined
   symbols and a five-instruction entry stub.
+* **The contents of the base image**, `python:3.12` at the digest the compose
+  names. Every executable the entry point uses — `bash`, coreutils, `gcc`, the
+  libc headers, and the `python3` that signs the receipt — comes from it. The
+  measurement proves *that image* ran, not that its contents are honest. What
+  this buys is that the target is fixed and auditable ahead of time: the same
+  bytes every run, at a digest anyone can pull and inspect. It replaced
+  installing those packages at run time, which put the signing interpreter
+  outside the measurement altogether (`AXIOM_ASSUMPTIONS.md` §3.3).
 * **The reviewed pin table.** `attestationAuthority := true` on an entry asserts
   that a key was produced inside an enclave. That is a person's judgement. It is
   the one line in the checker that is not arithmetic, and adding one is a

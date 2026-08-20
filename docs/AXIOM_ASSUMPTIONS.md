@@ -5,8 +5,9 @@ walks each premise, and then lists — without softening — everything the axio
 assumes but does not check. Each assumption gets a verdict: whether it is
 defensible as it stands, and if not, what would fix it.
 
-If you read one section, read §3. It contains an assumption that is currently
-**not defensible** and has a known fix.
+If you read one section, read §3. Every assumption there is currently
+defensible; §3.3 records one that was not, and what it took to fix it, because
+a chain like this is best judged by how its worst link was handled.
 
 ---
 
@@ -93,34 +94,68 @@ would be a large trusted-code surface for little gain, and the external check
 is reproducible from committed bytes. But it must not be described as "Lean
 verifies the attestation", because it does not.
 
-### 3.3 ⚠ The signing interpreter is downloaded at run time and is **not measured**
+### 3.3 ✔ Everything that runs is measured — resolved
 
-The entry point runs, inside the VM:
+*(Was: "the signing interpreter is downloaded at run time and is not measured".
+That is fixed; the history is kept because the fix is only meaningful against
+what it replaced.)*
+
+The entry point used to run, inside the VM:
 
 ```sh
 apt-get install -y -qq --no-install-recommends gcc libc6-dev python3 ca-certificates
 ```
 
-and then uses that `python3` to derive the enclave key and **sign the receipt**.
-
-The compose is measured. The base image is pinned by digest. **The packages
-installed at run time are neither.** A substituted `python3` — a compromised
+and then use that `python3` to derive the enclave key and **sign the receipt**.
+The compose is measured and the base image is pinned by digest, but packages
+fetched at run time are neither. A substituted `python3` — a compromised
 mirror, a hostile package, a TLS interception the container accepts — could
-compute a false statement and sign it with the genuine enclave key. Every
-downstream check would pass, because the signature would be authentic.
+compute a false statement and sign it with the genuine enclave key, and every
+downstream check would still pass, because the signature would be authentic.
+The `gcc` was worse in kind, not degree: a subverted compiler can be made to
+agree with a wrong result, which is exactly what the differential rebuild
+exists to rule out.
 
-The `gcc` installed the same way weakens the differential rebuild for the same
-reason: a subverted compiler could be made to agree with a wrong result.
+Three things now hold instead.
 
-**Verdict: NOT defensible as it stands.** This is the weakest link in the chain
-and it undercuts the "everything that runs is measured" claim that the rest of
-the design earns.
+**The tools come from the measured image.** The base image is
+`python@sha256:e5931cdb4a8cec0ad083277c16a39114f14123b8b6c858c8c9689b677789975c`
+(`python:3.12`, Debian 13), which already carries `bash`, coreutils, `gcc`,
+libc headers and `python3`. The digest is in the compose, the compose is in
+`mr_config_id` and in the RTMR3 `compose-hash` event, so every executable the
+entry point uses is inside the measurement.
 
-**Fix:** pre-bake `gcc`, `libc6-dev` and `python3` into an image referenced by
-digest, so they are covered by the image digest recorded in the compose; then
-run with `network_mode: none`, which also removes the network the substitution
-would need. This is already the intended hardening; it is now also a
-correctness requirement, not a nicety.
+**Nothing is fetched.** The service runs `network_mode: none`. The container
+has no network at all, so there is no channel over which a substitution could
+arrive. The dstack guest agent is reached over the `AF_UNIX` socket at
+`/var/run/dstack.sock`, which is a bind mount and needs no network.
+
+**The entry point refuses rather than repairs.** Before anything else it checks
+`bash gcc python3 sha256sum base64 gzip stat cut` and `/usr/include/stdio.h`,
+and exits non-zero if any is absent. An image that does not carry the toolchain
+produces no run at all, rather than a run that quietly provisions itself.
+
+**Verdict: defensible.** With one caveat worth naming: this reduces trust in
+Debian's package mirrors at run time to trust in the contents of one image at
+the digest above. That is a much smaller and, more importantly, a *fixed*
+target — the same bytes every run, auditable ahead of time by anyone who pulls
+the digest — but it is not zero. A reader who wants to check it can pull that
+digest and inspect it; the digest is pinned here, in the compose, and in the
+measurement.
+
+**How this is kept true.** `attestation/phala/negative_test.sh` gate 5 runs the
+committed entry point in an image *without* the toolchain and requires it to
+refuse, and greps the entry point (comments stripped) for `apt-get`, `apk add`,
+`pip install`, `curl` and `wget`. A regression fails the gate.
+
+There is a related lesson in how this was found. `dry_run.sh` and
+`negative_test.sh` used to run the entry point in the local cross-build image
+`lcc-x86cross:24.04` while printing the *compose's* image in their logs. That
+image has no native `gcc` — which is why the `apt-get` looked necessary, and
+why nobody noticed it was outside the measurement. A gate whose purpose is
+"what deploys is what was exercised" was exercising something else. Both
+scripts now take the image from the compose and bind-mount only
+`qemu-x86_64-static` and its sysroot, which real x86_64 hardware has natively.
 
 ### 3.4 Assumptions about the container runtime
 
@@ -172,13 +207,20 @@ from a key in the reviewed table.
 | --- | --- |
 | the pin's compose hash names a reviewed compose | defensible **if the pin is a review record** (§3.1) |
 | the quote is checked outside Lean, not in it | defensible and deliberate (§3.2) |
-| **runtime-installed `python3` signs the receipt** | **not defensible — fix by pre-baking the image** (§3.3) |
-| the container runtime behaves | defensible; no hardening flags set (§3.4) |
+| everything that runs is inside the measurement | defensible; image pinned by digest, no network (§3.3) |
+| the container runtime behaves | defensible; `network_mode: none`, no other hardening (§3.4) |
 | the emitter expression and `mainText` | defensible, by preimage (§3.5) |
 | CompCert's proof, the assembler, the linker | defensible, reduced by freestanding linking (§3.6) |
 | a machine really executed it | irreducible; this is the axiom (§3.7) |
 
-The mechanism is sound in shape. One link — §3.3 — is weaker than the rest and
-weaker than the documentation elsewhere implies, and until it is fixed, an
-attested run should be read as *"a genuine enclave signed this, using an
-interpreter it fetched over the network."*
+The mechanism is sound in shape, and every link is now defensible on its own
+terms. An attested run should be read as: *"a machine whose entire software
+stack hashes to a value recorded in an Intel-signed quote executed these exact
+bytes and got this exact transcript."* Nothing more — in particular, not that
+the transcript means what the emitter says it means (§3.5), and not that
+CompCert's proof is true (§3.6) — but that much, honestly.
+
+What remains open is scope rather than soundness: the container still runs
+without `read_only`, `cap_drop` or a non-root `user` (§3.4), and §3.1 holds
+only if the pin table is treated as a review record rather than a list of
+hashes someone pasted in. Both are matters of process, not of mechanism.

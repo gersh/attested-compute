@@ -12,7 +12,11 @@ artifact and belongs to no consumer:
 
     {
       "name": "my-run",
-      "base_image": "ubuntu@sha256:…",          // pinned by digest, never a tag
+      // Pinned by digest, never a tag, and it must already contain everything
+      // the entry point uses -- bash, coreutils, gcc, libc headers, python3.
+      // Nothing is installed at run time, because anything fetched then is
+      // outside the measurement.  `python:3.12` carries all of it.
+      "base_image": "python@sha256:…",
       "artifact_dir": "x86-artifacts",          // relative to the manifest
       "artifacts": [
         {"name": "prog", "args": "1 2 3"}       // args optional
