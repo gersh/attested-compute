@@ -40,11 +40,14 @@ CASES = [
     CompCertRunSpec(
         "CeUHarmonic1048576",
         "90e03d0676d04615adb0c23f93ad1222d40e5dd60d74827bba8d98a04caf9c41",
+        "7983a8777e79a59b0df5a7c4d40bc217badf5ecec1beaa706e03b6ed2572b516",
         "CompCert 3.17 x86_64-linux -O -fstruct-passing", 1),
-    CompCertRunSpec("Ge3SquarefreeDeficitHead3000", "0" * 64, "ccomp", 0),
-    CompCertRunSpec("Big", "f" * 64, "ccomp 3.17", 18446744073709551615),
+    CompCertRunSpec("Ge3SquarefreeDeficitHead3000", "0" * 64, "1" * 64,
+                    "ccomp", 0),
+    CompCertRunSpec("Big", "f" * 64, "e" * 64, "ccomp 3.17",
+                    18446744073709551615),
     CompCertRunSpec("name-with_odd.chars", "0123456789abcdef" * 4,
-                    "ccomp 3.17 -O2", 42),
+                    "fedcba9876543210" * 4, "ccomp 3.17 -O2", 42),
 ]
 
 SEPARATOR = "==RECORD=="
@@ -55,6 +58,7 @@ def _lean_literal(spec: CompCertRunSpec) -> str:
         return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
     return ("{ programName := " + quoted(spec.program_name) +
             ", emittedCDigest := " + quoted(spec.emitted_c_digest) +
+            ", binaryDigest := " + quoted(spec.binary_digest) +
             ", toolchain := " + quoted(spec.toolchain) +
             ", acceptedValue := " + str(spec.accepted_value) + " }")
 

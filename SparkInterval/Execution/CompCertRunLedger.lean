@@ -106,8 +106,20 @@ structure CompCertRunSpec where
   appears in `canonicalDefinition` and therefore under the signature. -/
   programName : String
   /-- SHA-256 of the **exact C text handed to `ccomp`**, 64 lowercase hex.
-  This is the artifact's identity; the consumer binds it to a Lean program. -/
+  This is what a consumer binds to a Lean program, by re-emitting and
+  comparing -- the emitter is deterministic, so it is reproducible. -/
   emittedCDigest : String
+  /-- SHA-256 of the **linked binary that actually ran**, 64 lowercase hex.
+
+  Both digests are carried because they answer different questions and
+  neither implies the other.  The C digest says *which program* this is; the
+  binary digest says *which bytes executed*.  Going from one to the other is
+  `ccomp` plus the linker, which is reproducible here (all four x86_64
+  artifacts rebuild bit-for-bit) but is not a theorem.  An earlier version of
+  this structure carried one field, documented as the C and populated with the
+  binary -- a mislabel that would have made the alignment story quietly
+  false. -/
+  binaryDigest : String
   /-- Compiler identity and flags, e.g.
   `"CompCert 3.17 x86_64-linux -O -fstruct-passing"`. -/
   toolchain : String
@@ -134,6 +146,7 @@ from being pinned at all, and it occupies the slot that
 analogous check would here be vacuous; see the module docstring). -/
 def specWellFormed (spec : CompCertRunSpec) : Bool :=
   isDigest256 spec.emittedCDigest &&
+    isDigest256 spec.binaryDigest &&
     spec.programName != "" &&
     spec.toolchain != ""
 
@@ -146,6 +159,7 @@ def canonicalDefinition (spec : CompCertRunSpec) : String :=
   "sparkinterval.registered-algorithm.compcert-run.v1\n" ++
   "program=" ++ spec.programName ++ "\n" ++
   "emitted_c_sha256=" ++ spec.emittedCDigest ++ "\n" ++
+  "binary_sha256=" ++ spec.binaryDigest ++ "\n" ++
   "toolchain=" ++ spec.toolchain ++ "\n" ++
   "accepted_value=" ++ toString spec.acceptedValue ++ "\n" ++
   "semantics=compile-the-named-c-with-the-named-toolchain-then-run-it-and-" ++

@@ -34,6 +34,7 @@ class CompCertRunSpec:
 
     program_name: str
     emitted_c_digest: str
+    binary_digest: str
     toolchain: str
     accepted_value: int
 
@@ -41,11 +42,12 @@ class CompCertRunSpec:
 
     def spec_well_formed(self) -> bool:
         """Mirror of ``CompCertRunSpec.specWellFormed``."""
-        digest_ok = (
-            len(self.emitted_c_digest) == 64
-            and all(c in "0123456789abcdef" for c in self.emitted_c_digest)
-        )
-        return digest_ok and self.program_name != "" and self.toolchain != ""
+        def is_digest(value: str) -> bool:
+            return (len(value) == 64
+                    and all(c in "0123456789abcdef" for c in value))
+        return (is_digest(self.emitted_c_digest)
+                and is_digest(self.binary_digest)
+                and self.program_name != "" and self.toolchain != "")
 
     def canonical_definition(self) -> str:
         """Mirror of ``CompCertRunSpec.canonicalDefinition``.
@@ -57,6 +59,7 @@ class CompCertRunSpec:
             "sparkinterval.registered-algorithm.compcert-run.v1\n"
             f"program={self.program_name}\n"
             f"emitted_c_sha256={self.emitted_c_digest}\n"
+            f"binary_sha256={self.binary_digest}\n"
             f"toolchain={self.toolchain}\n"
             f"accepted_value={self.accepted_value}\n"
             "semantics=compile-the-named-c-with-the-named-toolchain-then-run-it-and-"
@@ -111,6 +114,7 @@ def spec_from_stamp(stamp: dict, *, program_name: str, accepted_value: int
     return CompCertRunSpec(
         program_name=program_name,
         emitted_c_digest=stamp["c_sha256"],
+        binary_digest=stamp["binary_sha256"],
         toolchain=(
             f"{toolchain['ccomp_version']} {stamp['target']} "
             f"{stamp['ccomp_flags']}".strip()
