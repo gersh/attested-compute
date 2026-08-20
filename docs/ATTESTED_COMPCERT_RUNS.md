@@ -93,12 +93,21 @@ for anything larger than about a kilobyte.
    the binary's own say-so.
 4. Rehearse against a mock guest agent before spending anything. This step has
    caught a missing `libc6-dev`, a `set -e` trap that silently swallowed
-   refusals, and a fabricated trailing newline.
+   refusals, and a fabricated trailing newline. It runs the entry point from
+   the **committed compose, in the compose's own image** — if you ever find
+   yourself pointing it at a convenient local image instead, the gate stops
+   testing the thing that deploys, and that has happened here (§6).
 5. Deploy, capture the evidence, verify it offline, destroy the VM.
 6. Add the enclave identity to the reviewed pin table — the one human judgement
    in the chain.
 7. In Lean: instantiate the receipt, discharge the artifact-to-program binding
-   by `decide +kernel`, apply the axiom.
+   by `decide +kernel`, apply the axiom. Generate the receipt literal rather
+   than transcribing it — the consuming repository has
+   `tools/attest/emit_lean_receipt.py <evidence-dir> <algorithm-id>`, which
+   reads the receipt the enclave signed and prints the Lean structure. A hand
+   transcription that is wrong in one field fails as a bare `false` from the
+   kernel, with nothing to say which field; one that is wrong *consistently* on
+   both sides typechecks and pins nothing.
 
 Adding a run touches no enumeration; an artifact is *data*.
 
@@ -154,6 +163,27 @@ a field rather than a free choice.
 artifact-to-program binding was `opaque` on the belief that relating bytes to a
 program needs a human. The emitter is a function inside Lean, so it is an
 equation between computable values: 45 s, and the axiom disappeared.
+
+**The rehearsal ran a different image than the deployment.** `dry_run.sh` and
+`negative_test.sh` existed to guarantee "what deploys is what was exercised",
+and both ran the entry point in a local cross-build image while *printing the
+compose's image* in their logs. That image had no native `gcc`, which is
+exactly why the entry point's `apt-get install gcc … python3` looked necessary
+— and so the `python3` that signs the receipt sat outside the TDX measurement
+for nine real runs without anyone noticing. A substituted interpreter could
+have signed a false statement with the genuine enclave key.
+
+The gate was self-confirming: it ran, it passed, its log named the right image.
+Nothing it printed ever contradicted the one line that chose the wrong one.
+**For any harness whose claim is "this is what production runs", check the line
+that selects the artifact, not the banner it prints** — and make the harness
+derive that value from the same artifact the deployment uses, so the two cannot
+drift. Where production and rehearsal genuinely differ (here: `qemu` and its
+sysroot, which real x86_64 hardware has natively), bind-mount the difference
+*into* the deployed image rather than swapping the image.
+
+It surfaced only because the fix — refuse if `gcc` is missing — *failed* in the
+rehearsal. A gate failing where you expected it to pass is information.
 
 **Lean specifics settled by the compiler, not by memory.** `&&` associates
 left. Extract conjuncts by projection or `tauto`, never `obtain` — it attempts
