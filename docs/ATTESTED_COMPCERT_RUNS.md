@@ -104,10 +104,20 @@ for anything larger than about a kilobyte.
    by `decide +kernel`, apply the axiom. Generate the receipt literal rather
    than transcribing it — the consuming repository has
    `tools/attest/emit_lean_receipt.py <evidence-dir> <algorithm-id>`, which
-   reads the receipt the enclave signed and prints the Lean structure. A hand
-   transcription that is wrong in one field fails as a bare `false` from the
-   kernel, with nothing to say which field; one that is wrong *consistently* on
-   both sides typechecks and pins nothing.
+   reads the receipt the enclave signed and prints the Lean structure. Get one
+   field wrong and `decide +kernel` cannot close the goal; what you actually
+   see is not "the check returned false" but
+
+   ```
+   error: [Error pretty printing: (deterministic) timeout at `whnf`,
+   maximum number of heartbeats (200000) has been reached
+   ```
+
+   — Lean failing to *render* the unsolved goal, after 80 s. It names no field
+   and does not say the signature was rejected. Get a field wrong
+   *consistently* on both sides and it typechecks while pinning nothing. Verified
+   by flipping one hex digit of a real signature: the build fails, which is the
+   check working.
 
 Adding a run touches no enumeration; an artifact is *data*.
 
