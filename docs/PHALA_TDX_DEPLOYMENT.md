@@ -196,13 +196,28 @@ in [`TRUSTING_THE_ENCLAVE.md`](TRUSTING_THE_ENCLAVE.md).
 
 ## 8. Reference implementation
 
-⚠ **The deployment tooling currently lives in the first consumer repository**
-(`audits/compcert/rh_phala/`: compose generator, enclave entry point, mock
-agent, rehearsal, deploy, offline verifier, refusal tests — about 1,600 lines),
-not here. That is an accident of how it was built, and it means this project
-does not yet ship the thing this document describes. Moving it here, with the
-consumer keeping only its artifacts and retained evidence, is the obvious next
-step and is tracked as such.
+The pipeline is `attestation/phala/`:
+
+| file | what it is |
+| --- | --- |
+| `build_compose.py` | generates the measured compose from a deployment manifest |
+| `enclave_run.sh` | the in-enclave entry point, embedded verbatim in that compose |
+| `mock_dstack.py` | a stand-in guest agent, for rehearsal only |
+| `dry_run.sh` | runs the **committed** entry point against the mock |
+| `deploy.sh` | deploy, capture, verify, destroy |
+| `verify_run.py` | the offline verifier |
+| `negative_test.sh` | requires every gate to refuse what it must |
+
+It names no artifact and no consumer: a deployment is a `deployment.json`
+manifest plus its artifacts, and lives wherever its owner keeps it.
+
+```sh
+attestation/phala/build_compose.py --manifest <dir>/deployment.json
+attestation/phala/dry_run.sh       <dir>      # free
+attestation/phala/deploy.sh        <dir>      # ~$0.005
+attestation/phala/verify_run.py --log <dir>/retained-evidence/phala-run.log \
+                                --deployment <dir>
+```
 
 Historical records of individual runs are in
 [`PHALA_FIRST_RUN.md`](PHALA_FIRST_RUN.md) and

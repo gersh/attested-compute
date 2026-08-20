@@ -15,7 +15,7 @@
 
 set -u
 
-PT21_HOST_CHECKOUT="${1:-/home/gersh/sparkinterval}"
+PT21_HOST_CHECKOUT="${1:-/home/gersh/attested-compute}"
 PT21_LADDER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PT21_OUT="${PT21_LADDER_ROOT}/.out"
 

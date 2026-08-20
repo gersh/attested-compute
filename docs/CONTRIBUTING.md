@@ -124,7 +124,7 @@ For larger work, open a GitHub issue before investing heavily. Describe:
 - what remains outside the claim.
 
 Browse the repository's
-[issues](https://github.com/gersh/sparkinterval/issues) or propose a focused new
+[issues](https://github.com/gersh/attested-compute/issues) or propose a focused new
 one. Security-sensitive findings should not be published as a proof of
 exploitation against systems you do not own; coordinate a responsible report
 with the maintainer instead.

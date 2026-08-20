@@ -1,4 +1,8 @@
-# SparkInterval
+# attested-compute
+
+*(The Lean library is `SparkInterval`; the repository was renamed to say what
+the project does.  `github.com/gersh/gpu_prover` and `.../sparkinterval` both
+redirect here.)*
 
 **Calculate once, verify once, use the result as a theorem.**
 
@@ -10,7 +14,8 @@ check that certificate in its kernel.  What remains admitted is a single
 axiom — *that a machine executed the artifact* — and it cannot be applied
 without a signature the hardware vouches for.
 
-**Start here:** [`docs/OVERVIEW.md`](docs/OVERVIEW.md) · mechanism:
+**Start here:** [`docs/OVERVIEW.md`](docs/OVERVIEW.md) · deployment:
+[`docs/PHALA_TDX_DEPLOYMENT.md`](docs/PHALA_TDX_DEPLOYMENT.md) · mechanism:
 [`docs/ATTESTED_COMPCERT_RUNS.md`](docs/ATTESTED_COMPCERT_RUNS.md) · why believe
 it: [`docs/TRUSTING_THE_ENCLAVE.md`](docs/TRUSTING_THE_ENCLAVE.md)
 

@@ -1,4 +1,7 @@
-# SparkInterval
+# attested-compute
+
+*(The Lean library inside is still called `SparkInterval`; only the repository
+was renamed, to say what it does.)*
 
 **Calculate once, verify once, use the result as a theorem.**
 
@@ -64,6 +67,8 @@ Neither can be checked by a reader. This can be, offline, from committed bytes.
 ## Where to go next
 
 | you want to | read |
+| --- | --- |
+| run one on Phala / dstack | [`PHALA_TDX_DEPLOYMENT.md`](PHALA_TDX_DEPLOYMENT.md) |
 | --- | --- |
 | understand the mechanism and use it | [`ATTESTED_COMPCERT_RUNS.md`](ATTESTED_COMPCERT_RUNS.md) |
 | decide whether to believe a certificate, and check one | [`TRUSTING_THE_ENCLAVE.md`](TRUSTING_THE_ENCLAVE.md) |
