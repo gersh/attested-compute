@@ -140,22 +140,27 @@ def compcertEnclavePins : List CompCertEnclavePin :=
       -- consuming repository, which re-verifies offline against the pinned
       -- Intel SGX Root CA.
       --
-      -- This replaces, rather than joins, the pin for app id
-      -- 2499812607817d8c182bdad4aea514a499efb119.  That enclave ran an entry
-      -- point that `apt-get install`ed the very `python3` it then signed with,
-      -- so its signatures attest a stack that was only partly measured (the
-      -- old docs/AXIOM_ASSUMPTIONS.md section 3.3).  A signature from it is
-      -- not worth less arithmetically -- it is a valid P-256 signature -- but
-      -- it means less, so it is no longer honoured here.  Retiring a pin is
-      -- how that judgement gets expressed; leaving it in the list would keep
-      -- accepting the weaker claim forever.
-      pinId := "rh-x86-measured-2026-08-19"
-      appId := "08c92f0e6c1b33fb455c58b2703c8869b5d2c8c6"
+      -- The list holds exactly one pin, and each predecessor was REPLACED
+      -- rather than joined:
+      --
+      --   2499812607817d8c…  apt-get'ed the very python3 it then signed with,
+      --                      so the signing interpreter was outside the
+      --                      measurement (old AXIOM_ASSUMPTIONS.md 3.3)
+      --   08c92f0e6c1b33fb…  measured image, but an unhardened container
+      --   412a7ea80618de68…  hardened, but running as root inside it
+      --
+      -- None of those signatures is weaker *arithmetically* -- each is a valid
+      -- P-256 signature from a real enclave.  They mean less, and a pin table
+      -- is where that judgement gets recorded.  Keeping an old pin alongside a
+      -- new one would go on accepting the weaker claim indefinitely, which is
+      -- the opposite of what tightening the deployment was for.
+      pinId := "rh-x86-unprivileged-2026-08-20"
+      appId := "337152bfe43b50dd914b0f73a2e42893bfc15d58"
       composeHash :=
-        "a37d5223570e89b80bc5ef0eca6d5539569d932fa654683a21459e9780e5b132"
+        "6b408293506fff9d79a3d131a8d0e0e65914ae60c567d408d1aac02cce684a88"
       enclavePublicKey :=
-        "0411900f95822f8a5b0ada60ae4513253f597e48fd9d73e38f41c161394f35c31f90" ++
-        "4d540fab0ce0a587dfdc82493c1232dd26a368b319098809f14d54f5b5859b"
+        "049a709e6d91f1173dd4b9c00fdaf47c690c99989bbac21161c6b4af486f8980ad12" ++
+        "3c5cbefcc2948aae66113a9278858322c6f9538cc69d6d5db72f859cebdb7a"
       attestationAuthority := true } ]
 
 /-- Lookup by app id.  Duplicate app ids are rejected by the generator before
