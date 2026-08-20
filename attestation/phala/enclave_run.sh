@@ -35,14 +35,28 @@ main() {
   mkdir -p "$WORK"; cd "$WORK"
 
   echo "== provisioning =="
-  apt-get update -qq >/dev/null
-  # libc6-dev is named explicitly: --no-install-recommends does not pull it in,
-  # and without it the differential gcc rebuild dies on <stdio.h>.  Caught by
-  # dry_run.sh; it would otherwise have cost a deployment.
-  apt-get install -y -qq --no-install-recommends gcc libc6-dev python3 ca-certificates >/dev/null
+  # Nothing is installed at run time.  Everything the entry point needs --
+  # bash, coreutils, gcc, libc headers and the python3 that signs the receipt
+  # -- comes from the base image, which the compose pins by digest, so it is
+  # covered by the measurement.
+  #
+  # An earlier version `apt-get install`ed gcc, libc6-dev and python3 here and
+  # then signed the statement with that python3.  The compose is measured;
+  # packages fetched at run time are not, so a substituted interpreter could
+  # have computed a false statement and signed it with the genuine enclave key,
+  # and every downstream check would still have passed.  The image now carries
+  # them and `network_mode: none` removes the fetch entirely.
+  # See docs/AXIOM_ASSUMPTIONS.md section 3.3.
+  for tool in bash gcc python3 sha256sum base64 gzip stat cut; do
+    command -v "$tool" >/dev/null \
+      || { echo "REFUSED: $tool missing from the base image"; return 1; }
+  done
+  [ -f /usr/include/stdio.h ] \
+    || { echo "REFUSED: no libc headers in the base image"; return 1; }
   echo "gcc: $(gcc --version | head -1)"
   echo "python3: $(python3 --version)"
   echo "uname: $(uname -m) $(uname -s) $(uname -r)"
+  echo "provisioning: none -- every tool came from the measured base image"
 
   echo "== decoding embedded blobs =="
   # Binaries are gzip'd then base64'd; sources are base64'd.  Each digest is

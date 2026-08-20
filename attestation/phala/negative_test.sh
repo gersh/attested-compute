@@ -11,6 +11,8 @@
 #                                      statement carries matched=0
 #   3  a wrong exit expectation     -> likewise
 #   4  a mock (unsigned) quote      -> verify_run.py refuses the whole run
+#   5  an image missing the tools   -> the enclave refuses instead of
+#                                      installing them at run time
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # The deployment being run: the directory holding deployment.json, its compose
@@ -19,9 +21,17 @@ DEPLOYMENT="$(cd "${1:-${DEPLOYMENT:-$PWD}}" && pwd)"
 [ -f "$DEPLOYMENT/deployment.json" ] || {
   echo "usage: $(basename "$0") <deployment-dir>   (needs deployment.json)" >&2; exit 2; }
 ROOT="$(cd "$HERE/../.." && pwd)"
-IMAGE="${X86CROSS_IMAGE:-lcc-x86cross:24.04}"
+# As in dry_run.sh: the image under test is the COMPOSE's image, so these gates
+# are shown to hold in the container that actually deploys.  The cross image
+# only lends the x86_64 emulator and sysroot, which real hardware has natively.
+QEMU_FROM="${X86CROSS_IMAGE:-lcc-x86cross:24.04}"
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
-mkdir -p "$WORK/mock"
+mkdir -p "$WORK/mock" "$WORK/sysroot"
+docker run --rm --entrypoint /bin/cat "$QEMU_FROM" \
+  /usr/bin/qemu-x86_64-static > "$WORK/qemu-x86_64-static"
+chmod +x "$WORK/qemu-x86_64-static"
+docker run --rm --entrypoint /bin/tar "$QEMU_FROM" \
+  -cf - -C /usr x86_64-linux-gnu | tar -xf - -C "$WORK/sysroot"
 cp "$ROOT/tests/data/phala_tdx_live/retained-evidence/input/tdx-quote.bin" "$WORK/mock/"
 cp "$ROOT/tests/data/phala_tdx_live/retained-evidence/evidence/dstack-event-log.json" "$WORK/mock/"
 cp "$HERE/mock_dstack.py" "$WORK/mock/"
@@ -35,24 +45,38 @@ service = next(iter(json.loads(text[text.index("{"):])["services"].values()))
 work.joinpath("entrypoint.sh").write_text(service["command"][2].replace("$$", "$"))
 env = dict(service["environment"])
 env["RUNNER"] = "qemu-x86_64-static -L /usr/x86_64-linux-gnu"
+work.joinpath("image").write_text(service["image"])
+# Artifacts are indexed, not named, in the entry point.  Find the index of the
+# one these gates are written against rather than hard-coding a slot: a
+# manifest reordering would otherwise tamper with some other artifact and the
+# gates would pass while testing nothing.
+TARGET = "rh_scan_pilot"
+slots = [k[:-len("_NAME")] for k, v in env.items()
+         if k.startswith("A") and k.endswith("_NAME") and v == TARGET]
+if len(slots) != 1:
+    raise SystemExit(f"expected exactly one {TARGET} artifact, found {len(slots)}")
+A = slots[0]
 if mode == "binary":
-    # Flip one byte of the payload; its digest no longer matches SCAN_BIN_SHA.
-    raw = bytearray(gzip.decompress(base64.b64decode(env["SCAN_BIN_GZ_B64"])))
+    # Flip one byte of the payload; its digest no longer matches {A}_BIN_SHA.
+    raw = bytearray(gzip.decompress(base64.b64decode(env[f"{A}_BIN_GZ_B64"])))
     raw[len(raw) // 2] ^= 0x01
-    env["SCAN_BIN_GZ_B64"] = base64.b64encode(
+    env[f"{A}_BIN_GZ_B64"] = base64.b64encode(
         gzip.compress(bytes(raw), compresslevel=9, mtime=0)).decode()
 elif mode == "expect_sha":
-    env["SCAN_EXPECT_SHA"] = "00" * 32
+    env[f"{A}_EXPECT_SHA"] = "00" * 32
 elif mode == "expect_exit":
-    env["SCAN_EXPECT_EXIT"] = "1"
+    env[f"{A}_EXPECT_EXIT"] = "1"
 work.joinpath("env.list").write_text("".join(f"{k}={v}\n" for k, v in env.items()))
 PY
 }
 
 drive() { # -> transcript on stdout
-  docker run --rm --platform linux/arm64 --env-file "$WORK/env.list" \
+  docker run --rm --platform linux/arm64 --network none \
+    --env-file "$WORK/env.list" \
+    -v "$WORK/qemu-x86_64-static:/usr/bin/qemu-x86_64-static:ro" \
+    -v "$WORK/sysroot/x86_64-linux-gnu:/usr/x86_64-linux-gnu:ro" \
     -v "$WORK/entrypoint.sh:/entrypoint.sh:ro" -v "$WORK/mock:/mock:ro" \
-    "$IMAGE" /bin/bash -c '
+    "$(cat "$WORK/image")" /bin/bash -c '
       set -e; mkdir -p /var/run
       python3 /mock/mock_dstack.py &
       for i in $(seq 50); do [ -S /var/run/dstack.sock ] && break; sleep 0.1; done
@@ -116,6 +140,35 @@ set -e
 [ "$status" -ne 0 ] && echo "  [OK]     verify_run.py exited $status" \
   || { echo "  [BROKEN] verify_run.py accepted a mock quote"; fails=$((fails+1)); }
 expect "refused the unsigned quote (A1)" '\[FAIL\] A1' "$WORK/v4.txt"
+
+echo "== 5. an image without the toolchain: the enclave must refuse, not install =="
+# The entry point used to `apt-get install` gcc and the python3 that signs the
+# statement.  Anything fetched at run time is outside the measurement, so a
+# substituted interpreter could have signed a false statement with the genuine
+# enclave key.  The tools now have to be in the measured image, and this gate
+# is what keeps that true: run the same entry point in an image that lacks a
+# native gcc and require a refusal.
+extract none
+t5="$(docker run --rm --platform linux/arm64 --network none \
+  --env-file "$WORK/env.list" \
+  -v "$WORK/entrypoint.sh:/entrypoint.sh:ro" -v "$WORK/mock:/mock:ro" \
+  "$QEMU_FROM" /bin/bash -c '
+    set -e; mkdir -p /var/run
+    python3 /mock/mock_dstack.py &
+    for i in $(seq 50); do [ -S /var/run/dstack.sock ] && break; sleep 0.1; done
+    bash /entrypoint.sh > /tmp/out.txt 2>&1 &
+    for _ in $(seq 600); do grep -qE "RH-X86-DONE|REFUSED" /tmp/out.txt && break; sleep 1; done
+    cat /tmp/out.txt' 2>&1 || true)"
+printf '%s' "$t5" > "$WORK/t5.txt"
+expect "refused the under-provisioned image" 'REFUSED: gcc missing from the base image' "$WORK/t5.txt"
+expect "did not run any artifact" 'RH-X86-EXIT=[^0]' "$WORK/t5.txt"
+# Comments are stripped first: the entry point *documents* the apt-get it used
+# to run, and matching that text would fail a gate that is in fact holding.
+if sed 's/#.*//' "$HERE/enclave_run.sh" | grep -qE 'apt-get|apk add|pip install|curl|wget'; then
+  echo "  [BROKEN] the entry point still fetches something at run time"; fails=$((fails+1))
+else
+  echo "  [OK]     the entry point fetches nothing at run time"
+fi
 
 echo
 if [ "$fails" -eq 0 ]; then echo "negative_test: PASS — every gate refused what it must"

@@ -9,9 +9,12 @@
 #
 # What differs from the real run, and only this:
 #   * RUNNER=qemu-x86_64-static, because the host is aarch64 and the artifacts
-#     are x86_64.  The artifacts themselves are the deployed bytes.
+#     are x86_64.  The artifacts themselves are the deployed bytes, and qemu is
+#     bind-mounted in rather than installed, so the image stays as deployed.
 #   * the dstack agent is mock_dstack.py, so the quote's signature is not
 #     valid -- verify_run.py rejects it, which is the point.
+# Everything else is as deployed: the compose's own image, by digest, with
+# `--network none` matching the compose's `network_mode: none`.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,7 +24,13 @@ DEPLOYMENT="$(cd "${1:-${DEPLOYMENT:-$PWD}}" && pwd)"
 [ -f "$DEPLOYMENT/deployment.json" ] || {
   echo "usage: $(basename "$0") <deployment-dir>   (needs deployment.json)" >&2; exit 2; }
 ROOT="$(cd "$HERE/../.." && pwd)"
-IMAGE="${X86CROSS_IMAGE:-lcc-x86cross:24.04}"
+# The image is whatever the COMPOSE names -- the whole point of this gate is
+# that the deployed image is the one exercised.  It used to default to the
+# local cross-build image, which silently made the check worthless: that image
+# has no native gcc, so an entry point that `apt-get install`ed its toolchain
+# passed here while depending on packages the deployment never measured.
+IMAGE=""                       # filled in from the compose below
+QEMU_FROM="${X86CROSS_IMAGE:-lcc-x86cross:24.04}"   # supplies qemu-x86_64-static only
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -51,12 +60,32 @@ env = dict(service["environment"])
 env["RUNNER"] = "qemu-x86_64-static -L /usr/x86_64-linux-gnu"
 work.joinpath("env.list").write_text(
     "".join(f"{k}={v}\n" for k, v in env.items()))
+work.joinpath("image").write_text(service["image"])
 print(f"dry_run: entry point {len(script):,} B, {len(env)} env vars, "
       f"image {service['image'][:32]}…")
 PY
 
+IMAGE="$(cat "$WORK/image")"
+
+# The deployment image has no qemu (nor should it: on x86_64 hardware the
+# artifacts run natively).  Lift the static emulator out of the cross image and
+# bind-mount it, so the deployment image itself is unmodified.
+docker run --rm --entrypoint /bin/cat "$QEMU_FROM" \
+  /usr/bin/qemu-x86_64-static > "$WORK/qemu-x86_64-static"
+chmod +x "$WORK/qemu-x86_64-static"
+# ...and the x86_64 sysroot it resolves `-L` against.  Without it the two
+# dynamically-linked pilots die on `/lib64/ld-linux-x86-64.so.2` and stop being
+# exercised at all -- which is how the old cross image hid its own coverage.
+# On real x86_64 hardware the loader is simply there.
+mkdir -p "$WORK/sysroot"
+docker run --rm --entrypoint /bin/tar "$QEMU_FROM" \
+  -cf - -C /usr x86_64-linux-gnu | tar -xf - -C "$WORK/sysroot"
+
 docker run --rm --platform linux/arm64 \
   --env-file "$WORK/env.list" \
+  --network none \
+  -v "$WORK/qemu-x86_64-static:/usr/bin/qemu-x86_64-static:ro" \
+  -v "$WORK/sysroot/x86_64-linux-gnu:/usr/x86_64-linux-gnu:ro" \
   -v "$WORK/entrypoint.sh:/entrypoint.sh:ro" \
   -v "$WORK/mock:/mock:ro" \
   "$IMAGE" /bin/bash -c '

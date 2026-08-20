@@ -145,6 +145,10 @@ def main() -> int:
         # app-compose document, whose RAW bytes the enclave reads so the compose
         # binding can be checked without trusting the Cloud API's (not
         # byte-faithful) JSON view.
+        # Nothing is fetched at run time, so the container needs no egress.
+        # This is what makes "everything that runs is measured" true rather
+        # than nearly true: with no network there is nothing to substitute.
+        "network_mode": "none",
         "volumes": ["/var/run/dstack.sock:/var/run/dstack.sock",
                     "/tapp:/tapp:ro", "/dstack:/dstack:ro",
                     "/var/run/dstack:/var/run/dstack-host:ro"],
