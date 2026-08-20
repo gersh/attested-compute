@@ -153,6 +153,38 @@ def main() -> int:
         # This is what makes "everything that runs is measured" true rather
         # than nearly true: with no network there is nothing to substitute.
         "network_mode": "none",
+        # Hardening.  None of it defends against the host -- TDX does that --
+        # and none of it is load-bearing for the attestation.  It constrains
+        # the entry point if the entry point is WRONG, which is the failure
+        # mode nothing else here covers: the compose is measured, so a mistake
+        # in it is faithfully measured too.
+        #
+        # These flags live in the compose, so they are inside the compose hash,
+        # inside mr_config_id and inside the RTMR3 event.  The quote therefore
+        # attests the posture the container ran under, not merely our claim
+        # about it.
+        #
+        # `read_only` with a tmpfs at /tmp: the entry point does all its work
+        # in /tmp/rhx86 and writes nowhere else, so nothing needs a writable
+        # rootfs.
+        #
+        # ⚠ `exec` is REQUIRED and must be stated.  Docker mounts a `--tmpfs`
+        # `noexec` unless told otherwise, and the decoded artifacts are
+        # executed from /tmp -- which is the entire point of the run.  Omitting
+        # it fails every artifact with exit 126, and on hardware that is the
+        # whole deployment.  The rehearsal only half-catches it: there the
+        # artifacts run under qemu, an interpreter that reads the binary as
+        # data and is not blocked by `noexec`, so the only native execution --
+        # and therefore the only canary -- is the differential gcc rebuild.
+        "read_only": True,
+        "tmpfs": ["/tmp:rw,exec,nosuid,nodev,size=1g"],
+        # Nothing here needs a capability.  Dropping all of them means a bug in
+        # the entry point cannot become a privileged one.
+        "cap_drop": ["ALL"],
+        # No setuid binary can raise privilege, whatever else happens.
+        "security_opt": ["no-new-privileges:true"],
+        # A runaway loop cannot exhaust the VM's process table.
+        "pids_limit": 512,
         "volumes": ["/var/run/dstack.sock:/var/run/dstack.sock",
                     "/tapp:/tapp:ro", "/dstack:/dstack:ro",
                     "/var/run/dstack:/var/run/dstack-host:ro"],

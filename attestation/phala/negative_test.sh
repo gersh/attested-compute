@@ -13,6 +13,8 @@
 #   4  a mock (unsigned) quote      -> verify_run.py refuses the whole run
 #   5  an image missing the tools   -> the enclave refuses instead of
 #                                      installing them at run time
+#   6  a noexec work directory      -> the enclave refuses up front rather
+#                                      than failing every artifact with 126
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # The deployment being run: the directory holding deployment.json, its compose
@@ -169,6 +171,35 @@ if sed 's/#.*//' "$HERE/enclave_run.sh" | grep -qE 'apt-get|apk add|pip install|
 else
   echo "  [OK]     the entry point fetches nothing at run time"
 fi
+
+echo "== 6. a noexec work directory: the enclave must refuse before running anything =="
+# Docker mounts a `--tmpfs` noexec unless told otherwise, and every artifact is
+# executed from /tmp.  Getting this wrong costs a whole deployment: on hardware
+# the artifacts run natively and all fail with exit 126.  The rehearsal cannot
+# catch it by itself, because there they run under qemu, which reads them as
+# data -- so the entry point checks explicitly, and this gate proves the check
+# fires.
+extract none
+t6="$(docker run --rm --platform linux/arm64 --network none \
+  --read-only --tmpfs /tmp:rw,noexec,nosuid,nodev,size=1g \
+  --tmpfs /var/run:rw,nosuid,nodev,size=16m \
+  --env-file "$WORK/env.list" \
+  -v "$WORK/qemu-x86_64-static:/usr/bin/qemu-x86_64-static:ro" \
+  -v "$WORK/sysroot/x86_64-linux-gnu:/usr/x86_64-linux-gnu:ro" \
+  -v "$WORK/entrypoint.sh:/entrypoint.sh:ro" -v "$WORK/mock:/mock:ro" \
+  "$(cat "$WORK/image")" /bin/bash -c '
+    set -e; mkdir -p /var/run
+    python3 /mock/mock_dstack.py &
+    for i in $(seq 50); do [ -S /var/run/dstack.sock ] && break; sleep 0.1; done
+    bash /entrypoint.sh > /tmp/out.txt 2>&1 &
+    for _ in $(seq 600); do grep -qE "RH-X86-DONE|REFUSED" /tmp/out.txt && break; sleep 1; done
+    cat /tmp/out.txt' 2>&1 || true)"
+printf '%s' "$t6" > "$WORK/t6.txt"
+expect "refused a noexec work directory" 'REFUSED: .* is not executable' "$WORK/t6.txt"
+expect "did not run any artifact" 'RH-X86-EXIT=[^0]' "$WORK/t6.txt"
+grep -q 'transcript matches the pinned digest' "$WORK/t6.txt" \
+  && { echo "  [BROKEN] it ran artifacts anyway"; fails=$((fails+1)); } \
+  || echo "  [OK]     nothing was executed"
 
 echo
 if [ "$fails" -eq 0 ]; then echo "negative_test: PASS — every gate refused what it must"

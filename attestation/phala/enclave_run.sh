@@ -58,6 +58,42 @@ main() {
   echo "uname: $(uname -m) $(uname -s) $(uname -r)"
   echo "provisioning: none -- every tool came from the measured base image"
 
+  echo "== container posture =="
+  # Recorded, not assumed.  The hardening lives in the compose, so it is inside
+  # the compose hash and the quote attests it; this block is the cross-check
+  # that the runtime actually honoured what the compose asked for.  It also
+  # records what a non-root `user:` would need: whether the dstack socket and
+  # the app-compose mount are reachable by anyone but root.
+  echo "  uid=$(id -u) gid=$(id -g) groups=$(id -G | tr ' ' ',')"
+  if touch /.rootfs-probe 2>/dev/null; then
+    rm -f /.rootfs-probe; echo "  rootfs: WRITABLE (read_only is not in effect)"
+  else
+    echo "  rootfs: read-only"
+  fi
+  echo "  /tmp: $(stat -c '%a %U:%G %F' /tmp 2>/dev/null || echo '<absent>')"
+  for pth in /var/run/dstack.sock /tapp /dstack /var/run/dstack-host; do
+    echo "  $pth: $(stat -c '%a %U:%G %F' "$pth" 2>/dev/null || echo '<absent>')"
+  done
+  echo "  $(grep -E '^NoNewPrivs' /proc/self/status 2>/dev/null || echo 'NoNewPrivs: <unknown>')"
+  echo "  $(grep -E '^CapEff' /proc/self/status 2>/dev/null || echo 'CapEff: <unknown>')"
+  # The work directory must be executable, and this is worth its own check
+  # rather than being discovered four exit-126s later.  Docker mounts a
+  # `--tmpfs` `noexec` unless told otherwise, and every artifact is executed
+  # from here; the rehearsal cannot catch it on its own, because there the
+  # artifacts run under qemu, which reads them as data.  A `#!` script is
+  # enough -- the kernel refuses execve on a noexec mount for scripts too, so
+  # this needs no compiler.
+  printf '#!/bin/sh\nexit 7\n' > .execprobe && chmod 0700 .execprobe
+  probe_rc=0; ./.execprobe || probe_rc=$?
+  rm -f .execprobe
+  if [ "$probe_rc" -eq 7 ]; then
+    echo "  workdir $WORK: executable"
+  else
+    echo "REFUSED: $WORK is not executable (probe exit=$probe_rc, expected 7)."
+    echo "         A tmpfs needs an explicit \`exec\` option; no artifact could run."
+    return 1
+  fi
+
   echo "== decoding embedded blobs =="
   # Binaries are gzip'd then base64'd; sources are base64'd.  Each digest is
   # checked against the value the compose names BEFORE anything is executed.
@@ -137,7 +173,15 @@ main() {
     if cmp -s "$g.out" "$ref"; then
       printf '%s 1\n' "$g" >> diffs.txt; echo "  $g: transcript IDENTICAL to CompCert"
     else
-      printf '%s 0\n' "$g" >> diffs.txt; echo "  $g: DIFFERS from CompCert"
+      printf '%s 0\n' "$g" >> diffs.txt
+      # "DIFFERS" alone is not actionable -- it cannot distinguish a real
+      # wrong-code divergence from the gcc binary having failed to run at all,
+      # and those call for opposite responses.  Say which.
+      echo "  $g: DIFFERS from CompCert (exit=$rc," \
+           "$(stat -c%s "$g.out" 2>/dev/null || echo 0) vs" \
+           "$(stat -c%s "$ref" 2>/dev/null || echo 0) bytes)"
+      echo "    gcc first line: $(head -c 200 "$g.out" | head -1)"
+      echo "    ref first line: $(head -c 200 "$ref" | head -1)"
     fi
   }
   for i in $(seq 0 $((SOURCE_COUNT - 1))); do

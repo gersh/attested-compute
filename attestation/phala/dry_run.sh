@@ -61,6 +61,33 @@ env["RUNNER"] = "qemu-x86_64-static -L /usr/x86_64-linux-gnu"
 work.joinpath("env.list").write_text(
     "".join(f"{k}={v}\n" for k, v in env.items()))
 work.joinpath("image").write_text(service["image"])
+
+# Translate the compose's hardening into `docker run` flags.  Deriving them
+# rather than restating them is the whole point: a rehearsal that runs the
+# entry point under a laxer posture than the deployment is testing something
+# else, which is exactly how an unmeasured toolchain survived nine runs.
+flags = []
+if service.get("read_only"):
+    flags.append("--read-only")
+for spec in service.get("tmpfs", []):
+    flags += ["--tmpfs", spec]
+for cap in service.get("cap_drop", []):
+    flags += ["--cap-drop", cap]
+for opt in service.get("security_opt", []):
+    flags += ["--security-opt", opt]
+if "pids_limit" in service:
+    flags += ["--pids-limit", str(service["pids_limit"])]
+if "user" in service:
+    flags += ["--user", str(service["user"])]
+if service.get("network_mode") == "none":
+    flags.append("--network=none")
+# Rehearsal-only: the deployment BIND-MOUNTS the guest agent's socket, so it
+# never writes to /var/run.  Here mock_dstack.py has to create it, and the
+# read-only rootfs would stop it.  A small tmpfs is the minimum that differs.
+if service.get("read_only"):
+    flags += ["--tmpfs", "/var/run:rw,nosuid,nodev,size=16m"]
+work.joinpath("runflags").write_text("\n".join(flags))
+print("dry_run: posture " + (" ".join(flags) if flags else "(none declared)"))
 print(f"dry_run: entry point {len(script):,} B, {len(env)} env vars, "
       f"image {service['image'][:32]}…")
 PY
@@ -81,9 +108,12 @@ mkdir -p "$WORK/sysroot"
 docker run --rm --entrypoint /bin/tar "$QEMU_FROM" \
   -cf - -C /usr x86_64-linux-gnu | tar -xf - -C "$WORK/sysroot"
 
+# readarray keeps flags containing commas intact; word-splitting would not.
+readarray -t RUNFLAGS < "$WORK/runflags"
+
 docker run --rm --platform linux/arm64 \
+  "${RUNFLAGS[@]}" \
   --env-file "$WORK/env.list" \
-  --network none \
   -v "$WORK/qemu-x86_64-static:/usr/bin/qemu-x86_64-static:ro" \
   -v "$WORK/sysroot/x86_64-linux-gnu:/usr/x86_64-linux-gnu:ro" \
   -v "$WORK/entrypoint.sh:/entrypoint.sh:ro" \
