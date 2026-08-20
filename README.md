@@ -1,11 +1,27 @@
 # SparkInterval
 
+**Calculate once, verify once, use the result as a theorem.**
+
+Infrastructure for one problem: you have a computation too expensive for anyone
+to repeat, and you want its result usable as a proved fact rather than a claim
+taken on faith.  Run it inside a confidential VM, have the hardware sign both
+the code it measured and the results it produced, and let the proof assistant
+check that certificate in its kernel.  What remains admitted is a single
+axiom — *that a machine executed the artifact* — and it cannot be applied
+without a signature the hardware vouches for.
+
+**Start here:** [`docs/OVERVIEW.md`](docs/OVERVIEW.md) · mechanism:
+[`docs/ATTESTED_COMPCERT_RUNS.md`](docs/ATTESTED_COMPCERT_RUNS.md) · why believe
+it: [`docs/TRUSTING_THE_ENCLAVE.md`](docs/TRUSTING_THE_ENCLAVE.md)
+
+The subject-matter examples below (ternary Goldbach, GRH/Platt) are
+illustrations of the mechanism, not its purpose.
+
 > **Work in progress:** SparkInterval is an early research prototype seeking
 > collaborators. Full result certificates can already be generated, checked,
-> imported, and used as Lean theorems. The Azure confidential CPU/H100
-> evidence, signed-receipt, source-registry, and generated-Lean-consumer tools
-> are implemented, but no production Azure run or receipt is admitted. Do not
-> treat the repository or its development key as an attestation service.
+> imported, and used as Lean theorems. One computation is closed end to end
+> from a real Intel TDX run. Do not treat the repository or its development key
+> as an attestation service.
 
 SparkInterval is an open project built around a simple idea: **calculate once,
 verify once, use the result as a theorem**. The expensive bounded calculation
