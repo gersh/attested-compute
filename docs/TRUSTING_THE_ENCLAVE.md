@@ -134,6 +134,11 @@ parameter instead of looking it up. That is now a refusal test.
 
 ## 5. What you must trust anyway
 
+> For the *Lean axiom's* premises specifically — what it checks, what it leaves
+> to the external verifier, and one assumption currently rated **not
+> defensible** — see [`AXIOM_ASSUMPTIONS.md`](AXIOM_ASSUMPTIONS.md).
+
+
 Stated plainly, because a list of green checks invites the belief that nothing
 is trusted.
 

@@ -72,6 +72,7 @@ Neither can be checked by a reader. This can be, offline, from committed bytes.
 | --- | --- |
 | understand the mechanism and use it | [`ATTESTED_COMPCERT_RUNS.md`](ATTESTED_COMPCERT_RUNS.md) |
 | decide whether to believe a certificate, and check one | [`TRUSTING_THE_ENCLAVE.md`](TRUSTING_THE_ENCLAVE.md) |
+| audit the axiom's premises and assumptions | [`AXIOM_ASSUMPTIONS.md`](AXIOM_ASSUMPTIONS.md) |
 | know precisely what is and is not claimed | [`CORRECTNESS_CLAIMS.md`](CORRECTNESS_CLAIMS.md) |
 | see the whole trust chain named | [`VERIFYING.md`](VERIFYING.md) |
 

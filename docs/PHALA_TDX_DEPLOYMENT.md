@@ -241,7 +241,13 @@ availability, and the KMS/key-provider design is dstack's, which we have not
 independently reviewed.
 
 Full detail, including what each verification failure would actually mean, is
-in [`TRUSTING_THE_ENCLAVE.md`](TRUSTING_THE_ENCLAVE.md).
+in [`TRUSTING_THE_ENCLAVE.md`](TRUSTING_THE_ENCLAVE.md); the Lean axiom's own
+premises and their assumptions are audited in
+[`AXIOM_ASSUMPTIONS.md`](AXIOM_ASSUMPTIONS.md).
+
+⚠ Note in particular that the entry point currently `apt-get install`s the
+`python3` that signs the receipt.  The compose is measured; packages fetched at
+run time are not.  See §3.3 there.
 
 ## 8. Reference implementation
 
