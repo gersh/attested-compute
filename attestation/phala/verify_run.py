@@ -294,6 +294,34 @@ def replay_rtmr(history: list[str]) -> str:
     return measurement.hex()
 
 
+# The posture the deployment is required to declare.  Kept next to the check
+# rather than inline so it can be tested directly: tampering with the emitted
+# document cannot exercise it, because each evidence block is digest-checked
+# before any of these checks run.
+REQUIRED_POSTURE = {"network_mode": "none", "read_only": True,
+                    "cap_drop": ["ALL"],
+                    "security_opt": ["no-new-privileges:true"]}
+
+
+def missing_posture(service: dict) -> list[str]:
+    """Which hardening declarations a compose service is missing.
+
+    `exec` on the /tmp tmpfs is included but is not hardening: Docker mounts a
+    tmpfs `noexec` by default, artifacts are executed from /tmp, and its
+    absence fails the run outright with exit 126 rather than weakening it.
+    """
+    missing = [k for k, v in REQUIRED_POSTURE.items() if service.get(k) != v]
+    for mount in service.get("tmpfs", []):
+        target, _, opts = mount.partition(":")
+        if target == "/tmp":
+            if "exec" not in opts.split(","):
+                missing.append("tmpfs /tmp exec")
+            break
+    else:
+        missing.append("tmpfs /tmp")
+    return missing
+
+
 def check_event_log(events: list[dict], quote: Quote, report: Report) -> dict[str, str | None]:
     for index in range(4):
         history = [str(e["digest"]).lower() for e in events if int(e["imr"]) == index]
@@ -468,6 +496,27 @@ def main() -> int:
                          "docker_compose_file is this repository's compose",
                          inner == local_compose,
                          f"{len(inner):,} vs {len(local_compose):,} bytes")
+            # C6 reads the posture out of the document the CPU actually
+            # hashed, not out of the file on disk.  C3/C5 already prove the
+            # two are the same, so this is not a second integrity check -- it
+            # is a statement about CONTENT: that the deployment which ran was
+            # the hardened one.  Without it a future compose could quietly drop
+            # `read_only` and every other check would still pass, because they
+            # only ask whether the bytes are consistent, never whether they say
+            # the right thing.
+            try:
+                # The compose carries a `#` header before its JSON, exactly as
+                # everywhere else in this file -- parsing from byte zero fails
+                # and would report every field as missing.
+                svc = next(iter(json.loads(inner[inner.index(b"{"):])["services"].values()))
+            except Exception:  # noqa: BLE001
+                svc = {}
+            missing = missing_posture(svc)
+            report.check("C6 the measured compose declares the hardened posture",
+                         not missing,
+                         "no network, read-only, no capabilities, "
+                         "no-new-privileges, exec workdir" if not missing
+                         else "MISSING: " + ", ".join(missing))
         else:
             report.skip("C4/C5 recomputation from the emitted document",
                         "the raw document was not emitted; C2/C3 rest on the "

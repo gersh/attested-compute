@@ -185,6 +185,13 @@ def main() -> int:
         "security_opt": ["no-new-privileges:true"],
         # A runaway loop cannot exhaust the VM's process table.
         "pids_limit": 512,
+        # Non-root, by uid rather than by name so it does not depend on the
+        # image's /etc/passwd.  This was NOT guessed: the run of 2026-08-19
+        # recorded the guest agent's socket as mode 777 and /tapp as 755, so an
+        # unprivileged process can reach both.  Guessing would have risked a
+        # run that produces no signature at all, which is why the posture block
+        # exists.  /tmp is a 1777 tmpfs, so the work directory is writable.
+        "user": "65534:65534",
         "volumes": ["/var/run/dstack.sock:/var/run/dstack.sock",
                     "/tapp:/tapp:ro", "/dstack:/dstack:ro",
                     "/var/run/dstack:/var/run/dstack-host:ro"],

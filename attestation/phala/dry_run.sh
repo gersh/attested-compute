@@ -84,8 +84,11 @@ if service.get("network_mode") == "none":
 # Rehearsal-only: the deployment BIND-MOUNTS the guest agent's socket, so it
 # never writes to /var/run.  Here mock_dstack.py has to create it, and the
 # read-only rootfs would stop it.  A small tmpfs is the minimum that differs.
+# `mode=1777` because the container may run non-root and Docker's tmpfs is
+# root-owned otherwise -- in the TD this does not arise, where the bind-mounted
+# socket was measured as mode 777.
 if service.get("read_only"):
-    flags += ["--tmpfs", "/var/run:rw,nosuid,nodev,size=16m"]
+    flags += ["--tmpfs", "/var/run:rw,nosuid,nodev,size=16m,mode=1777"]
 work.joinpath("runflags").write_text("\n".join(flags))
 print("dry_run: posture " + (" ".join(flags) if flags else "(none declared)"))
 print(f"dry_run: entry point {len(script):,} B, {len(env)} env vars, "

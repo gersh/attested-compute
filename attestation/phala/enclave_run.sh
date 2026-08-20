@@ -71,7 +71,8 @@ main() {
     echo "  rootfs: read-only"
   fi
   echo "  /tmp: $(stat -c '%a %U:%G %F' /tmp 2>/dev/null || echo '<absent>')"
-  for pth in /var/run/dstack.sock /tapp /dstack /var/run/dstack-host; do
+  for pth in /var/run/dstack.sock /tapp /tapp/app-compose.json /dstack \
+             /var/run/dstack-host; do
     echo "  $pth: $(stat -c '%a %U:%G %F' "$pth" 2>/dev/null || echo '<absent>')"
   done
   echo "  $(grep -E '^NoNewPrivs' /proc/self/status 2>/dev/null || echo 'NoNewPrivs: <unknown>')"
