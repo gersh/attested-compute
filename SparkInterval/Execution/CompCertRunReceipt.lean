@@ -7,6 +7,10 @@ import SparkInterval.Execution.CompCertRunLedger
 /-!
 # Checking an enclave-signed CompCert run receipt
 
+**The end-to-end picture is `docs/ATTESTED_COMPCERT_RUNS.md`** — what is
+proved, what is computed, the one thing that is admitted, and why the axiom
+that consumes this module lives in the consumer rather than here.
+
 `tg_verifier/compcert_run_receipt.py` produces receipts of kind
 `sparkinterval.compcert-run-receipt.v1`: thirteen named fields, a P-256
 signature over their canonical digest, and the enclave public key that signed.

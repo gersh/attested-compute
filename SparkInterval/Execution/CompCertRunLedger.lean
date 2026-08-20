@@ -7,6 +7,8 @@ import SparkInterval.Execution.SignedResultCertificateComposition
 /-!
 # Attesting CompCert artifact runs, without growing the registry
 
+**See `docs/ATTESTED_COMPCERT_RUNS.md`** for how this fits the whole pipeline.
+
 A consumer of this repository (`claude_math`) carries about ninety run
 admissions of the shape
 

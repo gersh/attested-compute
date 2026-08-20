@@ -1,3 +1,12 @@
+> **⚠ SUPERSEDED — read [`ATTESTED_COMPCERT_RUNS.md`](ATTESTED_COMPCERT_RUNS.md) instead.**
+>
+> This was the design note written *before* the mechanism was built, and parts
+> of it were wrong in ways the build corrected: the emitted-C binding is not
+> unachievable (it is a 45 s kernel proof), the pin is looked up rather than
+> supplied, and the trust surface came out at one axiom rather than the shape
+> sketched here.  It is kept because it records why the design went the way it
+> did, and what was believed at each turn.
+
 # Supplying CompCert run admissions from signed attestations
 
 ## The problem
