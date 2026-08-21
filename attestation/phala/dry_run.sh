@@ -137,8 +137,22 @@ docker run --rm --platform linux/arm64 \
   ' | tee "$WORK/transcript.txt"
 
 echo
+# Reaching the marker is NOT success.  The entry point deliberately completes
+# even when an artifact disagrees -- a container that exits loses its logs, and
+# a lost log is a wasted run -- so RH-X86-EXIT=0 means "ran end to end", not
+# "every artifact agreed".  A rehearsal that stopped there once reported PASS
+# with two of two artifacts mismatching, which is a gate that does not gate.
+mismatches="$(grep -c 'MISMATCH' "$WORK/transcript.txt" || true)"
+refusals="$(grep -c '^REFUSED' "$WORK/transcript.txt" || true)"
+if [ "$mismatches" -gt 0 ] || [ "$refusals" -gt 0 ]; then
+  echo "dry_run: FAIL — $mismatches artifact mismatch(es), $refusals refusal(s)"
+  grep -E 'MISMATCH|^REFUSED' "$WORK/transcript.txt" | head -10
+  exit 1
+fi
+
 if grep -q '^RH-X86-EXIT=0$' "$WORK/transcript.txt"; then
-  echo "dry_run: PASS — the committed entry point ran end to end (exit 0)"
+  echo "dry_run: PASS — the committed entry point ran end to end (exit 0),"
+  echo "         and every artifact matched its pinned transcript"
   if [ -n "${DRY_RUN_TRANSCRIPT:-}" ]; then
     cp "$WORK/transcript.txt" "$DRY_RUN_TRANSCRIPT"
     echo "dry_run: transcript kept at $DRY_RUN_TRANSCRIPT"

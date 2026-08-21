@@ -28,15 +28,24 @@ git = "https://github.com/leanprover-community/mathlib4.git"
 rev = "520045ab14e26149ee970e2e617ca04b09bde5d6"
 
 # Vendored rectangle argument-principle infrastructure from the
-# PrimeNumberTheoremAnd project (Apache-2.0, see vendor/PrimeNumberTheoremAnd/
-# LICENSE and vendor/PrimeNumberTheoremAnd/PROVENANCE.md).  Only the five
+# PrimeNumberTheoremAnd project (Apache-2.0, see vendor/VendoredPNTA/
+# LICENSE and vendor/VendoredPNTA/PROVENANCE.md).  Only the five
 # modules in the transitive closure of `RectangleArgumentPrinciple` are
 # vendored; they import nothing but Mathlib and `Architect`.
 [[lean_lib]]
-name = "PrimeNumberTheoremAnd"
+# Vendored under a PRIVATE namespace, not upstream's.  It used to be declared
+# as `PrimeNumberTheoremAnd` with `globs = ["PrimeNumberTheoremAnd.+"]`, which
+# claimed the whole upstream namespace while holding five modules.  A consumer
+# that also depends on the real PrimeNumberTheoremAnd fork -- claude_math does
+# -- then had its `IEANTN.*` imports resolved here and failed outright, and
+# narrowing the glob only moved the failure to "could not disambiguate
+# PrimeNumberTheoremAnd.Rectangle", since both packages provided it.
+# A vendored subset must not squat the namespace of the thing it is a subset
+# of.  See vendor/VendoredPNTA/PROVENANCE.md for the upstream origin.
+name = "VendoredPNTA"
 srcDir = "vendor"
-roots = ["PrimeNumberTheoremAnd.RectangleArgumentPrinciple"]
-globs = ["PrimeNumberTheoremAnd.+"]
+roots = ["VendoredPNTA.RectangleArgumentPrinciple"]
+globs = ["VendoredPNTA.+"]
 precompileModules = false
 
 [[lean_lib]]

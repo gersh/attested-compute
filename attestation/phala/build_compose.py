@@ -115,6 +115,21 @@ def main() -> int:
                       f"expect exit={env[f'A{i}_EXPECT_EXIT']} "
                       f"out={check['stdout_sha256'][:12]}…")
 
+    # Data files an artifact reads at run time.  Decoded and digest-checked
+    # exactly like a source, but never compiled -- the differential rebuild
+    # must not try to `gcc` a table of seeds.  Without this a campaign whose
+    # args name a file simply cannot run in the enclave: the path exists on the
+    # developer's machine and nowhere inside the TD.
+    data = manifest.get("data", [])
+    env["DATA_COUNT"] = str(len(data))
+    for i, entry in enumerate(data):
+        raw = (manifest_path.parent / entry["path"]).read_bytes()
+        env[f"D{i}_NAME"] = entry["name"]
+        env[f"D{i}_B64"] = base64.b64encode(raw).decode()
+        env[f"D{i}_SHA"] = hashlib.sha256(raw).hexdigest()
+        report.append(f"  data {entry['name']:34} {hashlib.sha256(raw).hexdigest()[:16]}… "
+                      f"{len(raw):9,} B")
+
     sources = manifest.get("sources", [])
     env["SOURCE_COUNT"] = str(len(sources))
     for i, entry in enumerate(sources):

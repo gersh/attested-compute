@@ -121,6 +121,13 @@ main() {
     eval "nm=\$S${i}_NAME; sha=\$S${i}_SRC_SHA"
     decode_b64 "$nm" "$sha" "S${i}_SRC_B64"
   done
+  # Data files: same digest gate, but they are inputs, not code.  An artifact
+  # names one by its bare filename and finds it in the work directory, so no
+  # developer path leaks into the measured compose.
+  for i in $(seq 0 $((${DATA_COUNT:-0} - 1))); do
+    eval "nm=\$D${i}_NAME; sha=\$D${i}_SHA"
+    decode_b64 "$nm" "$sha" "D${i}_B64"
+  done
 
   echo "== running the CompCert x86_64 artifacts =="
   # `run` never aborts the script on a non-zero status: a disagreement is a

@@ -23,6 +23,14 @@ DEPLOYMENT="$(cd "${1:-${DEPLOYMENT:-$PWD}}" && pwd)"
 [ -f "$DEPLOYMENT/deployment.json" ] || {
   echo "usage: $(basename "$0") <deployment-dir>   (needs deployment.json)" >&2; exit 2; }
 ROOT="$(cd "$HERE/../.." && pwd)"
+# The artifact these gates tamper with.  Taken from the deployment rather than
+# hard-coded, so the gates run against ANY deployment; hard-coding one name
+# meant they simply refused to run on a batch that did not contain it.
+TARGET="${NEGATIVE_TEST_TARGET:-$(python3 -c "
+import json,sys
+d=json.load(open(sys.argv[1]))
+print(d['artifacts'][0]['name'])" "${1:-${DEPLOYMENT:-$PWD}}/deployment.json")}"
+echo "negative_test: tampering with '$TARGET'"
 # As in dry_run.sh: the image under test is the COMPOSE's image, so these gates
 # are shown to hold in the container that actually deploys.  The cross image
 # only lends the x86_64 emulator and sysroot, which real hardware has natively.
@@ -39,8 +47,8 @@ cp "$ROOT/tests/data/phala_tdx_live/retained-evidence/evidence/dstack-event-log.
 cp "$HERE/mock_dstack.py" "$WORK/mock/"
 
 extract() { # tamper-mode -> writes entrypoint.sh and env.list
-  python3 - "$DEPLOYMENT/docker-compose.yaml" "$WORK" "$1" <<'PY'
-import base64, gzip, json, pathlib, sys
+  NT_TARGET="$TARGET" python3 - "$DEPLOYMENT/docker-compose.yaml" "$WORK" "$1" <<'PY'
+import base64, gzip, json, os, pathlib, sys
 compose, work, mode = sys.argv[1], pathlib.Path(sys.argv[2]), sys.argv[3]
 text = pathlib.Path(compose).read_text()
 service = next(iter(json.loads(text[text.index("{"):])["services"].values()))
@@ -52,7 +60,7 @@ work.joinpath("image").write_text(service["image"])
 # one these gates are written against rather than hard-coding a slot: a
 # manifest reordering would otherwise tamper with some other artifact and the
 # gates would pass while testing nothing.
-TARGET = "rh_scan_pilot"
+TARGET = os.environ["NT_TARGET"]
 slots = [k[:-len("_NAME")] for k, v in env.items()
          if k.startswith("A") and k.endswith("_NAME") and v == TARGET]
 if len(slots) != 1:
@@ -95,13 +103,13 @@ expect() { # label  pattern  transcript-file
 
 echo "== 1. tampered binary: the enclave must refuse before executing =="
 extract binary; drive > "$WORK/t1.txt" || true
-expect "refused on digest mismatch" 'REFUSED: rh_scan_pilot sha256' "$WORK/t1.txt"
+expect "refused on digest mismatch" "REFUSED: $TARGET sha256" "$WORK/t1.txt"
 expect "never reached the run stage" 'RH-X86-EXIT=[^0]' "$WORK/t1.txt"
 grep -q 'CHECK points' "$WORK/t1.txt" && { echo "  [BROKEN] it executed the tampered binary anyway"; fails=$((fails+1)); } || echo "  [OK]     the tampered binary never ran"
 
 echo "== 2. wrong pinned transcript digest: the enclave must report MISMATCH =="
 extract expect_sha; drive > "$WORK/t2.txt" || true
-expect "reported MISMATCH" 'rh_scan_pilot .*MISMATCH' "$WORK/t2.txt"
+expect "reported MISMATCH" "$TARGET .*MISMATCH" "$WORK/t2.txt"
 # The statement travels as base64, so decode it rather than grepping plaintext.
 python3 - "$WORK/t2.txt" > "$WORK/t2.statement" <<'PY'
 import base64, json, sys, pathlib
@@ -127,11 +135,11 @@ v2=$?
 set -e
 [ "$v2" -ne 0 ] && echo "  [OK]     verify_run.py refused the run (exit $v2)" \
   || { echo "  [BROKEN] verify_run.py accepted a mismatched transcript"; fails=$((fails+1)); }
-expect "verifier flagged S6b" '\[FAIL\] S6b rh_scan_pilot' "$WORK/v2.txt"
+expect "verifier flagged S6b" "\\[FAIL\\] S6b $TARGET" "$WORK/v2.txt"
 
 echo "== 3. wrong pinned exit status: the enclave must report MISMATCH =="
 extract expect_exit; drive > "$WORK/t3.txt" || true
-expect "reported MISMATCH" 'rh_scan_pilot .*MISMATCH' "$WORK/t3.txt"
+expect "reported MISMATCH" "$TARGET .*MISMATCH" "$WORK/t3.txt"
 
 echo "== 4. the verifier must refuse a run whose quote is not Intel-signed =="
 extract none; drive > "$WORK/t4.txt" || true

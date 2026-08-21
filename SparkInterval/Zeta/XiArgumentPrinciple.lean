@@ -1,7 +1,7 @@
 /- Copyright (c) 2026 Gershon Bialer. All rights reserved.
 SPDX-License-Identifier: MIT -/
 
-import PrimeNumberTheoremAnd.RectangleArgumentPrinciple
+import VendoredPNTA.RectangleArgumentPrinciple
 import SparkInterval.Zeta.RiemannXi
 import SparkInterval.Zeta.TuringMethod
 

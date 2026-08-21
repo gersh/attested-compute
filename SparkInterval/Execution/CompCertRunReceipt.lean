@@ -127,40 +127,47 @@ a pin up here by the receipt's own `appId` and never accepts one from a
 caller.  Adding an entry is therefore a reviewable change to this file, not
 something a proof can do to itself. -/
 def compcertEnclavePins : List CompCertEnclavePin :=
-  [ { -- Intel TDX run of 2026-08-19 on Phala Cloud.  The key was derived
-      -- inside the CVM by dstack's `/GetKey` on the dedicated path
-      -- `sparkinterval/compcert-run/p256`, and the quote's report_data commits
-      -- to it (`H(public key, statement)`), so the hardware attests that this
-      -- key signed these results.
-      --
-      -- ⚠ `attestationAuthority := true` IS THE TRUST DECISION.  Everything
-      -- else in this file is arithmetic; this line is a person saying "that
-      -- key came from inside an enclave".  Set it for no key that did not.
-      -- Its evidence is `audits/compcert/rh_phala/retained-evidence/` in the
-      -- consuming repository, which re-verifies offline against the pinned
-      -- Intel SGX Root CA.
-      --
-      -- The list holds exactly one pin, and each predecessor was REPLACED
-      -- rather than joined:
-      --
-      --   2499812607817d8c…  apt-get'ed the very python3 it then signed with,
-      --                      so the signing interpreter was outside the
-      --                      measurement (old AXIOM_ASSUMPTIONS.md 3.3)
-      --   08c92f0e6c1b33fb…  measured image, but an unhardened container
-      --   412a7ea80618de68…  hardened, but running as root inside it
-      --
-      -- None of those signatures is weaker *arithmetically* -- each is a valid
-      -- P-256 signature from a real enclave.  They mean less, and a pin table
-      -- is where that judgement gets recorded.  Keeping an old pin alongside a
-      -- new one would go on accepting the weaker claim indefinitely, which is
-      -- the opposite of what tightening the deployment was for.
-      pinId := "rh-x86-unprivileged-2026-08-20"
-      appId := "337152bfe43b50dd914b0f73a2e42893bfc15d58"
+  -- ⚠ `attestationAuthority := true` IS THE TRUST DECISION on each line
+  -- below: a person asserting that key was derived inside an enclave.
+  -- Evidence: `audits/compcert/rh_phala_<batch>/retained-evidence/` in
+  -- the consuming repository, each re-verifying offline against the
+  -- pinned Intel SGX Root CA (476 checks, 0 failures across the three).
+  [
+  { -- Intel TDX, 2026-08-20, batch `fastpilots`: 2 attested CompCert run(s).
+      -- Split across three deployments because `docker_compose_file` is capped
+      -- at 200 KB and 37 embedded artifacts do not fit in one.  Each is a
+      -- separate app id and therefore a separate reviewed identity.
+      pinId := "rh-x86-fastpilots-2026-08-20"
+      appId := "bd203ee9cfae6b1e5693ef2e40a162d9b1d0d422"
       composeHash :=
-        "6b408293506fff9d79a3d131a8d0e0e65914ae60c567d408d1aac02cce684a88"
+        "532498bca406210d596aef72a5d5c996d42399e94c9015b38904cb2285c22aa7"
       enclavePublicKey :=
-        "049a709e6d91f1173dd4b9c00fdaf47c690c99989bbac21161c6b4af486f8980ad12" ++
-        "3c5cbefcc2948aae66113a9278858322c6f9538cc69d6d5db72f859cebdb7a"
+        "04b314e22b4a4db69ece5f4b45029a7f48bd314f833a5067bacfbd791430a8759c7d" ++
+        "317d72055a718640ca6f8a970f7067de764520eb9c01d8e978c14f86d7ec97"
+      attestationAuthority := true },
+  { -- Intel TDX, 2026-08-20, batch `fast1`: 32 attested CompCert run(s).
+      -- Split across three deployments because `docker_compose_file` is capped
+      -- at 200 KB and 37 embedded artifacts do not fit in one.  Each is a
+      -- separate app id and therefore a separate reviewed identity.
+      pinId := "rh-x86-fast1-2026-08-20"
+      appId := "110095151a0796e9b0e2f5c0e3b216cbc33247e6"
+      composeHash :=
+        "c330c836ab7730e28802b909ecff13e48030a799048501662357bd5503ff7763"
+      enclavePublicKey :=
+        "0472c93c8746132e8c5e1cf3ba7f151d73c90fc8d9c332d6e5bc2e1a5f278ade73b8" ++
+        "1d10f8666e5fcab70324e0e96b53f8cf0ce919b90f6f7268ac98fc16eb50ab"
+      attestationAuthority := true },
+  { -- Intel TDX, 2026-08-20, batch `fast2`: 3 attested CompCert run(s).
+      -- Split across three deployments because `docker_compose_file` is capped
+      -- at 200 KB and 37 embedded artifacts do not fit in one.  Each is a
+      -- separate app id and therefore a separate reviewed identity.
+      pinId := "rh-x86-fast2-2026-08-20"
+      appId := "dd7bf8a91a1ad5249fa4aa824efa8c5e790ba382"
+      composeHash :=
+        "734a6460d0a202904a57b00233be7d28cff7aae6e772e6b30d66a23fff7b5468"
+      enclavePublicKey :=
+        "048ec1ec1006eaa3316c772a8c4e397f595fbf61673b11075413565dda3141023ca1" ++
+        "c9d6ffbd44b027965463ac72c084a022b7b9139016cd075efa305be74000db"
       attestationAuthority := true } ]
 
 /-- Lookup by app id.  Duplicate app ids are rejected by the generator before

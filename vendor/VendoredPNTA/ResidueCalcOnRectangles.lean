@@ -8,8 +8,8 @@ import Mathlib.Analysis.Complex.Convex
 import Mathlib.Analysis.Complex.RemovableSingularity
 import Mathlib.Analysis.SpecialFunctions.Integrals.Basic
 import Mathlib.Analysis.Meromorphic.NormalForm
-import PrimeNumberTheoremAnd.Rectangle
-import PrimeNumberTheoremAnd.Tactic.AdditiveCombination
+import VendoredPNTA.Rectangle
+import VendoredPNTA.Tactic.AdditiveCombination
 
 open Complex BigOperators Nat Classical Real Topology Filter
 open Set MeasureTheory intervalIntegral Asymptotics
