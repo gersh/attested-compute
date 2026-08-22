@@ -45,10 +45,19 @@ $CLI deploy -n "$NAME" -c "$DEPLOYMENT/docker-compose.yaml" \
 mkdir -p "$EVIDENCE"
 echo "== waiting for the run to finish =="
 LOG="$EVIDENCE/phala-run.log"
-for attempt in $(seq 60); do
+# How long to wait for the enclave's completion marker.  60 polls x 20 s = 20
+# minutes was too short once a batch held more than a couple of artifacts: b1
+# reached 1 of 12 and b2 reached 24 of 26 before the poll gave up, and both were
+# destroyed with the work nearly done.  The sizing data that would have caught
+# this did not exist -- `run_ccomp.seconds` is absent for every freshly emitted
+# campaign, so a per-batch sum silently reads as zero.  Generous by default; a
+# CVM that finishes early is destroyed as soon as the marker appears, so a large
+# bound costs nothing.
+POLLS="${DEPLOY_POLLS:-240}"
+for attempt in $(seq "$POLLS"); do
   $CLI cvms logs "$NAME" --tail 4000 > "$LOG" 2>/dev/null || true
   if grep -q 'RH-X86-DONE' "$LOG"; then
-    echo "  marker seen after ${attempt} poll(s), $(wc -c < "$LOG") bytes of log"
+    echo "  marker seen after ${attempt}/${POLLS} poll(s), $(wc -c < "$LOG") bytes of log"
     break
   fi
   printf '  poll %d: %s bytes, no marker yet\n' "$attempt" "$(wc -c < "$LOG")"

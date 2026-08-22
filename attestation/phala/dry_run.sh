@@ -31,6 +31,12 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 # passed here while depending on packages the deployment never measured.
 IMAGE=""                       # filled in from the compose below
 QEMU_FROM="${X86CROSS_IMAGE:-lcc-x86cross:24.04}"   # supplies qemu-x86_64-static only
+# How long to wait for the completion marker.  1800 s was not enough once a
+# batch held 26-33 artifacts: under qemu the rehearsal runs every campaign at
+# full scale, and three batches were cut off mid-run with ZERO mismatches --
+# which reads as a failure but is only a timeout.  The enclave itself is far
+# faster; this bound is about emulation, not the deployment.
+WAIT="${DRY_RUN_WAIT:-14400}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -132,7 +138,7 @@ docker run --rm --platform linux/arm64 \
     # that is asleep rather than writing.
     : > /tmp/out.txt          # exists before the poll loop looks at it
     bash /entrypoint.sh > /tmp/out.txt 2>&1 &
-    for _ in $(seq 1800); do grep -q RH-X86-DONE /tmp/out.txt && break; sleep 1; done
+    for _ in $(seq '"$WAIT"'); do grep -q RH-X86-DONE /tmp/out.txt && break; sleep 1; done
     cat /tmp/out.txt
   ' | tee "$WORK/transcript.txt"
 

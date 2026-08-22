@@ -127,47 +127,61 @@ a pin up here by the receipt's own `appId` and never accepts one from a
 caller.  Adding an entry is therefore a reviewable change to this file, not
 something a proof can do to itself. -/
 def compcertEnclavePins : List CompCertEnclavePin :=
-  -- ⚠ `attestationAuthority := true` IS THE TRUST DECISION on each line
-  -- below: a person asserting that key was derived inside an enclave.
+  -- ⚠ `attestationAuthority := true` IS THE TRUST DECISION on every line
+  -- below: a person asserting each key was derived inside an enclave.
   -- Evidence: `audits/compcert/rh_phala_<batch>/retained-evidence/` in
   -- the consuming repository, each re-verifying offline against the
-  -- pinned Intel SGX Root CA (476 checks, 0 failures across the three).
+  -- pinned Intel SGX Root CA.  904 checks, 0 failures, 73 receipts.
+  --
+  -- Five deployments rather than one because `docker_compose_file` is
+  -- capped at 200 KB; the artifacts do not fit in a single compose, and
+  -- each deployment is therefore a separate app id and a separate
+  -- reviewed identity.
   [
-  { -- Intel TDX, 2026-08-20, batch `fastpilots`: 2 attested CompCert run(s).
-      -- Split across three deployments because `docker_compose_file` is capped
-      -- at 200 KB and 37 embedded artifacts do not fit in one.  Each is a
-      -- separate app id and therefore a separate reviewed identity.
-      pinId := "rh-x86-fastpilots-2026-08-20"
-      appId := "bd203ee9cfae6b1e5693ef2e40a162d9b1d0d422"
+  { -- Intel TDX, 2026-08-22, batch `pilots`: 2 attested CompCert run(s).
+      pinId := "rh-x86-pilots-2026-08-22"
+      appId := "a5363d2d478318f2c404f3ef7737b50c47039ee4"
       composeHash :=
-        "532498bca406210d596aef72a5d5c996d42399e94c9015b38904cb2285c22aa7"
+        "9824273a2b4dc57a5acfb747a83348f070729651bda915eb34778c03ce719cb0"
       enclavePublicKey :=
-        "04b314e22b4a4db69ece5f4b45029a7f48bd314f833a5067bacfbd791430a8759c7d" ++
-        "317d72055a718640ca6f8a970f7067de764520eb9c01d8e978c14f86d7ec97"
+        "04cd270c646b426e02d3cb8b831d506e663f5ceca7aa2a7852cc4adbb3f5202c2584" ++
+        "463a6f8a2e310d28ddddaf1dd574336548f2ec2c8059f034345478842b6db7"
       attestationAuthority := true },
-  { -- Intel TDX, 2026-08-20, batch `fast1`: 32 attested CompCert run(s).
-      -- Split across three deployments because `docker_compose_file` is capped
-      -- at 200 KB and 37 embedded artifacts do not fit in one.  Each is a
-      -- separate app id and therefore a separate reviewed identity.
-      pinId := "rh-x86-fast1-2026-08-20"
-      appId := "110095151a0796e9b0e2f5c0e3b216cbc33247e6"
+  { -- Intel TDX, 2026-08-22, batch `b1`: 12 attested CompCert run(s).
+      pinId := "rh-x86-b1-2026-08-22"
+      appId := "a27953320f86dc25aa05e0ce897f179fa75f5d8e"
       composeHash :=
-        "c330c836ab7730e28802b909ecff13e48030a799048501662357bd5503ff7763"
+        "dded0eb20bd56250f46e92365d2b5967cc744731332c58976b5a1815cdf20e5a"
       enclavePublicKey :=
-        "0472c93c8746132e8c5e1cf3ba7f151d73c90fc8d9c332d6e5bc2e1a5f278ade73b8" ++
-        "1d10f8666e5fcab70324e0e96b53f8cf0ce919b90f6f7268ac98fc16eb50ab"
+        "04e885f5b124e5522ec3f2ad1393f58124515a0cfce17887f8622d5f072288756216" ++
+        "29c909af28f5704de6f316d6d97ffe1b538db787f3faa7c94ebd31770c2cdb"
       attestationAuthority := true },
-  { -- Intel TDX, 2026-08-20, batch `fast2`: 3 attested CompCert run(s).
-      -- Split across three deployments because `docker_compose_file` is capped
-      -- at 200 KB and 37 embedded artifacts do not fit in one.  Each is a
-      -- separate app id and therefore a separate reviewed identity.
-      pinId := "rh-x86-fast2-2026-08-20"
-      appId := "dd7bf8a91a1ad5249fa4aa824efa8c5e790ba382"
+  { -- Intel TDX, 2026-08-22, batch `b2`: 26 attested CompCert run(s).
+      pinId := "rh-x86-b2-2026-08-22"
+      appId := "2ecf40ab8795d721f2e29e64ca43c5f0370a1ab7"
       composeHash :=
-        "734a6460d0a202904a57b00233be7d28cff7aae6e772e6b30d66a23fff7b5468"
+        "fe17da0094b39fe01b4b03a788bba702720cf586e2567a93e729f2fe6e181402"
       enclavePublicKey :=
-        "048ec1ec1006eaa3316c772a8c4e397f595fbf61673b11075413565dda3141023ca1" ++
-        "c9d6ffbd44b027965463ac72c084a022b7b9139016cd075efa305be74000db"
+        "040350ac37718e3400ed8737be6a64f4acba593ac465935f75f02ccc5aa946f06f7a" ++
+        "15c32898fc7fcd487159b90cd7403532e596bed8319c647ab2767c23c72ee9"
+      attestationAuthority := true },
+  { -- Intel TDX, 2026-08-22, batch `b3a`: 21 attested CompCert run(s).
+      pinId := "rh-x86-b3a-2026-08-22"
+      appId := "eaac63decf756154d5bb1a53701073ca4bcce26d"
+      composeHash :=
+        "fabb6e8c94286b5bdcd6df6d3c563fbb43ed2956a41c56132ecfd190b05d0acd"
+      enclavePublicKey :=
+        "04e33d49ed8f6f3ca717f98af02a6c065da90832c40878d63a8fca6ec601bda9e6a8" ++
+        "9eea93854ffdc7ff35ef3a26df9f4a6667fd4fdf03895bb04dd48bb675cf7d"
+      attestationAuthority := true },
+  { -- Intel TDX, 2026-08-22, batch `b3b`: 12 attested CompCert run(s).
+      pinId := "rh-x86-b3b-2026-08-22"
+      appId := "38ecb64588f6e81681cd9eddc00195947ded5cd7"
+      composeHash :=
+        "b880bc9d0e25afeb62185f1fb59dd113fe8a2bd3ea0d1429a39d63502672e97d"
+      enclavePublicKey :=
+        "04c1794247852c52e7537b877e368a26267cc9b346bdf3a5f3224d610ae5ed77e555" ++
+        "5bdd5fbd9431c36019091acd506ae0bd92df9ffc7537982e2c2e0b33669144"
       attestationAuthority := true } ]
 
 /-- Lookup by app id.  Duplicate app ids are rejected by the generator before
