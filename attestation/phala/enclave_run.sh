@@ -156,7 +156,17 @@ main() {
     else
       echo "  $name exit=$rc (wanted $want_rc)  stdout=$sha (wanted $want_sha)  MISMATCH"
     fi
-    tail -2 "$name.out" | sed 's/^/    /'
+    # A matching artifact needs no narration; a failing one needs enough to
+    # diagnose without a second deployment.  `tail -2` was all a MISMATCH got,
+    # which with eighty artifacts in flight is not a diagnosis.
+    if [ "$ok" = 1 ]; then
+      tail -2 "$name.out" | sed 's/^/    /'
+    else
+      echo "    --- first 10 lines of $name.out ($(stat -c%s "$name.out") bytes) ---"
+      head -10 "$name.out" | sed 's/^/    /'
+      echo "    --- last 10 lines ---"
+      tail -10 "$name.out" | sed 's/^/    /'
+    fi
   }
   : > results.txt
   for i in $(seq 0 $((ARTIFACT_COUNT - 1))); do
@@ -475,6 +485,35 @@ PY
   # script -- before the marker, so a deploy would poll for twenty minutes
   # and give up with the CVM still billing.  dry_run.sh caught exactly that.
   if [ -f app-compose.json ]; then emit app-compose.json; fi
+
+  # results.txt is one line per artifact -- name, exit, transcript digest, ok --
+  # and is the only machine-readable record of what each one did.  It is small
+  # and always worth carrying out.
+  if [ -f results.txt ]; then emit results.txt; fi
+
+  # Every FAILING artifact's transcript, so a mismatch can be diagnosed from the
+  # log instead of costing another deployment.  Only failures: the passing ones
+  # are, by construction, the bytes whose digest is already pinned in the
+  # compose, so emitting them would add size and no information.  Capped,
+  # because one runaway artifact must not push the real evidence out of a log
+  # the deploy tool truncates.
+  # Guarded: if the run REFUSED before any artifact ran there is no
+  # results.txt, and `done < results.txt` would fail -- under `set -e` that
+  # aborts main before the marker, which is the invisible-refusal trap this
+  # file warns about twice already.
+  if [ -f results.txt ]; then
+    while read -r nm rc sha ok; do
+      [ "$ok" = 0 ] || continue
+      [ -f "$nm.out" ] || continue
+      if [ "$(stat -c%s "$nm.out")" -gt 65536 ]; then
+        { head -c 32768 "$nm.out"; printf '\n...TRUNCATED BY THE ENCLAVE...\n';
+          tail -c 32768 "$nm.out"; } > "$nm.out.clip"
+        emit "$nm.out.clip"
+      else
+        emit "$nm.out"
+      fi
+    done < results.txt
+  fi
 }
 
 # Run in a SUBSHELL.  `set -e` inside main is not function-scoped: a refusal --
